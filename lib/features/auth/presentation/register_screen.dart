@@ -1,0 +1,536 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/widgets/app_button.dart';
+import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
+
+import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import 'package:fyp_foreseeme/features/auth/presentation/auth_state.dart';
+import 'package:fyp_foreseeme/features/auth/presentation/widgets/google_auth_button.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen>
+    with SingleTickerProviderStateMixin {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+
+  bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
+
+  late final AnimationController _fadeCtrl;
+  late final Animation<double> _fadeAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..forward();
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  bool get _isLoading => _isEmailLoading || _isGoogleLoading;
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _isEmailLoading = true);
+    await ref.read(authNotifierProvider.notifier).signUp(
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
+          displayName: _nameCtrl.text.trim(),
+        );
+    if (mounted) setState(() => _isEmailLoading = false);
+  }
+
+  Future<void> _signInWithGoogle() async {
+    FocusScope.of(context).unfocus();
+    setState(() => _isGoogleLoading = true);
+    await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+    if (mounted) setState(() => _isGoogleLoading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<AuthState>(authNotifierProvider, (prev, next) {
+      if (next is AuthStateError && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(next.message,
+                      style: AppTextStyles.bodyText.copyWith(color: Colors.white)),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(AppSpacing.md),
+          ),
+        );
+      }
+    });
+
+    final isDark =
+        AppColors.activePalette == AppColors.darkPalette ||
+        Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // Ambient background gradient
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? const [Color(0xFF0A1628), Color(0xFF0D1F38), Color(0xFF081220)]
+                      : const [Color(0xFFF0F7FF), Color(0xFFE6F5F5), Color(0xFFF5F0FF)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+          // Glow orb – top-left
+          Positioned(
+            top: -60,
+            left: -80,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF006D77).withValues(alpha: isDark ? 0.26 : 0.12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Glow orb – bottom-right
+          Positioned(
+            bottom: 80,
+            right: -60,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF28DDE8).withValues(alpha: isDark ? 0.16 : 0.09),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Main content
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnim,
+              child: CustomScrollView(
+                physics: const ClampingScrollPhysics(),
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.paddingHorizontal),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: AppSpacing.lg),
+                          // Hero header
+                          _RegisterHeroHeader(isDark: isDark),
+                          const SizedBox(height: AppSpacing.md),
+                          // Glassmorphic form card
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(24),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(24),
+                                  color: isDark
+                                      ? const Color(0xFF0D1F38).withValues(alpha: 0.72)
+                                      : Colors.white.withValues(alpha: 0.78),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.10)
+                                        : const Color(0xFF006D77).withValues(alpha: 0.14),
+                                    width: 1.0,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF006D77)
+                                          .withValues(alpha: isDark ? 0.20 : 0.08),
+                                      blurRadius: 40,
+                                      spreadRadius: -8,
+                                      offset: const Offset(0, 16),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: isDark ? 0.28 : 0.06),
+                                      blurRadius: 24,
+                                      spreadRadius: -10,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
+                                ),
+                                child: Form(
+                                  key: _formKey,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      AppTextField(
+                                        label: 'Full Name',
+                                        hint: 'Haseeb',
+                                        controller: _nameCtrl,
+                                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                                        validator: (v) {
+                                          if (v == null || v.trim().isEmpty) {
+                                            return 'Name is required';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      AppTextField(
+                                        label: 'Email',
+                                        hint: 'you@example.com',
+                                        controller: _emailCtrl,
+                                        keyboardType: TextInputType.emailAddress,
+                                        prefixIcon: const Icon(Icons.mail_outline_rounded),
+                                        validator: (v) {
+                                          if (v == null || v.trim().isEmpty) {
+                                            return 'Email is required';
+                                          }
+                                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                                              .hasMatch(v.trim())) {
+                                            return 'Enter a valid email';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      AppTextField(
+                                        label: 'Password',
+                                        hint: 'Min. 8 characters',
+                                        controller: _passwordCtrl,
+                                        isPassword: true,
+                                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty) {
+                                            return 'Password is required';
+                                          }
+                                          if (v.length < 8) {
+                                            return 'Password must be at least 8 characters';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      AppTextField(
+                                        label: 'Confirm Password',
+                                        hint: 'Re-enter your password',
+                                        controller: _confirmCtrl,
+                                        isPassword: true,
+                                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                        validator: (v) {
+                                          if (v == null || v.isEmpty) {
+                                            return 'Please confirm your password';
+                                          }
+                                          if (v != _passwordCtrl.text) {
+                                            return 'Passwords do not match';
+                                          }
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: AppSpacing.sm),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          // Gradient CTA button
+                          _GradientCreateButton(
+                            isLoading: _isEmailLoading,
+                            onPressed: _isLoading ? null : _submit,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          // OR Divider
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Divider(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : AppColors.border,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md),
+                                child: Text(
+                                  'OR',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.4,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.35)
+                                        : AppColors.textTertiary,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Divider(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : AppColors.border,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          GoogleAuthButton(
+                            isLoading: _isGoogleLoading,
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                          ),
+                          const Spacer(),
+                          Padding(
+                            padding: const EdgeInsets.only(
+                                bottom: AppSpacing.xl, top: AppSpacing.lg),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Already have an account?',
+                                  style: AppTextStyles.bodyText.copyWith(
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.55)
+                                        : AppColors.textSecondary,
+                                  ),
+                                ),
+                                AppButton(
+                                  text: 'Login',
+                                  isGhost: true,
+                                  onPressed: _isLoading ? null : () => context.go('/login'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Hero header ──────────────────────────────────────────────────────────────
+
+class _RegisterHeroHeader extends StatelessWidget {
+  final bool isDark;
+  const _RegisterHeroHeader({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                const Color(0xFF28DDE8).withValues(alpha: 0.20),
+                const Color(0xFF006D77).withValues(alpha: 0.08),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.55, 1.0],
+            ),
+          ),
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF28DDE8).withValues(alpha: 0.38),
+                    blurRadius: 16,
+                    spreadRadius: -4,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.health_and_safety_outlined,
+                  color: Colors.white, size: 20),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Create Account',
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: 34,
+            fontWeight: FontWeight.w700,
+            height: 1.10,
+            letterSpacing: -0.5,
+            color: isDark ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Sign up to start your health journey.',
+          style: GoogleFonts.manrope(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            height: 1.55,
+            color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Gradient Create Account button ───────────────────────────────────────────
+
+class _GradientCreateButton extends StatefulWidget {
+  final bool isLoading;
+  final VoidCallback? onPressed;
+  const _GradientCreateButton({required this.isLoading, required this.onPressed});
+
+  @override
+  State<_GradientCreateButton> createState() => _GradientCreateButtonState();
+}
+
+class _GradientCreateButtonState extends State<_GradientCreateButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDisabled = widget.onPressed == null || widget.isLoading;
+    return GestureDetector(
+      onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
+      onTapUp: isDisabled ? null : (_) => setState(() => _isPressed = false),
+      onTapCancel: isDisabled ? null : () => setState(() => _isPressed = false),
+      onTap: isDisabled ? null : widget.onPressed,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.975 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          height: AppDimensions.buttonHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+            gradient: isDisabled
+                ? null
+                : const LinearGradient(
+                    colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+            color: isDisabled ? AppColors.surfaceHigh : null,
+            border: Border.all(
+              color: isDisabled
+                  ? Colors.transparent
+                  : Colors.white.withValues(alpha: 0.18),
+              width: 0.8,
+            ),
+            boxShadow: isDisabled
+                ? []
+                : [
+                    BoxShadow(
+                      color: const Color(0xFF28DDE8)
+                          .withValues(alpha: _isPressed ? 0.20 : 0.38),
+                      blurRadius: _isPressed ? 18 : 32,
+                      spreadRadius: -6,
+                      offset: Offset(0, _isPressed ? 4 : 10),
+                    ),
+                  ],
+          ),
+          child: Center(
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      strokeCap: StrokeCap.round,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    'Create Account',
+                    style: GoogleFonts.manrope(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: isDisabled ? AppColors.textTertiary : Colors.white,
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}

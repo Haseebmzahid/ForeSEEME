@@ -1,0 +1,119 @@
+# =========================================================
+# FORESEEME — PRODUCTION GRADE FLUTTER .gitignore
+# Optimized for:
+# - Flutter
+# - Firebase
+# - VS Code
+# - Codex / AI-assisted workflows
+# - Windows performance
+# =========================================================
+
+# =========================================================
+# GENERAL
+# =========================================================
+*.class
+*.log
+*.pyc
+*.swp
+*.tmp
+*.temp
+*.lock
+.DS_Store
+Thumbs.db
+
+# =========================================================
+# VS CODE / IDE
+# =========================================================
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# =========================================================
+# FLUTTER / DART
+# =========================================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Flutter generated
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# =========================================================
+# ANDROID
+# =========================================================
+android/.gradle/
+android/build/
+android/captures/
+android/local.properties
+
+# Generated APKs / App Bundles
+*.apk
+*.aab
+
+# Android Studio generated
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# =========================================================
+# IOS
+# =========================================================
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Xcode generated
+ios/Runner.xcworkspace/
+ios/DerivedData/
+
+# =========================================================
+# MACOS / LINUX / WINDOWS
+# =========================================================
+*.lock
+*.bak
+*.orig
+
+# =========================================================
+# FIREBASE
+# =========================================================
+firebase-debug.log
+firestore-debug.log
+
+# =========================================================
+# OBFUSCATION / SYMBOLS
+# =========================================================
+app.*.symbols
+app.*.map.json
+
+# =========================================================
+# TEMP / CACHE / GENERATED
+# =========================================================
+.cache/
+tmp/
+temp/
+
+# =========================================================
+# CODEX / AI GENERATED SAFE EXCLUSIONS
+# =========================================================
+.melos_tool/
+.fvm/
+.generated/
+
+# =========================================================
+# PERFORMANCE CRITICAL
+# Prevent Git from scanning massive folders repeatedly
+# =========================================================
+**/build/**
+**/.dart_tool/**
+**/.gradle/**
+**/.pub-cache/**
