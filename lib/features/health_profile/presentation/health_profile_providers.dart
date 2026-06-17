@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/health_profile/data/repositories/firestore_health_profile_repository.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health_profile_repository.dart';
@@ -21,10 +22,27 @@ final healthProfileNotifierProvider =
 /// Exposes the current user's profile existence status.
 final profileExistsProvider = FutureProvider<bool>((ref) async {
   final user = await ref.watch(authStateProvider.future);
-  if (user == null) return false;
+  if (user == null) {
+    debugPrint('profileExistsProvider: User is null, returning false');
+    return false;
+  }
 
+  debugPrint(
+    'profileExistsProvider: Checking profile for authenticated uid: ${user.uid}',
+  );
   final repository = ref.read(healthProfileRepositoryProvider);
   final result = await repository.getProfile(user.uid);
 
-  return result.fold((error) => false, (profile) => profile != null);
+  return result.fold(
+    (error) {
+      debugPrint(
+        'profileExistsProvider: Error fetching profile: ${error.message} (code: ${error.code})',
+      );
+      return false;
+    },
+    (profile) {
+      debugPrint('profileExistsProvider: Profile exists: ${profile != null}');
+      return profile != null;
+    },
+  );
 });

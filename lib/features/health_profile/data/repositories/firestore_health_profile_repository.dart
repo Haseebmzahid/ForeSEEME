@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_foreseeme/core/utils/either.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/exceptions/health_profile_exception.dart';
@@ -11,21 +12,38 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
   final FirebaseFirestore _firestore;
 
   FirestoreHealthProfileRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   // ── Internal helpers ───────────────────────────────────────────────────────
 
-  /// Returns the Firestore document reference for `users/{uid}/profile`.
-  DocumentReference<Map<String, dynamic>> _profileDoc(String uid) =>
-      _firestore.collection('users').doc(uid).collection('profile').doc('data');
+  /// Returns the Firestore document reference for `users/{uid}/profile/{uid}`.
+  DocumentReference<Map<String, dynamic>> _profileDoc(String uid) {
+    final path = _firestore
+        .collection('users')
+        .doc(uid)
+        .collection('profile')
+        .doc(uid);
+    debugPrint(
+      'FirestoreHealthProfileRepository: Using profile document path: ${path.path}',
+    );
+    return path;
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   @override
   Future<Either<HealthProfileException, HealthProfileModel?>> getProfile(
-      String uid) async {
+    String uid,
+  ) async {
     try {
-      final snapshot = await _profileDoc(uid).get();
+      final docRef = _profileDoc(uid);
+      debugPrint(
+        'FirestoreHealthProfileRepository: Fetching profile at ${docRef.path}',
+      );
+      final snapshot = await docRef.get();
+      debugPrint(
+        'FirestoreHealthProfileRepository: Profile document exists: ${snapshot.exists}',
+      );
 
       if (!snapshot.exists || snapshot.data() == null) {
         return const Right(null);
@@ -34,27 +52,51 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
       final model = HealthProfileModel.fromJson(uid, snapshot.data()!);
       return Right(model);
     } on FirebaseException catch (e) {
-      return Left(HealthProfileException(
-        e.message ?? 'Failed to fetch health profile',
-        e.code,
-      ));
+      debugPrint(
+        'FirestoreHealthProfileRepository: FirebaseException in getProfile: ${e.message} (code: ${e.code})',
+      );
+      return Left(
+        HealthProfileException(
+          e.message ?? 'Failed to fetch health profile',
+          e.code,
+        ),
+      );
     } catch (e) {
+      debugPrint(
+        'FirestoreHealthProfileRepository: Unknown exception in getProfile: $e',
+      );
       return Left(HealthProfileException(e.toString()));
     }
   }
 
   @override
   Future<Either<HealthProfileException, void>> saveProfile(
-      HealthProfileModel profile) async {
+    HealthProfileModel profile,
+  ) async {
     try {
-      await _profileDoc(profile.uid).set(profile.toJson());
+      final docRef = _profileDoc(profile.uid);
+      debugPrint(
+        'FirestoreHealthProfileRepository: Saving profile to ${docRef.path}',
+      );
+      await docRef.set(profile.toJson());
+      debugPrint(
+        'FirestoreHealthProfileRepository: Successfully saved profile.',
+      );
       return const Right(null);
     } on FirebaseException catch (e) {
-      return Left(HealthProfileException(
-        e.message ?? 'Failed to save health profile',
-        e.code,
-      ));
+      debugPrint(
+        'FirestoreHealthProfileRepository: FirebaseException in saveProfile: ${e.message} (code: ${e.code})',
+      );
+      return Left(
+        HealthProfileException(
+          e.message ?? 'Failed to save health profile',
+          e.code,
+        ),
+      );
     } catch (e) {
+      debugPrint(
+        'FirestoreHealthProfileRepository: Unknown exception in saveProfile: $e',
+      );
       return Left(HealthProfileException(e.toString()));
     }
   }
@@ -72,15 +114,30 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
       if (city != null) updates['city'] = city;
       if (conditions != null) updates['chronicConditions'] = conditions;
 
+      final docRef = _profileDoc(uid);
+      debugPrint(
+        'FirestoreHealthProfileRepository: Updating profile at ${docRef.path} with $updates',
+      );
       // Use merge-set so we never wipe fields we didn't touch
-      await _profileDoc(uid).set(updates, SetOptions(merge: true));
+      await docRef.set(updates, SetOptions(merge: true));
+      debugPrint(
+        'FirestoreHealthProfileRepository: Successfully updated profile.',
+      );
       return const Right(null);
     } on FirebaseException catch (e) {
-      return Left(HealthProfileException(
-        e.message ?? 'Failed to update health profile',
-        e.code,
-      ));
+      debugPrint(
+        'FirestoreHealthProfileRepository: FirebaseException in updateProfile: ${e.message} (code: ${e.code})',
+      );
+      return Left(
+        HealthProfileException(
+          e.message ?? 'Failed to update health profile',
+          e.code,
+        ),
+      );
     } catch (e) {
+      debugPrint(
+        'FirestoreHealthProfileRepository: Unknown exception in updateProfile: $e',
+      );
       return Left(HealthProfileException(e.toString()));
     }
   }

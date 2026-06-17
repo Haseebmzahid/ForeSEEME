@@ -62,38 +62,62 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final profileState = ref.read(profileExistsProvider);
       final location = state.matchedLocation;
 
+      debugPrint('AppRouter: Current location: $location');
+      debugPrint(
+        'AppRouter: Auth isLoading: ${authState.isLoading}, isError: ${authState.hasError}, value: ${authState.value?.uid}',
+      );
+      debugPrint(
+        'AppRouter: Profile isLoading: ${profileState.isLoading}, isError: ${profileState.hasError}, value: ${profileState.value}',
+      );
+
       final isAuthRoute =
           location == '/login' ||
           location == '/register' ||
           location == '/forgot-password';
 
       if (authState.isLoading) {
+        debugPrint(
+          'AppRouter: Auth is loading, redirecting to / or null (splash).',
+        );
         return location == '/' ? null : '/';
       }
 
       final isAuthenticated = authState.value != null;
 
       if (!isAuthenticated) {
+        debugPrint(
+          'AppRouter: User not authenticated, redirecting to /login (unless already on auth route).',
+        );
         return isAuthRoute ? null : '/login';
       }
 
       if (profileState.isLoading) {
+        debugPrint(
+          'AppRouter: Profile is loading, redirecting to / or null (splash).',
+        );
         return location == '/' ? null : '/';
       }
 
       final hasProfile = profileState.value ?? false;
 
       if (isAuthenticated && !hasProfile) {
+        debugPrint(
+          'AppRouter: Authenticated but no profile, redirecting to /health-profile.',
+        );
         if (location == '/health-profile') return null;
         return '/health-profile';
       }
 
       if (isAuthenticated && hasProfile) {
         if (isAuthRoute || location == '/health-profile' || location == '/') {
+          debugPrint(
+            'AppRouter: Authenticated with profile, redirecting to /home.',
+          );
           return '/home';
         }
       }
 
+      debugPrint('AppRouter: No redirect needed, staying on $location');
       return null;
     },
     routes: [
