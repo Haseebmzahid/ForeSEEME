@@ -1,0 +1,35 @@
+# ForeSeeMe — target cities for risk modelling (Sprint 2, Prompt 1).
+#
+# These are the five cities the risk model covers. Coordinates are the city
+# centroids used for all data-source probing and (later) bulk acquisition;
+# Open-Meteo snaps each lat/lon to its nearest reanalysis grid cell, so exact
+# decimals are not critical — they only need to land inside the city.
+#
+# This file is read by ml/pipelines/discover_sources.py and by every later
+# Sprint 2 pipeline. It contains NO secrets.
+
+cities:
+  - name: Islamabad
+    lat: 33.6844
+    lon: 73.0479
+    province: Islamabad Capital Territory
+
+  - name: Rawalpindi
+    lat: 33.5651
+    lon: 73.0169
+    province: Punjab
+
+  - name: Lahore
+    lat: 31.5497
+    lon: 74.3436
+    province: Punjab
+
+  - name: Karachi
+    lat: 24.8607
+    lon: 67.0011
+    province: Sindh
+
+  - name: Peshawar
+    lat: 34.0151
+    lon: 71.5249
+    province: Khyber Pakhtunkhwa

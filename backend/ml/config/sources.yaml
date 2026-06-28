@@ -1,0 +1,187 @@
+# ForeSeeMe — data-source registry (Sprint 2, Prompt 1).
+#
+# This is the single source of truth for WHERE the risk model's data comes from.
+# Later Sprint 2 prompts read this file and make NO new source decisions.
+#
+# Two kinds of sources live here:
+#   * training_feature  — probed and (later) bulk-downloaded; free + keyless.
+#   * validation_only   — disease references used ONLY to sanity-check model
+#                         output and seasonality. NEVER used as training labels,
+#                         NEVER probed/scraped by the pipeline.
+#
+# The `coverage` block on each training source is MEASURED empirically by
+# ml/pipelines/discover_sources.py — it is not assumed. See the matching run in
+# reports/data_availability.md for the per-city/per-variable evidence behind
+# these windows. `dates_measured_utc` records when the probe was last run.
+#
+# No secrets. Neither training source needs an API key (auth: none). Any future
+# keyed source MUST set `api_key_env` to an environment-variable name and read
+# the key from there — never embed a key in this file (GOLDEN_RULES #7).
+
+# Project-wide modeling window, DERIVED from the measured coverage below
+# (scarcest start, common end). Later prompts use this directly. See
+# reports/data_availability.md for the per-city/per-variable evidence.
+modeling_window:
+  start: "2022-08-05"     # scarcest feature: open_meteo_air_quality/us_aqi
+  end: "2026-06-28"       # common latest non-null at last measurement
+  governed_by: open_meteo_air_quality/us_aqi
+  rationale: >-
+    Weather/ERA5 reaches back to 1940, but air-quality (CAMS via Open-Meteo) has
+    no real values before 2022-08 despite a declared 2013 start. A model using
+    all features can only begin where every feature exists, so the air-quality
+    start governs. This is much shorter than a naive 2010-2023 assumption.
+  measured_utc: "2026-06-28"
+
+sources:
+
+  open_meteo_weather:
+    name: Open-Meteo Historical Weather API
+    provider: Open-Meteo
+    dataset: ERA5 / ERA5-Land reanalysis (ECMWF)
+    role: training_feature
+    base_url: https://archive-api.open-meteo.com/v1/archive
+    granularity: daily
+    access:
+      method: http_get
+      auth: none
+      api_key_env: null          # keyless; no secret required
+      attribution_required: true
+    license: >-
+      Open-Meteo API data is provided under CC BY 4.0. Underlying ERA5
+      reanalysis is Copernicus Climate Change Service (C3S) / ECMWF, free for
+      any use with attribution.
+    # Variable name (left) is the project-internal name used everywhere else
+    # (mirrors the risk data contract); api_param is what the API expects.
+    variables:
+      temperature:
+        api_param: temperature_2m_mean
+        units: "°C"
+      humidity:
+        api_param: relative_humidity_2m_mean
+        units: "%"
+      precipitation:
+        api_param: precipitation_sum
+        units: "mm"
+    coverage:
+      # MEASURED by discover_sources.py — see reports/data_availability.md.
+      declared_range: "1940-01-01 to 2026-06-28"   # API-reported allowed range
+      # The ERA5 declared start is genuine (not hollow). Earliest non-null per
+      # variable: temperature/humidity 1940-01-01, precipitation 1940-01-02.
+      earliest_confirmed: "1940-01-02"             # latest of the per-variable starts
+      latest_confirmed: "2026-06-28"               # latest non-null at run time
+      gaps: >-
+        none material; precipitation showed ~3% null in interior sampled
+        windows (isolated dry-day artifacts, not coverage gaps).
+      latency_note: >-
+        The most recent ~5 days are served from ERA5T (preliminary) and may be
+        revised; values were non-null up to the run date for all five cities.
+      dates_measured_utc: "2026-06-28"
+
+  open_meteo_air_quality:
+    name: Open-Meteo Air Quality API
+    provider: Open-Meteo
+    dataset: CAMS (Copernicus Atmosphere Monitoring Service) reanalysis/analysis
+    role: training_feature
+    base_url: https://air-quality-api.open-meteo.com/v1/air-quality
+    granularity: hourly
+    access:
+      method: http_get
+      auth: none
+      api_key_env: null          # keyless; no secret required
+      attribution_required: true
+    license: >-
+      Open-Meteo API data is provided under CC BY 4.0. Underlying CAMS data is
+      Copernicus Atmosphere Monitoring Service / ECMWF, free for any use with
+      attribution.
+    variables:
+      pm2_5:
+        api_param: pm2_5
+        units: "µg/m³"
+      pm10:
+        api_param: pm10
+        units: "µg/m³"
+      us_aqi:
+        api_param: us_aqi
+        units: "US AQI"
+    coverage:
+      # MEASURED by discover_sources.py — see reports/data_availability.md.
+      # THIS IS THE SCARCEST SOURCE and therefore fixes the modeling-window start.
+      declared_range: "2013-01-01 to 2026-07-04"   # API-stated; HOLLOW until 2022
+      declared_start_is_hollow: true
+      # The declared 2013 start returns NULL PM values. Real (non-null) data,
+      # confirmed identical across all five cities:
+      #   pm2_5 / pm10 -> 2022-08-04 ; us_aqi -> 2022-08-05.
+      earliest_confirmed: "2022-08-05"             # latest of the per-variable starts
+      latest_confirmed: "2026-06-28"               # latest historical at run time
+      gaps: >-
+        none material; isolated hourly nulls (~7-10%) in interior sampled
+        windows, no multi-day gaps observed.
+      latency_note: >-
+        The declared upper bound extends a few days past "today" because the API
+        appends a short CAMS forecast; only dates up to the run day are treated
+        as historical/usable for training.
+      dates_measured_utc: "2026-06-28"
+
+# ---------------------------------------------------------------------------
+# Validation-only references. Catalogued for traceability. These are consulted
+# by humans to sanity-check predictions and seasonality — they are NEVER
+# training labels and are NEVER fetched by the pipeline. No probing is done
+# against them in Prompt 1.
+# ---------------------------------------------------------------------------
+validation_only:
+
+  who_emro:
+    name: WHO EMRO — Eastern Mediterranean Regional Office surveillance
+    role: validation_only
+    use: >-
+      Cross-check regional dengue / respiratory-illness outbreak periods for
+      Pakistan against model risk peaks.
+    url: https://www.emro.who.int/pak/programmes/
+    access:
+      method: manual_reference
+      auth: none
+      api_key_env: null
+    license: WHO terms of use (reference only).
+    note: Not a training label. Not probed.
+
+  ihme_gbd:
+    name: IHME Global Burden of Disease (GBD)
+    role: validation_only
+    use: >-
+      Long-run disease-burden baselines for Pakistan provinces to validate
+      relative risk ordering across cities.
+    url: https://www.healthdata.org/research-analysis/gbd
+    access:
+      method: manual_reference
+      auth: none
+      api_key_env: null
+    license: IHME Free-of-Charge Non-commercial User Agreement (reference only).
+    note: Not a training label. Not probed.
+
+  punjab_dengue_surveillance:
+    name: Punjab dengue surveillance (Government of Punjab)
+    role: validation_only
+    use: >-
+      Validate Lahore / Rawalpindi dengue seasonality against model output for
+      the monsoon and post-monsoon window.
+    url: https://dghs.punjab.gov.pk/
+    access:
+      method: manual_reference
+      auth: none
+      api_key_env: null
+    license: Government of Punjab public reporting (reference only).
+    note: Not a training label. Not probed.
+
+  documented_seasonality:
+    name: Published seasonality of climate-sensitive disease (literature)
+    role: validation_only
+    use: >-
+      Peer-reviewed seasonality patterns (dengue post-monsoon, respiratory in
+      winter smog) used as a qualitative sanity check on risk timing.
+    url: null
+    access:
+      method: manual_reference
+      auth: none
+      api_key_env: null
+    license: Cited literature (reference only).
+    note: Not a training label. Not probed.
