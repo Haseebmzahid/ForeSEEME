@@ -95,3 +95,50 @@ features:
   # history. They are flagged (insufficient_lag_history); set drop=true to remove.
   min_history_weeks: 5
   drop_insufficient_history: false
+
+# Environmental risk labels (Prompt 9). Read by pipelines/labels.py.
+# Each disease's risk index is a weighted sum of literature-grounded membership
+# sub-scores (each in [0,1]); the composite score in [0,1] is mapped to
+# Low/Medium/High with a soft transition band (scores within ±band of a boundary
+# get probabilistic labels). Every number here is justified/cited in
+# reports/label_methodology.md. Determinant params cite literature; the index
+# weights and Low/Med/High cutoffs are documented DESIGN choices.
+# IMPORTANT: these encode ENVIRONMENTAL disease-risk SUITABILITY, not incidence.
+labels:
+  seed: 1729                 # fixed seed -> deterministic boundary sampling
+  transition_band: 0.06      # ±δ around each Low/Med and Med/High boundary
+
+  diseases:
+    # Dengue: Aedes aegypti thermal optimum ~29°C, transmission ~18-34°C
+    # (Mordecai et al. 2017, PLoS NTD); humidity aids vector survival and
+    # lagged rainfall (2-4 wk) creates breeding sites (Naish et al. 2014, BMC
+    # Infect Dis; Reiter 2001, Environ Health Perspect).
+    dengue:
+      thresholds: {low_medium: 0.33, medium_high: 0.55}
+      weights: {temperature: 0.40, humidity: 0.25, rainfall_lag: 0.35}
+      temperature_band: {t_min: 18.0, t_opt_lo: 26.0, t_opt_hi: 30.0, t_max: 34.0}
+      humidity_ramp: {lo: 40.0, hi: 75.0}
+      rainfall_lag: {weeks: [2, 3, 4], cap_mm: 35.0}
+
+    # Smog / respiratory: high PM2.5 (WHO AQG 2021 24-h guideline 15 µg/m³; US
+    # EPA AQI breakpoints), the documented Oct-Jan Punjab smog season (Prompt 5
+    # reference), low temperature / inversions, and low rainfall (less washout).
+    smog:
+      thresholds: {low_medium: 0.35, medium_high: 0.58}
+      weights: {pm25: 0.45, season: 0.20, low_temperature: 0.20, low_rainfall: 0.15}
+      pm25_ramp: {lo: 15.0, hi: 150.0}
+      season_months: [10, 11, 12, 1]
+      low_temperature_ramp: {hi: 22.0, lo: 8.0}
+      low_rainfall_ramp: {wet: 15.0, dry: 0.0}
+
+    # Influenza: transmission favoured by low temperature and low relative
+    # humidity in winter (Lowen et al. 2007, PLoS Pathogens — peak at ~5°C and
+    # 20-35% RH; Shaman & Kohn 2009, PNAS — absolute humidity & seasonality).
+    influenza:
+      # Calibrated to the index's right-skewed distribution (influenza risk is
+      # only high in cold/dry winter weeks) for a non-degenerate spread.
+      thresholds: {low_medium: 0.20, medium_high: 0.45}
+      weights: {low_temperature: 0.40, low_humidity: 0.30, season: 0.30}
+      low_temperature_ramp: {hi: 18.0, lo: 2.0}
+      low_humidity_band: {h_min: 10.0, h_opt_lo: 20.0, h_opt_hi: 35.0, h_max: 60.0}
+      season_months: [12, 1, 2]
