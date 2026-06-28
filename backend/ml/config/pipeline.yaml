@@ -1,0 +1,35 @@
+# ForeSeeMe — acquisition pipeline configuration (Sprint 2, Prompt 2).
+#
+# The single knob-board for the config-driven acquisition framework
+# (ml/pipelines/acquisition_base.py). Source-specific pipelines (Prompts 3-5)
+# read this file and add no settings of their own. No secrets here.
+
+# Project-wide modeling window. Mirrors `modeling_window` in sources.yaml, which
+# was MEASURED empirically in Prompt 1 (see reports/data_availability.md). Keep
+# the two in sync; sources.yaml is the source of the measurement, this is the
+# value the acquisition pipelines actually fetch for.
+window:
+  start: "2022-08-05"          # scarcest feature: air_quality/us_aqi
+  end: "2026-06-28"            # common latest non-null at last measurement
+
+# Idempotent caching. If a raw file for a (city, source, window) already exists
+# and its SHA-256 matches the manifest, the network call is skipped.
+cache:
+  reuse_on_hash_match: true    # skip download when cached file hash matches manifest
+  verify_hash: true            # recompute the on-disk hash before trusting the cache
+
+# Retry / backoff for transient failures. Exponential backoff:
+#   delay_n = backoff_initial_seconds * (backoff_factor ** (n - 1))
+retry:
+  max_attempts: 4
+  backoff_initial_seconds: 1.0
+  backoff_factor: 2.0
+  retry_on_status: [429, 500, 502, 503, 504]
+  timeout_seconds: 30
+
+# Politeness toward the upstream API: minimum spacing between requests.
+rate_limit:
+  min_interval_seconds: 0.2
+
+logging:
+  level: INFO

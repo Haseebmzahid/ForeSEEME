@@ -1,0 +1,13 @@
+# ForeSeeMe ML data directory (Sprint 2).
+#
+# NEVER commit bulk data blobs. Only the provenance manifest is tracked, so the
+# acquisition is reproducible from config + manifest without shipping the data.
+
+# Ignore every raw blob...
+/raw/*
+# ...but DO commit the hash manifest (source, params, timestamp, SHA-256).
+!/raw/manifest.json
+
+# Intermediate and processed artifacts are fully derived — never committed.
+/interim/
+/processed/
