@@ -33,3 +33,28 @@ rate_limit:
 
 logging:
   level: INFO
+
+# Cleaning / missing-value policy (Prompt 6). Read by pipelines/clean.py.
+cleaning:
+  # Interior gaps up to this many consecutive days are linearly interpolated and
+  # flagged (<var>_imputed). LONGER gaps are left as NaN — never imputed. This is
+  # the guard against imputing across the multi-year AQI pre-coverage absence.
+  max_interpolation_gap_days: 3
+
+  # How each HOURLY variable is reduced to a daily value. Variables that the API
+  # already serves daily (temperature, precipitation) are passed through as-is.
+  daily_aggregation:
+    humidity: mean
+    pm2_5: mean
+    pm10: mean
+    us_aqi: mean
+
+  # Physically plausible [min, max]. Values outside are dropped to NaN and counted
+  # as out-of-range anomalies in data_quality.md (e.g. negative AQI, humidity >100).
+  physical_ranges:
+    temperature: [-90, 60]      # °C
+    humidity: [0, 100]          # %
+    precipitation: [0, 1000]    # mm/day
+    pm2_5: [0, 1000]            # µg/m³
+    pm10: [0, 2000]             # µg/m³
+    us_aqi: [0, 1000]           # US AQI

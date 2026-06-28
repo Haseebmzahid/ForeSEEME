@@ -9,6 +9,11 @@ pydantic==2.13.4
 # httpx is already pinned below (shared with the test client).
 pyyaml==6.0.3
 
+# Cleaning / interim tables (Sprint 2, Prompt 6): daily aggregation + parquet.
+pandas==2.3.3
+numpy==2.3.5
+pyarrow==24.0.0
+
 # Test-only (FastAPI TestClient needs httpx).
 httpx==0.28.1
 pytest==8.3.4
