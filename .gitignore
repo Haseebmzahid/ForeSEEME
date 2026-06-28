@@ -99,6 +99,10 @@ venv/
 !*.env.example
 backend/.env
 **/serviceAccount*.json
+**/service-account*.json
+**/*firebase-adminsdk*.json
+**/gcloud-*.json
+backend/scripts/*.json
 
 # =========================================================
 # FIREBASE
