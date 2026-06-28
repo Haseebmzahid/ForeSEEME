@@ -283,20 +283,26 @@ class AcquisitionBase:
         url: str,
         params: dict[str, Any],
         ext: str = "json",
+        subdir: str | None = None,
+        name: str | None = None,
     ) -> FetchResult:
         """Fetch one (source, city, window) blob, reusing the cache when valid.
 
         Cache hit (no network) requires: caching enabled, the raw file present,
-        a manifest entry present, and — when ``verify_hash`` is on — the on-disk
-        hash matching the recorded one. Otherwise the blob is downloaded (with
-        retry/backoff), written atomically, and the manifest updated atomically.
+        a manifest entry present, the recorded window matching the requested one,
+        and — when ``verify_hash`` is on — the on-disk hash matching the recorded
+        one. Otherwise the blob is downloaded (with retry/backoff), written
+        atomically, and the manifest updated atomically.
+
+        ``subdir``/``name`` select the per-source layout (e.g. ``raw/weather/
+        Lahore.json``); omit them for the default flat, window-stamped layout.
         """
-        key = paths.raw_relpath(source, city, window, ext)
+        key = paths.raw_relpath(source, city, window, ext, subdir=subdir, name=name)
         target = self.data_dir / key
         manifest = load_manifest(self.manifest_path)
         entry = manifest["entries"].get(key)
 
-        if self._cache_is_valid(target, entry):
+        if self._cache_is_valid(target, entry, window):
             self.log.info(
                 "cache_hit",
                 extra={"source": source, "city": city, "key": key},
@@ -337,11 +343,22 @@ class AcquisitionBase:
         )
         return FetchResult(path=target, key=key, entry=new_entry, from_cache=False)
 
-    def _cache_is_valid(self, target: Path, entry: dict[str, Any] | None) -> bool:
+    def _cache_is_valid(
+        self,
+        target: Path,
+        entry: dict[str, Any] | None,
+        window: Window | dict[str, Any] | tuple[str, str],
+    ) -> bool:
         """True when the cached file may be reused without a network call."""
         if not self.config.cache.reuse_on_hash_match:
             return False
         if entry is None or not target.exists():
+            return False
+        # Window must match: in the per-source layout the filename omits the
+        # window, so a changed window must force a re-download, not a stale hit.
+        start, end = _bounds(window)
+        recorded = entry.get("window") or {}
+        if recorded.get("start") != start or recorded.get("end") != end:
             return False
         if not self.config.cache.verify_hash:
             return True

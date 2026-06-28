@@ -51,16 +51,29 @@ sources:
       reanalysis is Copernicus Climate Change Service (C3S) / ECMWF, free for
       any use with attribution.
     # Variable name (left) is the project-internal name used everywhere else
-    # (mirrors the risk data contract); api_param is what the API expects.
+    # (mirrors the risk data contract); api_param is the DAILY parameter used by
+    # the Prompt 1 coverage probe (discover_sources.py).
+    #
+    # acquire_param / acquire_granularity (optional) tell the Prompt 3 acquisition
+    # adapter what to actually download. They default to api_param @ the source
+    # granularity (daily). Humidity is pulled HOURLY and aggregated to a daily
+    # mean later, in the cleaning phase — never during acquisition.
     variables:
       temperature:
         api_param: temperature_2m_mean
+        acquire_param: temperature_2m_mean
+        acquire_granularity: daily
         units: "°C"
       humidity:
-        api_param: relative_humidity_2m_mean
+        api_param: relative_humidity_2m_mean   # daily mean — probe only
+        acquire_param: relative_humidity_2m    # raw hourly — acquisition
+        acquire_granularity: hourly
+        daily_aggregate: mean                   # applied in the cleaning phase
         units: "%"
       precipitation:
         api_param: precipitation_sum
+        acquire_param: precipitation_sum
+        acquire_granularity: daily
         units: "mm"
     coverage:
       # MEASURED by discover_sources.py — see reports/data_availability.md.

@@ -1,4 +1,115 @@
 {
-  "entries": {},
+  "entries": {
+    "raw/weather/Islamabad.json": {
+      "bytes": 785138,
+      "city": "Islamabad",
+      "fetched_at": "2026-06-28T17:05:47.571630+00:00",
+      "params": {
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "end_date": "2026-06-28",
+        "hourly": "relative_humidity_2m",
+        "latitude": 33.6844,
+        "longitude": 73.0479,
+        "start_date": "2022-08-05",
+        "timezone": "UTC"
+      },
+      "path": "raw/weather/Islamabad.json",
+      "sha256": "de8232d6764c7743e6bf9fefb30093ec00a0743882c395d1c85ce25dad53b6b6",
+      "source": "open_meteo_weather",
+      "url": "https://archive-api.open-meteo.com/v1/archive",
+      "window": {
+        "end": "2026-06-28",
+        "start": "2022-08-05"
+      }
+    },
+    "raw/weather/Karachi.json": {
+      "bytes": 785041,
+      "city": "Karachi",
+      "fetched_at": "2026-06-28T17:05:59.398249+00:00",
+      "params": {
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "end_date": "2026-06-28",
+        "hourly": "relative_humidity_2m",
+        "latitude": 24.8607,
+        "longitude": 67.0011,
+        "start_date": "2022-08-05",
+        "timezone": "UTC"
+      },
+      "path": "raw/weather/Karachi.json",
+      "sha256": "1eb50511cb863dbafe9fdc9c4dc1e1a60cb0398b983c71e2fd4a53436c46baad",
+      "source": "open_meteo_weather",
+      "url": "https://archive-api.open-meteo.com/v1/archive",
+      "window": {
+        "end": "2026-06-28",
+        "start": "2022-08-05"
+      }
+    },
+    "raw/weather/Lahore.json": {
+      "bytes": 785348,
+      "city": "Lahore",
+      "fetched_at": "2026-06-28T17:05:54.691033+00:00",
+      "params": {
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "end_date": "2026-06-28",
+        "hourly": "relative_humidity_2m",
+        "latitude": 31.5497,
+        "longitude": 74.3436,
+        "start_date": "2022-08-05",
+        "timezone": "UTC"
+      },
+      "path": "raw/weather/Lahore.json",
+      "sha256": "9d1e3d394c64653c44d02e5dcaf74c55efbda7f9a498a57c94c731701fee6b6e",
+      "source": "open_meteo_weather",
+      "url": "https://archive-api.open-meteo.com/v1/archive",
+      "window": {
+        "end": "2026-06-28",
+        "start": "2022-08-05"
+      }
+    },
+    "raw/weather/Peshawar.json": {
+      "bytes": 784958,
+      "city": "Peshawar",
+      "fetched_at": "2026-06-28T17:06:08.380091+00:00",
+      "params": {
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "end_date": "2026-06-28",
+        "hourly": "relative_humidity_2m",
+        "latitude": 34.0151,
+        "longitude": 71.5249,
+        "start_date": "2022-08-05",
+        "timezone": "UTC"
+      },
+      "path": "raw/weather/Peshawar.json",
+      "sha256": "de6ab32d66e7fce290d9cd13135c6c4fda78dc14a31dcde66ec03241e98996ad",
+      "source": "open_meteo_weather",
+      "url": "https://archive-api.open-meteo.com/v1/archive",
+      "window": {
+        "end": "2026-06-28",
+        "start": "2022-08-05"
+      }
+    },
+    "raw/weather/Rawalpindi.json": {
+      "bytes": 785081,
+      "city": "Rawalpindi",
+      "fetched_at": "2026-06-28T17:05:51.224291+00:00",
+      "params": {
+        "daily": "temperature_2m_mean,precipitation_sum",
+        "end_date": "2026-06-28",
+        "hourly": "relative_humidity_2m",
+        "latitude": 33.5651,
+        "longitude": 73.0169,
+        "start_date": "2022-08-05",
+        "timezone": "UTC"
+      },
+      "path": "raw/weather/Rawalpindi.json",
+      "sha256": "70d80e8540410f4d4289712dd9531acd9263dbbd1ec6dcf2e95d64346eddc661",
+      "source": "open_meteo_weather",
+      "url": "https://archive-api.open-meteo.com/v1/archive",
+      "window": {
+        "end": "2026-06-28",
+        "start": "2022-08-05"
+      }
+    }
+  },
   "version": 1
 }

@@ -81,17 +81,37 @@ def _window_bounds(window: object) -> tuple[str, str]:
     return str(window.start), str(window.end)  # type: ignore[attr-defined]
 
 
-def raw_relpath(source: str, city: str, window: object, ext: str = "json") -> str:
+def raw_relpath(
+    source: str,
+    city: str,
+    window: object,
+    ext: str = "json",
+    *,
+    subdir: str | None = None,
+    name: str | None = None,
+) -> str:
     """Stable POSIX-relative path (under ``data/``) for one (source, city, window).
 
-    Deterministic, so re-running acquisition resolves to the same file and the
-    manifest key is portable across machines. Example::
+    Two layouts:
 
-        raw/open_meteo_weather__Lahore__2022-08-05_2026-06-28.json
+    * Default (Prompt 2): flat, window-stamped — deterministic and self-describing::
+
+          raw/open_meteo_weather__Lahore__2022-08-05_2026-06-28.json
+
+    * Per-source subdir (adapters, e.g. Prompt 3): a tidy ``raw/<subdir>/<name>``
+      grouping with a stable, human-friendly filename (defaults to the city)::
+
+          raw/weather/Lahore.json
+
+    The window is always recorded in the manifest entry, so the per-source layout
+    loses no provenance even when it is absent from the filename.
     """
+    if subdir is not None:
+        stem = slug(name) if name is not None else slug(city)
+        return f"raw/{slug(subdir)}/{stem}.{ext}"
     start, end = _window_bounds(window)
-    name = f"{slug(source)}__{slug(city)}__{slug(start)}_{slug(end)}.{ext}"
-    return f"raw/{name}"
+    fname = f"{slug(source)}__{slug(city)}__{slug(start)}_{slug(end)}.{ext}"
+    return f"raw/{fname}"
 
 
 def raw_path(
@@ -100,10 +120,13 @@ def raw_path(
     window: object,
     ext: str = "json",
     data_dir: Path | None = None,
+    *,
+    subdir: str | None = None,
+    name: str | None = None,
 ) -> Path:
     """Absolute raw-file path, rooted at ``data_dir`` (defaults to :data:`DATA_DIR`)."""
     base = data_dir if data_dir is not None else DATA_DIR
-    return base / raw_relpath(source, city, window, ext)
+    return base / raw_relpath(source, city, window, ext, subdir=subdir, name=name)
 
 
 def ensure_dir(path: Path) -> Path:
