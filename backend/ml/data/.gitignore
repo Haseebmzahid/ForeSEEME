@@ -7,6 +7,10 @@
 /raw/*
 # ...but DO commit the hash manifest (source, params, timestamp, SHA-256).
 !/raw/manifest.json
+# ...and DO commit the curated, citation-bearing disease reference (Prompt 5).
+# It is hand-encoded sourced facts (VALIDATION_ONLY), not bulk-downloaded data.
+!/raw/disease_reference/
+!/raw/disease_reference/**
 
 # Intermediate and processed artifacts are fully derived — never committed.
 /interim/

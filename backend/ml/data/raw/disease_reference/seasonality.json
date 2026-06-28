@@ -1,0 +1,145 @@
+{
+  "dataset": "disease_seasonality_reference",
+  "classification": "VALIDATION_ONLY",
+  "purpose": "Validate the epidemiological plausibility of generated risk labels (Prompt 12). NEVER a training feature or label.",
+  "barred_from": [
+    "feature engineering",
+    "label generation",
+    "model training"
+  ],
+  "region": "Pakistan — Islamabad, Rawalpindi, Lahore, Karachi, Peshawar",
+  "encoded_on": "2026-06-28",
+  "version": 1,
+  "entries": [
+    {
+      "id": "dengue_post_monsoon",
+      "disease": "Dengue",
+      "signal_type": "seasonal_window",
+      "months": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "months_label": "August–November (post-monsoon)",
+      "applies_to_cities": [
+        "Islamabad",
+        "Rawalpindi",
+        "Lahore",
+        "Karachi",
+        "Peshawar"
+      ],
+      "description": "Aedes aegypti dengue transmission rises after the monsoon, as standing water enables breeding; reported cases peak in the post-monsoon months (~Aug–Nov) and decline through winter. Strongest in Punjab and Sindh urban centres (Lahore, Rawalpindi, Islamabad, Karachi).",
+      "citation": {
+        "source_catalog_id": "who_emro",
+        "organization": "WHO Regional Office for the Eastern Mediterranean (EMRO) — Pakistan",
+        "url": "https://www.emro.who.int/pak/",
+        "type": "public_health_authority",
+        "basis": "WHO EMRO Pakistan dengue situation updates and provincial surveillance consistently document a post-monsoon (Aug–Nov) seasonal peak in dengue transmission.",
+        "accessed": "2026-06-28"
+      },
+      "additional_citations": [
+        {
+          "source_catalog_id": "punjab_dengue_surveillance",
+          "organization": "Government of Punjab, Directorate General Health Services",
+          "url": "https://dghs.punjab.gov.pk/",
+          "type": "government_surveillance",
+          "basis": "Provincial dengue surveillance reporting for Punjab.",
+          "accessed": "2026-06-28"
+        }
+      ]
+    },
+    {
+      "id": "punjab_smog_winter",
+      "disease": "Air-quality hazard (smog / particulate exposure)",
+      "signal_type": "seasonal_window",
+      "months": [
+        10,
+        11,
+        12,
+        1
+      ],
+      "months_label": "October–January (smog season)",
+      "applies_to_cities": [
+        "Lahore",
+        "Rawalpindi",
+        "Islamabad"
+      ],
+      "description": "Punjab's smog season runs roughly October–January, when cooler temperatures, low wind, temperature inversions and seasonal crop-residue burning trap particulates — elevating PM2.5/PM10 and associated respiratory risk, most severely in Lahore.",
+      "citation": {
+        "source_catalog_id": "documented_seasonality",
+        "organization": "Government of Punjab (Environmental Protection Department) — smog-season advisories; documented air-quality literature",
+        "url": null,
+        "type": "documented_seasonality",
+        "basis": "Government of Punjab smog advisories and published air-quality studies document a recurring Oct–Jan smog season over Punjab, centred on Lahore. URL omitted rather than cite a non-canonical link; attribution is to the responsible authority and documented seasonality.",
+        "accessed": "2026-06-28"
+      }
+    },
+    {
+      "id": "influenza_winter",
+      "disease": "Influenza (seasonal)",
+      "signal_type": "seasonal_window",
+      "months": [
+        12,
+        1,
+        2
+      ],
+      "months_label": "December–February (winter)",
+      "applies_to_cities": [
+        "Islamabad",
+        "Rawalpindi",
+        "Lahore",
+        "Karachi",
+        "Peshawar"
+      ],
+      "description": "In Pakistan's northern subtropical/temperate climate, seasonal influenza activity rises in the colder months and peaks in winter (~Dec–Feb).",
+      "citation": {
+        "source_catalog_id": "documented_seasonality",
+        "organization": "WHO Global Influenza Programme",
+        "url": "https://www.who.int/teams/global-influenza-programme",
+        "type": "public_health_authority",
+        "basis": "WHO influenza-seasonality guidance describes winter-peaking influenza activity in northern-hemisphere temperate/subtropical zones, which includes northern Pakistan.",
+        "accessed": "2026-06-28"
+      }
+    },
+    {
+      "id": "dengue_epidemic_2011_punjab",
+      "disease": "Dengue",
+      "signal_type": "documented_outbreak_year",
+      "year": 2011,
+      "applies_to_cities": [
+        "Lahore"
+      ],
+      "description": "2011 saw a major dengue epidemic in Punjab, centred on Lahore — one of the largest recorded dengue outbreaks in Pakistan. Recorded qualitatively (no case counts asserted here).",
+      "citation": {
+        "source_catalog_id": "who_emro",
+        "organization": "WHO EMRO Pakistan / Government of Punjab dengue response",
+        "url": "https://www.emro.who.int/pak/",
+        "type": "public_health_authority",
+        "basis": "The 2011 Lahore/Punjab dengue epidemic is widely documented by WHO EMRO and the Government of Punjab as a major outbreak year.",
+        "accessed": "2026-06-28"
+      }
+    },
+    {
+      "id": "dengue_surge_2019_pakistan",
+      "disease": "Dengue",
+      "signal_type": "documented_outbreak_year",
+      "year": 2019,
+      "applies_to_cities": [
+        "Islamabad",
+        "Rawalpindi",
+        "Karachi",
+        "Lahore"
+      ],
+      "description": "2019 saw a marked nationwide dengue surge across Pakistan, with notable activity around Islamabad/Rawalpindi and other cities. Recorded qualitatively.",
+      "citation": {
+        "source_catalog_id": "who_emro",
+        "organization": "WHO EMRO Pakistan",
+        "url": "https://www.emro.who.int/pak/",
+        "type": "public_health_authority",
+        "basis": "WHO EMRO Pakistan reporting documents an elevated 2019 dengue season nationally.",
+        "accessed": "2026-06-28"
+      }
+    }
+  ]
+}

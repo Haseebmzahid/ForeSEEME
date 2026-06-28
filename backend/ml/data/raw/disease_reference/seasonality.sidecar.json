@@ -1,0 +1,76 @@
+{
+  "dataset": "disease_seasonality_reference",
+  "classification": "VALIDATION_ONLY",
+  "purpose": "Validate the epidemiological plausibility of generated risk labels (Prompt 12). NEVER a training feature or label.",
+  "barred_from": [
+    "feature engineering",
+    "label generation",
+    "model training"
+  ],
+  "guard": "Importing or loading this dataset from a module whose name contains 'feature', 'label' or 'train' raises ValidationOnlyAccessError.",
+  "encoded_on": "2026-06-28",
+  "entry_count": 5,
+  "citation_count": 6,
+  "citations": [
+    {
+      "entry_id": "dengue_post_monsoon",
+      "disease": "Dengue",
+      "source_catalog_id": "who_emro",
+      "organization": "WHO Regional Office for the Eastern Mediterranean (EMRO) — Pakistan",
+      "url": "https://www.emro.who.int/pak/",
+      "type": "public_health_authority",
+      "basis": "WHO EMRO Pakistan dengue situation updates and provincial surveillance consistently document a post-monsoon (Aug–Nov) seasonal peak in dengue transmission.",
+      "accessed": "2026-06-28"
+    },
+    {
+      "entry_id": "dengue_post_monsoon",
+      "disease": "Dengue",
+      "source_catalog_id": "punjab_dengue_surveillance",
+      "organization": "Government of Punjab, Directorate General Health Services",
+      "url": "https://dghs.punjab.gov.pk/",
+      "type": "government_surveillance",
+      "basis": "Provincial dengue surveillance reporting for Punjab.",
+      "accessed": "2026-06-28"
+    },
+    {
+      "entry_id": "punjab_smog_winter",
+      "disease": "Air-quality hazard (smog / particulate exposure)",
+      "source_catalog_id": "documented_seasonality",
+      "organization": "Government of Punjab (Environmental Protection Department) — smog-season advisories; documented air-quality literature",
+      "url": null,
+      "type": "documented_seasonality",
+      "basis": "Government of Punjab smog advisories and published air-quality studies document a recurring Oct–Jan smog season over Punjab, centred on Lahore. URL omitted rather than cite a non-canonical link; attribution is to the responsible authority and documented seasonality.",
+      "accessed": "2026-06-28"
+    },
+    {
+      "entry_id": "influenza_winter",
+      "disease": "Influenza (seasonal)",
+      "source_catalog_id": "documented_seasonality",
+      "organization": "WHO Global Influenza Programme",
+      "url": "https://www.who.int/teams/global-influenza-programme",
+      "type": "public_health_authority",
+      "basis": "WHO influenza-seasonality guidance describes winter-peaking influenza activity in northern-hemisphere temperate/subtropical zones, which includes northern Pakistan.",
+      "accessed": "2026-06-28"
+    },
+    {
+      "entry_id": "dengue_epidemic_2011_punjab",
+      "disease": "Dengue",
+      "source_catalog_id": "who_emro",
+      "organization": "WHO EMRO Pakistan / Government of Punjab dengue response",
+      "url": "https://www.emro.who.int/pak/",
+      "type": "public_health_authority",
+      "basis": "The 2011 Lahore/Punjab dengue epidemic is widely documented by WHO EMRO and the Government of Punjab as a major outbreak year.",
+      "accessed": "2026-06-28"
+    },
+    {
+      "entry_id": "dengue_surge_2019_pakistan",
+      "disease": "Dengue",
+      "source_catalog_id": "who_emro",
+      "organization": "WHO EMRO Pakistan",
+      "url": "https://www.emro.who.int/pak/",
+      "type": "public_health_authority",
+      "basis": "WHO EMRO Pakistan reporting documents an elevated 2019 dengue season nationally.",
+      "accessed": "2026-06-28"
+    }
+  ]
+}
