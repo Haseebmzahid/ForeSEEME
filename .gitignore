@@ -84,6 +84,23 @@ ios/DerivedData/
 *.orig
 
 # =========================================================
+# PYTHON / BACKEND (FastAPI risk service)
+# =========================================================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Environment files & service-account credentials (GOLDEN_RULES #7) — NEVER commit
+.env
+*.env
+!*.env.example
+backend/.env
+**/serviceAccount*.json
+
+# =========================================================
 # FIREBASE
 # =========================================================
 firebase-debug.log

@@ -1,4 +1,10 @@
-# ForeSeeMe backend — Sprint 1 contract dependencies.
-# Inference, FastAPI app wiring, and Firestore writes are added in later prompts.
-pydantic>=2,<3
-pytest>=8
+# ForeSeeMe risk service — pinned runtime + test dependencies (Sprint 1).
+# No ML libraries: the model is a deterministic stub this sprint (ADR-002 gates
+# the real Random Forest into a later, separate sprint).
+fastapi==0.138.1
+uvicorn[standard]==0.49.0
+pydantic==2.13.4
+
+# Test-only (FastAPI TestClient needs httpx).
+httpx==0.28.1
+pytest==8.3.4
