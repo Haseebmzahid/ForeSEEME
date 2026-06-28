@@ -12,6 +12,10 @@
 !/raw/disease_reference/
 !/raw/disease_reference/**
 
-# Intermediate and processed artifacts are fully derived — never committed.
+# Intermediate artifacts are fully derived — never committed.
 /interim/
-/processed/
+
+# Processed datasets (train/test parquet) are derived — never committed — but the
+# split manifest (hashes + split point) IS committed so the freeze is reproducible.
+/processed/*
+!/processed/split_manifest.json

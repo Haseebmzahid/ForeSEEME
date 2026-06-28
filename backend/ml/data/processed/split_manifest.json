@@ -1,0 +1,25 @@
+{
+  "all_passed": true,
+  "checks": {
+    "class_distribution": "PASS",
+    "contamination": "PASS",
+    "feature_leakage": "PASS",
+    "feature_statistics": "PASS",
+    "label_consistency": "PASS",
+    "missing_values": "PASS",
+    "schema": "PASS",
+    "temporal_split": "PASS"
+  },
+  "split": {
+    "excluded_insufficient_history_rows": 25,
+    "split_point": {
+      "iso_year": 2025,
+      "week_of_year": 27
+    },
+    "test_rows": 260,
+    "test_weeks": 52,
+    "train_rows": 735
+  },
+  "test_sha256": "1d18b5ae78c74fa89912990746312fb0e3c96e03d7295c915c2c551cffd98b46",
+  "train_sha256": "5079011c7d0349f2569a0f2711df156e6aeef12de6621f4aa8986a69f04a34c5"
+}

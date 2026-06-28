@@ -142,3 +142,14 @@ labels:
       low_temperature_ramp: {hi: 18.0, lo: 2.0}
       low_humidity_band: {h_min: 10.0, h_opt_lo: 20.0, h_opt_hi: 35.0, h_max: 60.0}
       season_months: [12, 1, 2]
+
+# Temporal train/test split & validation gate (Prompt 10). Read by pipelines/validate.py.
+split:
+  # The most-recent N ISO weeks become the TEST block; all earlier weeks are
+  # TRAIN. Purely temporal (no shuffling — lagged features make random splits
+  # leak). 52 weeks = one full seasonal cycle, so every class appears in test.
+  test_weeks: 52
+  # Rows without full lag/rolling history (insufficient_lag_history) are excluded
+  # from the frozen datasets and documented in the report.
+  exclude_insufficient_lag_history: true
+  diseases: [dengue, smog, influenza]
