@@ -58,3 +58,40 @@ cleaning:
     pm2_5: [0, 1000]            # µg/m³
     pm10: [0, 2000]             # µg/m³
     us_aqi: [0, 1000]           # US AQI
+
+# Feature engineering (Prompt 8). Read by pipelines/features.py. All features are
+# CAUSAL (use only weeks <= t, and for climatology only prior years) so there is
+# no lookahead into t+1. See reports/feature_dictionary.md for rationale.
+features:
+  # Lagged predictors: disease responds to environmental drivers weeks earlier
+  # (e.g. dengue to rainfall 2-4 weeks prior). lag_k(var)[t] = var[t-k].
+  lags:
+    variables: [precipitation, temperature, humidity]
+    weeks: [1, 2, 3, 4]
+
+  # Trailing means over the N weeks STRICTLY BEFORE t (t-1 .. t-N) — smoothed
+  # recent conditions, never including the current week (shift: 1).
+  rolling:
+    variables: [precipitation, temperature, humidity]
+    windows: [3, 4]
+    shift: 1
+
+  # Seasonal anomaly = value - that (city, week_of_year) climatology. Climatology
+  # is built from PRIOR YEARS ONLY (expanding), so it never uses future data;
+  # the first year per city has no climatology (flagged has_climatology=False).
+  anomaly:
+    variables: [temperature, humidity, precipitation, us_aqi]
+    mode: expanding          # expanding | global  (expanding = leakage-free)
+
+  # Cyclical encoding of week-of-year so week 1 and week 52 are adjacent.
+  cyclical:
+    period: 52
+
+  # Categorical city encoding, fixed vocabulary from cities.yaml (serving builds
+  # the same columns for a requested city).
+  city_encoding: onehot
+
+  # Rows with fewer than this many preceding weeks cannot have full lag/rolling
+  # history. They are flagged (insufficient_lag_history); set drop=true to remove.
+  min_history_weeks: 5
+  drop_insufficient_history: false
