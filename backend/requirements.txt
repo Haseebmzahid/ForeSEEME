@@ -1,0 +1,4 @@
+# ForeSeeMe backend — Sprint 1 contract dependencies.
+# Inference, FastAPI app wiring, and Firestore writes are added in later prompts.
+pydantic>=2,<3
+pytest>=8
