@@ -1,4 +1,9 @@
-"""API tests for the risk service, using the FastAPI TestClient.
+"""API tests for the STUB risk model, using the FastAPI TestClient.
+
+These pin the deterministic Sprint 1 stub behaviour (the graceful-degradation
+fallback). The app is built with an explicit :class:`StubRiskModel` so these tests
+stay independent of whether a real model artifact is present on disk; real-model
+integration is covered in ``test_api.py``.
 
 Covers the contract acceptance cases:
 - ``POST /predict`` with valid input -> 200 + a contract-valid body.
@@ -9,8 +14,9 @@ Covers the contract acceptance cases:
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.models.risk_model import StubRiskModel
 
-client = TestClient(create_app())
+client = TestClient(create_app(model=StubRiskModel("stub-0.0.0")))
 
 
 def _valid_payload() -> dict:

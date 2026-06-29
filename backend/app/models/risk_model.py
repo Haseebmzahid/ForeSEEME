@@ -66,6 +66,11 @@ class StubRiskModel(RiskModel):
         """
         self._model_version = model_version
 
+    @property
+    def model_version(self) -> str:
+        """Version string stamped onto responses (reported by ``/health``)."""
+        return self._model_version
+
     def predict(self, request: PredictRequest) -> RiskEstimateResponse:
         """Classify risk from a transparent threshold rule."""
         score = _clamp(

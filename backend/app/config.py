@@ -21,13 +21,18 @@ class Settings:
     """Immutable, environment-derived service settings.
 
     Attributes:
-        model_version: Version string stamped onto every response and reported
-            by ``GET /health``.
+        model_version: Fallback version string for the stub model (used when no
+            real artifact is loaded). The real model reports its own version.
         log_level: Root log level name (e.g. ``"INFO"``, ``"DEBUG"``).
+        model_artifact_path: Optional explicit path to ``model_<version>.joblib``.
+            When unset, the load path discovers the latest local artifact under
+            ``backend/ml/artifacts/``. Lets tests point at a missing/alternate
+            artifact to exercise graceful degradation.
     """
 
     model_version: str
     log_level: str
+    model_artifact_path: str | None = None
 
 
 @lru_cache(maxsize=1)
@@ -40,4 +45,5 @@ def get_settings() -> Settings:
     return Settings(
         model_version=os.getenv("MODEL_VERSION", _DEFAULT_MODEL_VERSION),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        model_artifact_path=os.getenv("MODEL_ARTIFACT_PATH"),
     )
