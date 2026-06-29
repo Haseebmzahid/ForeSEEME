@@ -1,0 +1,358 @@
+{
+  "cv": {
+    "n_splits": 5,
+    "splitter": "TimeSeriesSplit"
+  },
+  "model_version": "rf-candidate-0.1.0",
+  "per_disease": {
+    "dengue": {
+      "accuracy": 0.7885245902,
+      "best_cv_score": 0.75655582,
+      "best_params": {
+        "max_depth": 6,
+        "max_features": 0.5,
+        "min_samples_leaf": 1,
+        "min_samples_split": 10,
+        "n_estimators": 200
+      },
+      "brier_multiclass": 0.3041566813,
+      "class_distribution": {
+        "High": 262,
+        "Low": 281,
+        "Medium": 192
+      },
+      "classification_report": {
+        "High": {
+          "f1-score": 0.8157894737,
+          "precision": 0.8266666667,
+          "recall": 0.8051948052,
+          "support": 231.0
+        },
+        "Low": {
+          "f1-score": 0.875,
+          "precision": 0.8709677419,
+          "recall": 0.8790697674,
+          "support": 215.0
+        },
+        "Medium": {
+          "f1-score": 0.6385542169,
+          "precision": 0.630952381,
+          "recall": 0.6463414634,
+          "support": 164.0
+        },
+        "accuracy": 0.7885245902,
+        "macro avg": {
+          "f1-score": 0.7764478969,
+          "precision": 0.7761955965,
+          "recall": 0.7768686787,
+          "support": 610.0
+        },
+        "weighted avg": {
+          "f1-score": 0.7890086229,
+          "precision": 0.7896627131,
+          "recall": 0.7885245902,
+          "support": 610.0
+        }
+      },
+      "confusion_matrix": {
+        "labels": [
+          "Low",
+          "Medium",
+          "High"
+        ],
+        "matrix": [
+          [
+            189,
+            20,
+            6
+          ],
+          [
+            25,
+            106,
+            33
+          ],
+          [
+            3,
+            42,
+            186
+          ]
+        ]
+      },
+      "coverage_note": "out-of-fold over 610/735 train rows (earliest CV block is never a test fold)",
+      "f1_macro": 0.7764478969,
+      "f1_weighted": 0.7890086229,
+      "low_confidence_rate": 0.2131147541,
+      "mean_confidence": 0.7443957397,
+      "n_eval_rows": 610,
+      "n_train_rows": 735,
+      "n_trials": 30,
+      "per_class": {
+        "High": {
+          "f1": 0.8157894737,
+          "precision": 0.8266666667,
+          "recall": 0.8051948052,
+          "support": 231
+        },
+        "Low": {
+          "f1": 0.875,
+          "precision": 0.8709677419,
+          "recall": 0.8790697674,
+          "support": 215
+        },
+        "Medium": {
+          "f1": 0.6385542169,
+          "precision": 0.630952381,
+          "recall": 0.6463414634,
+          "support": 164
+        }
+      },
+      "precision_macro": 0.7761955965,
+      "recall_macro": 0.7768686787,
+      "roc_auc_ovr_macro": 0.9177340709
+    },
+    "influenza": {
+      "accuracy": 0.8163934426,
+      "best_cv_score": 0.6700928472,
+      "best_params": {
+        "max_depth": null,
+        "max_features": "log2",
+        "min_samples_leaf": 1,
+        "min_samples_split": 10,
+        "n_estimators": 200
+      },
+      "brier_multiclass": 0.2674848072,
+      "class_distribution": {
+        "High": 117,
+        "Low": 452,
+        "Medium": 166
+      },
+      "classification_report": {
+        "High": {
+          "f1-score": 0.7975460123,
+          "precision": 0.8024691358,
+          "recall": 0.7926829268,
+          "support": 82.0
+        },
+        "Low": {
+          "f1-score": 0.8965517241,
+          "precision": 0.8976982097,
+          "recall": 0.8954081633,
+          "support": 392.0
+        },
+        "Medium": {
+          "f1-score": 0.598540146,
+          "precision": 0.5942028986,
+          "recall": 0.6029411765,
+          "support": 136.0
+        },
+        "accuracy": 0.8163934426,
+        "macro avg": {
+          "f1-score": 0.7642126275,
+          "precision": 0.7647900814,
+          "recall": 0.7636774222,
+          "support": 610.0
+        },
+        "weighted avg": {
+          "f1-score": 0.816800834,
+          "precision": 0.817232396,
+          "recall": 0.8163934426,
+          "support": 610.0
+        }
+      },
+      "confusion_matrix": {
+        "labels": [
+          "Low",
+          "Medium",
+          "High"
+        ],
+        "matrix": [
+          [
+            351,
+            39,
+            2
+          ],
+          [
+            40,
+            82,
+            14
+          ],
+          [
+            0,
+            17,
+            65
+          ]
+        ]
+      },
+      "coverage_note": "out-of-fold over 610/735 train rows (earliest CV block is never a test fold)",
+      "f1_macro": 0.7642126275,
+      "f1_weighted": 0.816800834,
+      "low_confidence_rate": 0.2180327869,
+      "mean_confidence": 0.7290578053,
+      "n_eval_rows": 610,
+      "n_train_rows": 735,
+      "n_trials": 30,
+      "per_class": {
+        "High": {
+          "f1": 0.7975460123,
+          "precision": 0.8024691358,
+          "recall": 0.7926829268,
+          "support": 82
+        },
+        "Low": {
+          "f1": 0.8965517241,
+          "precision": 0.8976982097,
+          "recall": 0.8954081633,
+          "support": 392
+        },
+        "Medium": {
+          "f1": 0.598540146,
+          "precision": 0.5942028986,
+          "recall": 0.6029411765,
+          "support": 136
+        }
+      },
+      "precision_macro": 0.7647900814,
+      "recall_macro": 0.7636774222,
+      "roc_auc_ovr_macro": 0.932667562
+    },
+    "smog": {
+      "accuracy": 0.9016393443,
+      "best_cv_score": 0.7832941945,
+      "best_params": {
+        "max_depth": 10,
+        "max_features": 0.5,
+        "min_samples_leaf": 2,
+        "min_samples_split": 2,
+        "n_estimators": 400
+      },
+      "brier_multiclass": 0.1698267639,
+      "class_distribution": {
+        "High": 86,
+        "Low": 477,
+        "Medium": 172
+      },
+      "classification_report": {
+        "High": {
+          "f1-score": 0.8474576271,
+          "precision": 0.8196721311,
+          "recall": 0.8771929825,
+          "support": 57.0
+        },
+        "Low": {
+          "f1-score": 0.9509345794,
+          "precision": 0.9830917874,
+          "recall": 0.9208144796,
+          "support": 442.0
+        },
+        "Medium": {
+          "f1-score": 0.756097561,
+          "precision": 0.6888888889,
+          "recall": 0.8378378378,
+          "support": 111.0
+        },
+        "accuracy": 0.9016393443,
+        "macro avg": {
+          "f1-score": 0.8514965892,
+          "precision": 0.8305509358,
+          "recall": 0.8786151,
+          "support": 610.0
+        },
+        "weighted avg": {
+          "f1-score": 0.9058114723,
+          "precision": 0.9142861446,
+          "recall": 0.9016393443,
+          "support": 610.0
+        }
+      },
+      "confusion_matrix": {
+        "labels": [
+          "Low",
+          "Medium",
+          "High"
+        ],
+        "matrix": [
+          [
+            407,
+            35,
+            0
+          ],
+          [
+            7,
+            93,
+            11
+          ],
+          [
+            0,
+            7,
+            50
+          ]
+        ]
+      },
+      "coverage_note": "out-of-fold over 610/735 train rows (earliest CV block is never a test fold)",
+      "f1_macro": 0.8514965892,
+      "f1_weighted": 0.9058114723,
+      "low_confidence_rate": 0.0655737705,
+      "mean_confidence": 0.8211224038,
+      "n_eval_rows": 610,
+      "n_train_rows": 735,
+      "n_trials": 30,
+      "per_class": {
+        "High": {
+          "f1": 0.8474576271,
+          "precision": 0.8196721311,
+          "recall": 0.8771929825,
+          "support": 57
+        },
+        "Low": {
+          "f1": 0.9509345794,
+          "precision": 0.9830917874,
+          "recall": 0.9208144796,
+          "support": 442
+        },
+        "Medium": {
+          "f1": 0.756097561,
+          "precision": 0.6888888889,
+          "recall": 0.8378378378,
+          "support": 111
+        }
+      },
+      "precision_macro": 0.8305509358,
+      "recall_macro": 0.8786151,
+      "roc_auc_ovr_macro": 0.972828311
+    }
+  },
+  "random_state": 42,
+  "reproducibility": {
+    "numpy_version": "2.3.5",
+    "pandas_version": "2.3.3",
+    "sklearn_version": "1.7.2",
+    "split_manifest": {
+      "all_passed": true,
+      "checks": {
+        "class_distribution": "PASS",
+        "contamination": "PASS",
+        "feature_leakage": "PASS",
+        "feature_statistics": "PASS",
+        "label_consistency": "PASS",
+        "missing_values": "PASS",
+        "schema": "PASS",
+        "temporal_split": "PASS"
+      },
+      "split": {
+        "excluded_insufficient_history_rows": 25,
+        "split_point": {
+          "iso_year": 2025,
+          "week_of_year": 27
+        },
+        "test_rows": 260,
+        "test_weeks": 52,
+        "train_rows": 735
+      },
+      "test_sha256": "1d18b5ae78c74fa89912990746312fb0e3c96e03d7295c915c2c551cffd98b46",
+      "train_sha256": "5079011c7d0349f2569a0f2711df156e6aeef12de6621f4aa8986a69f04a34c5"
+    },
+    "train_sha256": "5079011c7d0349f2569a0f2711df156e6aeef12de6621f4aa8986a69f04a34c5"
+  },
+  "scoring": "f1_macro",
+  "target_label": "label_sampled"
+}

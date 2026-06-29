@@ -1,0 +1,100 @@
+# ForeSeeMe — model training & tuning configuration (Sprint 2, Prompt 11).
+#
+# The single knob-board for ml/training/train.py. Every hyperparameter, search
+# space, CV setting, and feature-selection rule lives here — train.py contains
+# no magic numbers (Shared Principle 4: hyperparameters live in config/*.yaml).
+#
+# Scope of this prompt: TRAIN + TUNE the candidate Random Forest under time-aware
+# cross-validation, on train.parquet ONLY. test.parquet is never read here (the
+# held-out evaluation is Prompt 12). No secrets in this file.
+
+# Stamped onto every prediction (RiskEstimateResponse.modelVersion, Sprint 1
+# contract). "candidate" marks this as the pre-evaluation artifact; Prompt 13
+# promotes the accepted model to a semver `model_<version>.joblib`.
+model_version: "rf-candidate-0.1.0"
+
+# Master seed. Threaded into the RandomForest, the randomised search sampler, and
+# every per-fold clone so the whole run is reproducible (same seed -> same winner).
+random_state: 42
+
+# One Random Forest per disease family; the three fitted Pipelines are bundled
+# into a single candidate_model.joblib behind one stable predict interface.
+diseases: [dengue, smog, influenza]
+
+# Ordered class vocabulary (the Sprint 1 riskLevel enum). Used for fixed-order
+# confusion matrices, ROC-AUC label alignment, and report columns.
+classes: [Low, Medium, High]
+
+# Training target: the transition-band *sampled* labels (Prompt 9). These encode
+# the soft Low/Med/High boundary deterministically (seeded per-row hash), so the
+# model must learn calibrated uncertainty rather than a hard threshold — the
+# explicit design intent of the label methodology. Switch to "label" to train on
+# the hard deterministic labels instead.
+target_label: label_sampled
+
+# --- Feature selection ------------------------------------------------------
+# The model uses ONLY the documented feature families (see feature_dictionary.md).
+# Keys, QA/helper columns (iso_year, week_of_year, days_in_week, month), validity
+# flags (has_climatology, insufficient_lag_history), and every label/score/prob
+# column are excluded. City is consumed via its upstream one-hot columns; week is
+# consumed via the cyclical sin/cos encoding — never the raw integers.
+features:
+  raw: [temperature, humidity, precipitation, pm2_5, pm10, us_aqi, aqi_available]
+  cyclical: [week_sin, week_cos]
+  city_onehot_prefix: "city_"
+  include_patterns:                 # regex, matched against column names
+    lag: "_lag\\d+$"
+    roll: "_roll\\d+$"
+    anom: "_anom$"
+
+# --- In-Pipeline preprocessing (self-contained for serving) -----------------
+# Imputation is REQUIRED: the first-seasonal-cycle anomaly columns are NaN by
+# design (expanding climatology). It lives inside the Pipeline so the saved
+# artifact imputes identically at serving time. Scaling is a no-op for trees but
+# is included to honour the "encoding/scaling inside the Pipeline" contract and
+# keep the artifact self-sufficient regardless of the downstream estimator.
+preprocessing:
+  numeric_impute_strategy: median
+  scale: true
+
+# --- Random Forest (fixed across the search) --------------------------------
+random_forest:
+  # class_weight='balanced' is DELIBERATE and documented: smog/influenza High is
+  # a minority class (see training_log.md). Inverse-frequency weighting keeps the
+  # minority risk classes from being washed out. Not a silent default change.
+  class_weight: balanced
+  bootstrap: true
+  n_jobs: -1          # RF is deterministic w.r.t. n_jobs given a fixed seed
+
+# --- Hyperparameter search --------------------------------------------------
+# Tuned via a randomised search over TimeSeriesSplit (temporal CV — never plain
+# K-fold; lagged features make shuffled folds leak the future into the past).
+search:
+  method: randomized        # randomized | grid
+  n_iter: 30                # candidate configs sampled (randomized only)
+  scoring: f1_macro         # macro F1 — weights the minority risk classes equally
+  refit: true
+  n_jobs: -1
+  cv:
+    splitter: time_series   # sklearn TimeSeriesSplit; rows time-sorted first
+    n_splits: 5
+  param_grid:
+    n_estimators: [200, 300, 400, 600, 800]
+    max_depth: [null, 6, 10, 16, 24]      # null -> None (grow until pure)
+    min_samples_split: [2, 5, 10]
+    min_samples_leaf: [1, 2, 4]
+    max_features: ["sqrt", "log2", 0.5]
+
+# --- Evaluation (this prompt) -----------------------------------------------
+# All metrics here are computed on TRAIN via out-of-fold TimeSeriesSplit
+# predictions (an honest temporal generalisation estimate that never touches
+# test.parquet). The held-out test-set evaluation, calibration, robustness, and
+# permutation importance are Prompt 12.
+evaluation:
+  # Below this max-probability confidence a prediction is flagged lowConfidence
+  # (mirrors the Sprint 1 serving contract; not used to alter training).
+  low_confidence_threshold: 0.55
+  # Reliability-curve bins for the calibration assessment plot.
+  calibration_bins: 10
+  # Rows shown in each feature-importance plot/CSV head.
+  importance_top_n: 15

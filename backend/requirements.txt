@@ -14,6 +14,18 @@ pandas==2.3.3
 numpy==2.3.5
 pyarrow==24.0.0
 
+# Dataset validation gate (Sprint 2, Prompt 10): schema/statistical contract.
+pandera==0.32.0
+
+# Modeling — Phase C, Prompt 11 (training only; NOT used by the serving runtime
+# until Prompt 14). The Random Forest, its self-contained sklearn Pipeline, the
+# time-aware tuning search, persistence, and evaluation plots all live in
+# backend/ml/ and never touch the Flutter app or the Sprint 1 stub path.
+scikit-learn==1.7.2
+scipy==1.16.3
+joblib==1.5.2
+matplotlib==3.10.8
+
 # Test-only (FastAPI TestClient needs httpx).
 httpx==0.28.1
 pytest==8.3.4

@@ -9,18 +9,20 @@ a scratch location in tests/CI without code changes; defaults are safe and
 repo-relative. No secrets live here.
 
 Env overrides (all optional):
-    FORESEEME_ML_DATA_DIR    -> base for data/{raw,interim,processed}
-    FORESEEME_ML_CONFIG_DIR  -> base for the *.yaml config files
-    FORESEEME_ML_REPORTS_DIR -> base for generated reports
+    FORESEEME_ML_DATA_DIR      -> base for data/{raw,interim,processed}
+    FORESEEME_ML_CONFIG_DIR    -> base for the *.yaml config files
+    FORESEEME_ML_REPORTS_DIR   -> base for generated reports
+    FORESEEME_ML_ARTIFACTS_DIR -> base for trained-model artifacts (Phase C)
 
 Layout (defaults)::
 
     backend/ml/
-      config/   cities.yaml  sources.yaml  pipeline.yaml
+      config/   cities.yaml  sources.yaml  pipeline.yaml  model.yaml
       data/
         raw/        <bulk blobs, git-ignored>  manifest.json (committed)
         interim/    <git-ignored>
         processed/  <git-ignored>
+      artifacts/  candidate_model.joblib  metrics.json  feature_importance.csv  plots/
       reports/
 """
 
@@ -45,6 +47,7 @@ def _dir_from_env(var: str, default: Path) -> Path:
 CONFIG_DIR = _dir_from_env("FORESEEME_ML_CONFIG_DIR", ML_ROOT / "config")
 DATA_DIR = _dir_from_env("FORESEEME_ML_DATA_DIR", ML_ROOT / "data")
 REPORTS_DIR = _dir_from_env("FORESEEME_ML_REPORTS_DIR", ML_ROOT / "reports")
+ARTIFACTS_DIR = _dir_from_env("FORESEEME_ML_ARTIFACTS_DIR", ML_ROOT / "artifacts")
 
 # --- Data sub-directories ---------------------------------------------------
 
@@ -55,11 +58,22 @@ PROCESSED_DIR = DATA_DIR / "processed"
 #: The committed provenance manifest (everything else under raw/ is git-ignored).
 MANIFEST_PATH = RAW_DIR / "manifest.json"
 
+#: Frozen modeling datasets (Prompt 10). Training reads ``train.parquet`` ONLY;
+#: ``test.parquet`` is untouched until evaluation (Prompt 12).
+TRAIN_PATH = PROCESSED_DIR / "train.parquet"
+TEST_PATH = PROCESSED_DIR / "test.parquet"
+SPLIT_MANIFEST_PATH = PROCESSED_DIR / "split_manifest.json"
+
+# --- Artifact sub-directories (Phase C, Prompt 11) --------------------------
+
+PLOTS_DIR = ARTIFACTS_DIR / "plots"
+
 # --- Config files -----------------------------------------------------------
 
 CITIES_PATH = CONFIG_DIR / "cities.yaml"
 SOURCES_PATH = CONFIG_DIR / "sources.yaml"
 PIPELINE_PATH = CONFIG_DIR / "pipeline.yaml"
+MODEL_PATH = CONFIG_DIR / "model.yaml"
 
 
 # --- Helpers ----------------------------------------------------------------
