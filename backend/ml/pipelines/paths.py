@@ -58,6 +58,15 @@ PROCESSED_DIR = DATA_DIR / "processed"
 #: The committed provenance manifest (everything else under raw/ is git-ignored).
 MANIFEST_PATH = RAW_DIR / "manifest.json"
 
+#: VALIDATION_ONLY disease-seasonality reference (Prompt 5). Path-only constant so
+#: evaluation (Prompt 12) can read the committed JSON yardstick directly. NOTE: the
+#: Python loader in ``acquire_disease_reference`` guards against import by any
+#: module named ``*feature*``/``*label*``/``*train*`` — and ``ml.training.evaluate``
+#: trips that substring heuristic — so the reference is consumed here as a data
+#: file (its sanctioned validation use), never as a model input.
+DISEASE_REFERENCE_DIR = RAW_DIR / "disease_reference"
+SEASONALITY_REFERENCE_PATH = DISEASE_REFERENCE_DIR / "seasonality.json"
+
 #: Frozen modeling datasets (Prompt 10). Training reads ``train.parquet`` ONLY;
 #: ``test.parquet`` is untouched until evaluation (Prompt 12).
 TRAIN_PATH = PROCESSED_DIR / "train.parquet"

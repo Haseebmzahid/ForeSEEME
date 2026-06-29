@@ -1,0 +1,764 @@
+{
+  "evaluated_on": "test.parquet (held-out, Prompt 10 freeze)",
+  "model_version": "rf-candidate-0.1.0",
+  "per_disease": {
+    "dengue": {
+      "calibration": {
+        "brier_multiclass": 0.1913889631,
+        "ece_top_class": 0.0532219972,
+        "mean_confidence": 0.8106299945
+      },
+      "label_seasonality": {
+        "base_rate": 0.3431372549,
+        "cities": [
+          "Islamabad",
+          "Rawalpindi",
+          "Lahore",
+          "Karachi",
+          "Peshawar"
+        ],
+        "entry_id": "dengue_post_monsoon",
+        "high_in_window_rate": 0.5497382199,
+        "lift": 1.6020942408,
+        "monthly_high_counts": {
+          "1": 0,
+          "2": 0,
+          "3": 10,
+          "4": 42,
+          "5": 35,
+          "6": 27,
+          "7": 58,
+          "8": 80,
+          "9": 79,
+          "10": 44,
+          "11": 7,
+          "12": 0
+        },
+        "n_high_weeks": 382,
+        "window_label": "August\u2013November (post-monsoon)",
+        "window_months": [
+          8,
+          9,
+          10,
+          11
+        ]
+      },
+      "metrics": {
+        "accuracy": 0.8538461538,
+        "brier_multiclass": 0.1913889631,
+        "classification_report": {
+          "High": {
+            "f1-score": 0.8952380952,
+            "precision": 0.9494949495,
+            "recall": 0.8468468468,
+            "support": 111.0
+          },
+          "Low": {
+            "f1-score": 0.914893617,
+            "precision": 0.9450549451,
+            "recall": 0.8865979381,
+            "support": 97.0
+          },
+          "Medium": {
+            "f1-score": 0.6885245902,
+            "precision": 0.6,
+            "recall": 0.8076923077,
+            "support": 52.0
+          },
+          "accuracy": 0.8538461538,
+          "macro avg": {
+            "f1-score": 0.8328854341,
+            "precision": 0.8315166315,
+            "recall": 0.8470456976,
+            "support": 260.0
+          },
+          "weighted avg": {
+            "f1-score": 0.8612284158,
+            "precision": 0.8779394964,
+            "recall": 0.8538461538,
+            "support": 260.0
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "Low",
+            "Medium",
+            "High"
+          ],
+          "matrix": [
+            [
+              86,
+              11,
+              0
+            ],
+            [
+              5,
+              42,
+              5
+            ],
+            [
+              0,
+              17,
+              94
+            ]
+          ]
+        },
+        "f1_macro": 0.8328854341,
+        "f1_weighted": 0.8612284158,
+        "n": 260,
+        "per_class": {
+          "High": {
+            "f1": 0.8952380952,
+            "precision": 0.9494949495,
+            "recall": 0.8468468468,
+            "support": 111
+          },
+          "Low": {
+            "f1": 0.914893617,
+            "precision": 0.9450549451,
+            "recall": 0.8865979381,
+            "support": 97
+          },
+          "Medium": {
+            "f1": 0.6885245902,
+            "precision": 0.6,
+            "recall": 0.8076923077,
+            "support": 52
+          }
+        },
+        "precision_macro": 0.8315166315,
+        "precision_weighted": 0.8779394964,
+        "recall_macro": 0.8470456976,
+        "recall_weighted": 0.8538461538,
+        "roc_auc_ovr_macro": 0.9702630398
+      },
+      "model_seasonality_on_test": {
+        "base_rate": 0.3269230769,
+        "high_in_window_rate": 0.5151515152,
+        "n_high_pred": 99
+      },
+      "permutation_importance_top": [
+        {
+          "feature": "temperature",
+          "importance_mean": 0.2379218652,
+          "importance_std": 0.0181687517
+        },
+        {
+          "feature": "humidity",
+          "importance_mean": 0.0630528207,
+          "importance_std": 0.0166602622
+        },
+        {
+          "feature": "precipitation_roll4",
+          "importance_mean": 0.0160955339,
+          "importance_std": 0.0126046526
+        },
+        {
+          "feature": "precipitation_roll3",
+          "importance_mean": 0.0104979536,
+          "importance_std": 0.0084512016
+        },
+        {
+          "feature": "humidity_roll3",
+          "importance_mean": 0.0054648995,
+          "importance_std": 0.005435961
+        },
+        {
+          "feature": "precipitation_lag2",
+          "importance_mean": 0.0054071574,
+          "importance_std": 0.0041708142
+        },
+        {
+          "feature": "precipitation_lag3",
+          "importance_mean": 0.0049003534,
+          "importance_std": 0.0108536175
+        },
+        {
+          "feature": "humidity_lag2",
+          "importance_mean": 0.0044251903,
+          "importance_std": 0.0029528017
+        },
+        {
+          "feature": "temperature_lag1",
+          "importance_mean": 0.0039325,
+          "importance_std": 0.0083946857
+        },
+        {
+          "feature": "us_aqi_anom",
+          "importance_mean": 0.0013227739,
+          "importance_std": 0.0023096692
+        },
+        {
+          "feature": "precipitation_lag1",
+          "importance_mean": 0.0011673486,
+          "importance_std": 0.0042181058
+        },
+        {
+          "feature": "pm2_5",
+          "importance_mean": 0.0005392511,
+          "importance_std": 0.0018083916
+        },
+        {
+          "feature": "us_aqi",
+          "importance_mean": 0.0004894558,
+          "importance_std": 0.0034883475
+        },
+        {
+          "feature": "aqi_available",
+          "importance_mean": 0.0,
+          "importance_std": 0.0
+        },
+        {
+          "feature": "precipitation_anom",
+          "importance_mean": 0.0,
+          "importance_std": 0.0
+        }
+      ],
+      "recalibration": null,
+      "robustness": [
+        {
+          "accuracy": 0.8538461538,
+          "f1_macro": 0.8328854341,
+          "sigma": 0.0
+        },
+        {
+          "accuracy": 0.8576923077,
+          "f1_macro": 0.8363220542,
+          "sigma": 0.1
+        },
+        {
+          "accuracy": 0.8,
+          "f1_macro": 0.7779088547,
+          "sigma": 0.25
+        },
+        {
+          "accuracy": 0.7307692308,
+          "f1_macro": 0.7126259988,
+          "sigma": 0.5
+        },
+        {
+          "accuracy": 0.6653846154,
+          "f1_macro": 0.6519982018,
+          "sigma": 1.0
+        }
+      ]
+    },
+    "influenza": {
+      "calibration": {
+        "brier_multiclass": 0.1580546653,
+        "ece_top_class": 0.1023236787,
+        "mean_confidence": 0.805368629
+      },
+      "label_seasonality": {
+        "base_rate": 0.2549019608,
+        "cities": [
+          "Islamabad",
+          "Rawalpindi",
+          "Lahore",
+          "Karachi",
+          "Peshawar"
+        ],
+        "entry_id": "influenza_winter",
+        "high_in_window_rate": 1.0,
+        "lift": 3.9230769231,
+        "monthly_high_counts": {
+          "1": 76,
+          "2": 31,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0,
+          "7": 0,
+          "8": 0,
+          "9": 0,
+          "10": 0,
+          "11": 0,
+          "12": 41
+        },
+        "n_high_weeks": 148,
+        "window_label": "December\u2013February (winter)",
+        "window_months": [
+          1,
+          2,
+          12
+        ]
+      },
+      "metrics": {
+        "accuracy": 0.9076923077,
+        "brier_multiclass": 0.1580546653,
+        "classification_report": {
+          "High": {
+            "f1-score": 0.7352941176,
+            "precision": 0.625,
+            "recall": 0.8928571429,
+            "support": 28.0
+          },
+          "Low": {
+            "f1-score": 0.9737609329,
+            "precision": 0.9709302326,
+            "recall": 0.9766081871,
+            "support": 171.0
+          },
+          "Medium": {
+            "f1-score": 0.8073394495,
+            "precision": 0.9166666667,
+            "recall": 0.7213114754,
+            "support": 61.0
+          },
+          "accuracy": 0.9076923077,
+          "macro avg": {
+            "f1-score": 0.8387981667,
+            "precision": 0.8375322997,
+            "recall": 0.8635922685,
+            "support": 260.0
+          },
+          "weighted avg": {
+            "f1-score": 0.909034851,
+            "precision": 0.9209451401,
+            "recall": 0.9076923077,
+            "support": 260.0
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "Low",
+            "Medium",
+            "High"
+          ],
+          "matrix": [
+            [
+              167,
+              1,
+              3
+            ],
+            [
+              5,
+              44,
+              12
+            ],
+            [
+              0,
+              3,
+              25
+            ]
+          ]
+        },
+        "f1_macro": 0.8387981667,
+        "f1_weighted": 0.909034851,
+        "n": 260,
+        "per_class": {
+          "High": {
+            "f1": 0.7352941176,
+            "precision": 0.625,
+            "recall": 0.8928571429,
+            "support": 28
+          },
+          "Low": {
+            "f1": 0.9737609329,
+            "precision": 0.9709302326,
+            "recall": 0.9766081871,
+            "support": 171
+          },
+          "Medium": {
+            "f1": 0.8073394495,
+            "precision": 0.9166666667,
+            "recall": 0.7213114754,
+            "support": 61
+          }
+        },
+        "precision_macro": 0.8375322997,
+        "precision_weighted": 0.9209451401,
+        "recall_macro": 0.8635922685,
+        "recall_weighted": 0.9076923077,
+        "roc_auc_ovr_macro": 0.9836292765
+      },
+      "model_seasonality_on_test": {
+        "base_rate": 0.25,
+        "high_in_window_rate": 0.9,
+        "n_high_pred": 40
+      },
+      "permutation_importance_top": [
+        {
+          "feature": "humidity",
+          "importance_mean": 0.1402820666,
+          "importance_std": 0.0189934188
+        },
+        {
+          "feature": "temperature",
+          "importance_mean": 0.0903004957,
+          "importance_std": 0.0240147143
+        },
+        {
+          "feature": "week_sin",
+          "importance_mean": 0.0213817088,
+          "importance_std": 0.0113266764
+        },
+        {
+          "feature": "city_Karachi",
+          "importance_mean": 0.0088890283,
+          "importance_std": 0.002089789
+        },
+        {
+          "feature": "humidity_anom",
+          "importance_mean": 0.0078062763,
+          "importance_std": 0.0034474929
+        },
+        {
+          "feature": "temperature_lag3",
+          "importance_mean": 0.004839061,
+          "importance_std": 0.0056076935
+        },
+        {
+          "feature": "humidity_lag1",
+          "importance_mean": 0.0045828502,
+          "importance_std": 0.0059570952
+        },
+        {
+          "feature": "precipitation",
+          "importance_mean": 0.0038911572,
+          "importance_std": 0.0064912348
+        },
+        {
+          "feature": "humidity_lag3",
+          "importance_mean": 0.0038057837,
+          "importance_std": 0.0040164021
+        },
+        {
+          "feature": "precipitation_lag3",
+          "importance_mean": 0.0031556652,
+          "importance_std": 0.0097044535
+        },
+        {
+          "feature": "pm2_5",
+          "importance_mean": 0.0021975394,
+          "importance_std": 0.006071906
+        },
+        {
+          "feature": "us_aqi_anom",
+          "importance_mean": 0.0003616598,
+          "importance_std": 0.0015764386
+        },
+        {
+          "feature": "city_Lahore",
+          "importance_mean": 0.0003453546,
+          "importance_std": 0.0066909541
+        },
+        {
+          "feature": "precipitation_anom",
+          "importance_mean": 0.0003141992,
+          "importance_std": 0.0043572126
+        },
+        {
+          "feature": "humidity_lag4",
+          "importance_mean": 5.99904e-05,
+          "importance_std": 0.0060166475
+        }
+      ],
+      "recalibration": {
+        "brier_after": 0.1956747649,
+        "ece_after": 0.0574048091,
+        "ece_before": 0.1023236787,
+        "improved": true,
+        "method": "sigmoid"
+      },
+      "robustness": [
+        {
+          "accuracy": 0.9076923077,
+          "f1_macro": 0.8387981667,
+          "sigma": 0.0
+        },
+        {
+          "accuracy": 0.9230769231,
+          "f1_macro": 0.86273549,
+          "sigma": 0.1
+        },
+        {
+          "accuracy": 0.8807692308,
+          "f1_macro": 0.8090033114,
+          "sigma": 0.25
+        },
+        {
+          "accuracy": 0.8153846154,
+          "f1_macro": 0.7130877743,
+          "sigma": 0.5
+        },
+        {
+          "accuracy": 0.8153846154,
+          "f1_macro": 0.6702463991,
+          "sigma": 1.0
+        }
+      ]
+    },
+    "smog": {
+      "calibration": {
+        "brier_multiclass": 0.074028102,
+        "ece_top_class": 0.0530460414,
+        "mean_confidence": 0.9015273249
+      },
+      "label_seasonality": {
+        "base_rate": 0.3431372549,
+        "cities": [
+          "Lahore",
+          "Rawalpindi",
+          "Islamabad"
+        ],
+        "entry_id": "punjab_smog_winter",
+        "high_in_window_rate": 1.0,
+        "lift": 2.9142857143,
+        "monthly_high_counts": {
+          "1": 39,
+          "2": 0,
+          "3": 0,
+          "4": 0,
+          "5": 0,
+          "6": 0,
+          "7": 0,
+          "8": 0,
+          "9": 0,
+          "10": 3,
+          "11": 17,
+          "12": 34
+        },
+        "n_high_weeks": 93,
+        "window_label": "October\u2013January (smog season)",
+        "window_months": [
+          1,
+          10,
+          11,
+          12
+        ]
+      },
+      "metrics": {
+        "accuracy": 0.9538461538,
+        "brier_multiclass": 0.074028102,
+        "classification_report": {
+          "High": {
+            "f1-score": 0.9142857143,
+            "precision": 0.8888888889,
+            "recall": 0.9411764706,
+            "support": 34.0
+          },
+          "Low": {
+            "f1-score": 0.9828571429,
+            "precision": 0.9828571429,
+            "recall": 0.9828571429,
+            "support": 175.0
+          },
+          "Medium": {
+            "f1-score": 0.88,
+            "precision": 0.8979591837,
+            "recall": 0.862745098,
+            "support": 51.0
+          },
+          "accuracy": 0.9538461538,
+          "macro avg": {
+            "f1-score": 0.9257142857,
+            "precision": 0.9232350718,
+            "recall": 0.9289262372,
+            "support": 260.0
+          },
+          "weighted avg": {
+            "f1-score": 0.9537142857,
+            "precision": 0.9539159253,
+            "recall": 0.9538461538,
+            "support": 260.0
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "Low",
+            "Medium",
+            "High"
+          ],
+          "matrix": [
+            [
+              172,
+              3,
+              0
+            ],
+            [
+              3,
+              44,
+              4
+            ],
+            [
+              0,
+              2,
+              32
+            ]
+          ]
+        },
+        "f1_macro": 0.9257142857,
+        "f1_weighted": 0.9537142857,
+        "n": 260,
+        "per_class": {
+          "High": {
+            "f1": 0.9142857143,
+            "precision": 0.8888888889,
+            "recall": 0.9411764706,
+            "support": 34
+          },
+          "Low": {
+            "f1": 0.9828571429,
+            "precision": 0.9828571429,
+            "recall": 0.9828571429,
+            "support": 175
+          },
+          "Medium": {
+            "f1": 0.88,
+            "precision": 0.8979591837,
+            "recall": 0.862745098,
+            "support": 51
+          }
+        },
+        "precision_macro": 0.9232350718,
+        "precision_weighted": 0.9539159253,
+        "recall_macro": 0.9289262372,
+        "recall_weighted": 0.9538461538,
+        "roc_auc_ovr_macro": 0.9948210444
+      },
+      "model_seasonality_on_test": {
+        "base_rate": 0.3461538462,
+        "high_in_window_rate": 1.0,
+        "n_high_pred": 28
+      },
+      "permutation_importance_top": [
+        {
+          "feature": "week_cos",
+          "importance_mean": 0.3215117708,
+          "importance_std": 0.026840357
+        },
+        {
+          "feature": "week_sin",
+          "importance_mean": 0.1031514725,
+          "importance_std": 0.0163632935
+        },
+        {
+          "feature": "pm2_5",
+          "importance_mean": 0.0894343261,
+          "importance_std": 0.0116441459
+        },
+        {
+          "feature": "temperature",
+          "importance_mean": 0.054141535,
+          "importance_std": 0.0105087921
+        },
+        {
+          "feature": "precipitation",
+          "importance_mean": 0.0485965744,
+          "importance_std": 0.0193360874
+        },
+        {
+          "feature": "us_aqi",
+          "importance_mean": 0.0445502225,
+          "importance_std": 0.0084922719
+        },
+        {
+          "feature": "precipitation_anom",
+          "importance_mean": 0.029545849,
+          "importance_std": 0.0083487724
+        },
+        {
+          "feature": "temperature_lag2",
+          "importance_mean": 0.0070666719,
+          "importance_std": 0.004367668
+        },
+        {
+          "feature": "temperature_anom",
+          "importance_mean": 0.0064946327,
+          "importance_std": 0.0054959778
+        },
+        {
+          "feature": "temperature_lag1",
+          "importance_mean": 0.0063875608,
+          "importance_std": 0.0065906862
+        },
+        {
+          "feature": "temperature_roll3",
+          "importance_mean": 0.0061119652,
+          "importance_std": 0.0035287448
+        },
+        {
+          "feature": "us_aqi_anom",
+          "importance_mean": 0.0034881962,
+          "importance_std": 0.0011627321
+        },
+        {
+          "feature": "temperature_lag4",
+          "importance_mean": 0.0028788265,
+          "importance_std": 0.0051108447
+        },
+        {
+          "feature": "humidity",
+          "importance_mean": 0.0020391257,
+          "importance_std": 0.004365368
+        },
+        {
+          "feature": "humidity_lag3",
+          "importance_mean": 0.0013565208,
+          "importance_std": 0.0018486262
+        }
+      ],
+      "recalibration": null,
+      "robustness": [
+        {
+          "accuracy": 0.9538461538,
+          "f1_macro": 0.9257142857,
+          "sigma": 0.0
+        },
+        {
+          "accuracy": 0.9461538462,
+          "f1_macro": 0.913746172,
+          "sigma": 0.1
+        },
+        {
+          "accuracy": 0.9346153846,
+          "f1_macro": 0.8922588523,
+          "sigma": 0.25
+        },
+        {
+          "accuracy": 0.8923076923,
+          "f1_macro": 0.8201442935,
+          "sigma": 0.5
+        },
+        {
+          "accuracy": 0.8730769231,
+          "f1_macro": 0.7826462428,
+          "sigma": 1.0
+        }
+      ]
+    }
+  },
+  "reproducibility": {
+    "numpy_version": "2.3.5",
+    "pandas_version": "2.3.3",
+    "sklearn_version": "1.7.2",
+    "split_manifest": {
+      "all_passed": true,
+      "checks": {
+        "class_distribution": "PASS",
+        "contamination": "PASS",
+        "feature_leakage": "PASS",
+        "feature_statistics": "PASS",
+        "label_consistency": "PASS",
+        "missing_values": "PASS",
+        "schema": "PASS",
+        "temporal_split": "PASS"
+      },
+      "split": {
+        "excluded_insufficient_history_rows": 25,
+        "split_point": {
+          "iso_year": 2025,
+          "week_of_year": 27
+        },
+        "test_rows": 260,
+        "test_weeks": 52,
+        "train_rows": 735
+      },
+      "test_sha256": "1d18b5ae78c74fa89912990746312fb0e3c96e03d7295c915c2c551cffd98b46",
+      "train_sha256": "5079011c7d0349f2569a0f2711df156e6aeef12de6621f4aa8986a69f04a34c5"
+    },
+    "train_sha256": "5079011c7d0349f2569a0f2711df156e6aeef12de6621f4aa8986a69f04a34c5"
+  },
+  "test_target_label": "label"
+}

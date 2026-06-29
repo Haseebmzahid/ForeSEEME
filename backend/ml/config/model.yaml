@@ -98,3 +98,44 @@ evaluation:
   calibration_bins: 10
   # Rows shown in each feature-importance plot/CSV head.
   importance_top_n: 15
+
+# --- Held-out evaluation (Prompt 12) ----------------------------------------
+# All model metrics below are computed on test.parquet (never seen in Prompt 11).
+# Honest framing: high accuracy is expected-by-construction (labels derive from
+# the features); the scientific evidence is calibration, robustness, importance
+# alignment, and the label-vs-seasonality check — not accuracy.
+test_evaluation:
+  # Ground-truth label kind for held-out scoring. The model was trained on the
+  # soft `label_sampled`; we score against the deterministic hard `label` (the
+  # canonical index class). Documented choice — see evaluation_report.md.
+  test_target_label: label
+
+  calibration:
+    bins: 10                 # reliability-curve / ECE bins
+    ece_threshold: 0.10      # if top-class ECE exceeds this, calibrate & compare
+    method: sigmoid          # CalibratedClassifierCV method when calibrating
+    cv_splits: 3             # temporal folds for the (train-only) calibrator
+
+  robustness:
+    seed: 42
+    # Gaussian noise std as a fraction of each feature's train std, injected into
+    # the environmental features only (city one-hots / cyclical left intact).
+    noise_sigmas: [0.0, 0.1, 0.25, 0.5, 1.0]
+
+  permutation_importance:
+    seed: 42
+    n_repeats: 20
+    scoring: f1_macro
+    top_n: 15
+
+  seasonality:
+    # Decisive check: do High-risk weeks concentrate in the documented windows?
+    # Uses the VALIDATION_ONLY Prompt 5 reference (read as a data file). Maps each
+    # model disease to its reference entry id; windows + applicable cities come
+    # from the reference, never from config.
+    label_kind: label        # validate the deterministic hard labels
+    high_class: High
+    window_entry_ids:
+      dengue: dengue_post_monsoon
+      smog: punjab_smog_winter
+      influenza: influenza_winter
