@@ -26,6 +26,11 @@ scipy==1.16.3
 joblib==1.5.2
 matplotlib==3.10.8
 
+# Scheduled batch job (Sprint 2, Prompt 15): writes riskEstimates to Firestore via
+# the Admin SDK. Imported lazily — the API service path never needs it, but the
+# unified image runs the job entrypoint too (Cloud Scheduler -> Cloud Run, ADR-002).
+firebase-admin==7.4.0
+
 # Test-only (FastAPI TestClient needs httpx).
 httpx==0.28.1
 pytest==8.3.4

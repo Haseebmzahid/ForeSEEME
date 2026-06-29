@@ -1,0 +1,35 @@
+# ForeSeeMe backend — local orchestration (Sprint 2, Prompt 15).
+#
+# Two entrypoints from ONE image:
+#   * risk-service     — the internal HTTP /predict + /health service.
+#   * compute-risk-job — the scheduled batch job that writes riskEstimates to
+#     Firestore (the Cloud Scheduler -> Cloud Run Job entrypoint, ADR-002).
+#
+# No secrets here. Point the job at a service account (GOOGLE_APPLICATION_CREDENTIALS)
+# or the Firestore emulator (FIRESTORE_EMULATOR_HOST) via your shell/.env — see
+# scripts/README.md. The service-account JSON is git-ignored and never committed.
+
+services:
+  risk-service:
+    build: .
+    image: foreseeme-backend
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:-stub-0.0.0}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    # Uses the image default CMD (uvicorn app.main:app).
+
+  compute-risk-job:
+    build: .
+    image: foreseeme-backend
+    profiles: ["jobs"]        # opt-in: `docker compose --profile jobs run compute-risk-job`
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      RISK_LOOKBACK_WEEKS: ${RISK_LOOKBACK_WEEKS:-12}
+      # Provide exactly one auth path (mounted SA file or emulator host):
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+    command: ["python", "-m", "app.jobs.compute_risk"]

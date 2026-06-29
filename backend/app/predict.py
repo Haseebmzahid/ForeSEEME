@@ -45,6 +45,11 @@ _SEVERITY = {"Low": 0, "Medium": 1, "High": 2}
 _DISPLAY = {"dengue": "Dengue", "smog": "Smog", "influenza": "Influenza"}
 
 
+def display_disease(disease_key: str) -> str:
+    """Human-readable disease name for the contract ``disease`` field."""
+    return _DISPLAY.get(disease_key, disease_key.title())
+
+
 def resolve_artifact_path(explicit: str | None = None) -> Path | None:
     """Resolve the model artifact: an explicit override, else the latest local one."""
     if explicit:
@@ -56,6 +61,30 @@ def resolve_artifact_path(explicit: str | None = None) -> Path | None:
 def load_bundle(path: Path) -> dict[str, Any]:
     """Load the promoted bundle (a plain dict — no custom class needed)."""
     return joblib.load(path)
+
+
+def classify_dominant(
+    bundle: dict[str, Any], features: Any
+) -> tuple[str, str, float]:
+    """Return the dominant ``(disease_key, risk_level, confidence)`` for one feature row.
+
+    Runs every disease Pipeline on the single-row ``features`` frame and selects the
+    most severe risk level, breaking ties by confidence. Shared by the ``/predict``
+    endpoint and the batch job so the selection logic has one definition.
+    """
+    best: tuple[tuple[int, float], str, str, float] | None = None
+    for disease in bundle["diseases"]:
+        pipeline = bundle["models"][disease]
+        proba = pipeline.predict_proba(features)[0]
+        classes = list(pipeline.classes_)
+        idx = int(np.argmax(proba))
+        level = str(classes[idx])
+        confidence = float(proba[idx])
+        rank = (_SEVERITY[level], confidence)
+        if best is None or rank > best[0]:
+            best = (rank, disease, level, confidence)
+    assert best is not None  # diseases is non-empty by construction
+    return best[1], best[2], best[3]
 
 
 class RealRiskModel(RiskModel):
@@ -74,27 +103,13 @@ class RealRiskModel(RiskModel):
     def predict(self, request: PredictRequest) -> RiskEstimateResponse:
         """Classify the dominant environmental risk for one city/week request."""
         features = build_request_features(request, self._feature_names)
-
-        best: tuple[tuple[int, float], str, str, float] | None = None
-        for disease in self._diseases:
-            pipeline = self._bundle["models"][disease]
-            proba = pipeline.predict_proba(features)[0]
-            classes = list(pipeline.classes_)
-            idx = int(np.argmax(proba))
-            level = str(classes[idx])
-            confidence = float(proba[idx])
-            rank = (_SEVERITY[level], confidence)
-            if best is None or rank > best[0]:
-                best = (rank, disease, level, confidence)
-
-        assert best is not None  # diseases is non-empty by construction
-        _, disease, risk_level, confidence = best
+        disease, risk_level, confidence = classify_dominant(self._bundle, features)
         confidence = round(confidence, 4)
 
         return RiskEstimateResponse(
             city=request.city,
             risk_level=risk_level,
-            disease=_DISPLAY.get(disease, disease.title()),
+            disease=display_disease(disease),
             confidence=confidence,
             temperature=request.temperature,
             humidity=request.humidity,
