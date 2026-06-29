@@ -13,6 +13,15 @@
 # promotes the accepted model to a semver `model_<version>.joblib`.
 model_version: "rf-candidate-0.1.0"
 
+# --- Promotion / release (Prompt 13) ----------------------------------------
+# The validated candidate is promoted to a versioned production artifact
+# `model_<version>.joblib`. `version` is the semver used in the filename and the
+# reproducibility record; `model_version` is what serving stamps onto predictions
+# (Sprint 1 contract). Bump `version` for any retrain that changes the artifact.
+release:
+  version: "1.0.0"
+  model_version: "rf-1.0.0"
+
 # Master seed. Threaded into the RandomForest, the randomised search sampler, and
 # every per-fold clone so the whole run is reproducible (same seed -> same winner).
 random_state: 42
