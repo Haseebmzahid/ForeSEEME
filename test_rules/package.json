@@ -1,0 +1,13 @@
+{
+  "name": "foreseeme-rule-tests",
+  "private": true,
+  "type": "module",
+  "description": "Firestore security-rule tests (emulator) for Sprint 4 collections.",
+  "scripts": {
+    "test": "firebase emulators:exec --only firestore --project demo-foreseeme \"node firestore_rules.test.mjs\""
+  },
+  "dependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0"
+  }
+}

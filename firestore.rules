@@ -30,6 +30,26 @@ service cloud.firestore {
       }
     }
 
+    // alertDispatchLog (Sprint 4 P1): ops audit + throttle/idempotency ledger.
+    // Service-account ONLY (Admin SDK bypasses rules). It holds cross-user
+    // targeting data, so NO client may read or write it.
+    match /alertDispatchLog/{logId} {
+      allow read, write: if false;
+    }
+
+    // userAlerts/{uid}/... (Sprint 4 P1): the in-app inbox. The dispatch engine
+    // creates entries via the Admin SDK (bypasses rules). The owner may READ
+    // their own alerts and MARK them read (update `read`/`readAt` only) — never
+    // create, delete, or edit content; and never another user's alerts.
+    match /userAlerts/{userId}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, delete: if false;
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys().hasOnly(['read', 'readAt']);
+    }
+
     match /{document=**} {
       allow read, write: if request.time < timestamp.date(2026, 6, 1);
     }

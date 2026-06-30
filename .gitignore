@@ -103,6 +103,12 @@ backend/.env
 # Flutter --dart-define-from-file secrets (holds MAPS_API_KEY for Places) — NEVER commit
 dart_defines.json
 *.dart_defines.json
+
+# Firestore rule-test harness deps (Node) — test tooling, not committed
+test_rules/node_modules/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
 **/serviceAccount*.json
 **/service-account*.json
 **/*firebase-adminsdk*.json
