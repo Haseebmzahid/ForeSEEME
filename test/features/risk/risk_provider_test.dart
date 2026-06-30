@@ -1,10 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+
+/// A repository whose read always throws — stands in for a denied read or an
+/// offline read with nothing cached, so the error state can be asserted.
+class _ThrowingRiskRepository implements RiskRepository {
+  @override
+  Future<RiskEstimateModel?> getLatestRiskForCity(String city) async {
+    throw Exception('read failed');
+  }
+}
 
 void main() {
   group('latestRiskForCityProvider overridden with FakeRiskRepository', () {
@@ -73,6 +84,107 @@ void main() {
       expect(result?.city, 'Quetta');
       expect(result?.riskLevel, RiskLevel.medium);
     });
+  });
+
+  group('currentCityRiskProvider state matrix', () {
+    // Registers teardown and listens to [currentCityRiskProvider] so the
+    // (chained) async lifecycle is driven to completion; a bare `read(.future)`
+    // can otherwise sit in loading and dispose mid-flight in a container test.
+    ProviderContainer drive(ProviderContainer container) {
+      addTearDown(container.dispose);
+      container.listen(
+        currentCityRiskProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      return container;
+    }
+
+    test('data: resolves the estimate for the user\'s city', () async {
+      final container = drive(
+        ProviderContainer(
+          overrides: [
+            userCityProvider.overrideWith((ref) => 'Lahore'),
+            riskRepositoryProvider.overrideWithValue(FakeRiskRepository()),
+          ],
+        ),
+      );
+
+      final result = await container.read(currentCityRiskProvider.future);
+
+      expect(result, isNotNull);
+      expect(result?.city, 'Lahore');
+      expect(result?.riskLevel, RiskLevel.high);
+    });
+
+    test('empty: city has no estimate yet -> null (no crash)', () async {
+      final container = drive(
+        ProviderContainer(
+          overrides: [
+            userCityProvider.overrideWith((ref) => 'Nowhere'),
+            riskRepositoryProvider.overrideWithValue(FakeRiskRepository()),
+          ],
+        ),
+      );
+
+      final result = await container.read(currentCityRiskProvider.future);
+
+      expect(result, isNull);
+    });
+
+    test(
+      'empty: no city on file -> null without hitting the repository',
+      () async {
+        final container = drive(
+          ProviderContainer(
+            overrides: [
+              userCityProvider.overrideWith((ref) => null),
+              riskRepositoryProvider.overrideWithValue(
+                _ThrowingRiskRepository(),
+              ),
+            ],
+          ),
+        );
+
+        // A null city short-circuits before the (throwing) repository is called.
+        final result = await container.read(currentCityRiskProvider.future);
+
+        expect(result, isNull);
+      },
+    );
+
+    test(
+      'error: a failed repository read surfaces as AsyncError, not a crash',
+      () async {
+        // Asserted on the single-provider read (no chaining): a throwing
+        // repository — e.g. a denied read, or offline with nothing cached —
+        // drives the provider to AsyncError, which the UI renders as the
+        // error/offline state. currentCityRiskProvider simply forwards this.
+        // Captured via the AsyncValue listener (not `.future`, which does not
+        // settle cleanly on the error path in a container test).
+        final container = ProviderContainer(
+          overrides: [
+            riskRepositoryProvider.overrideWithValue(_ThrowingRiskRepository()),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // Keep the provider alive (swallowing the surfaced error) and let the
+        // failing read propagate, then read the settled AsyncValue.
+        container.listen<AsyncValue<RiskEstimateModel?>>(
+          latestRiskForCityProvider('Lahore'),
+          (_, _) {},
+          onError: (_, _) {},
+          fireImmediately: true,
+        );
+        await pumpEventQueue(times: 20);
+
+        final value = container.read(latestRiskForCityProvider('Lahore'));
+
+        expect(value.hasError, isTrue);
+        expect(value.error, isA<Exception>());
+      },
+    );
   });
 
   group('FirestoreRiskRepository.modelFromSnapshotData', () {

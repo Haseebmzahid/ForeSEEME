@@ -46,3 +46,27 @@ final profileExistsProvider = FutureProvider<bool>((ref) async {
     },
   );
 });
+
+/// The signed-in user's city from their health profile, or `null`.
+///
+/// Resolves to `null` when there is no authenticated user, no profile yet, no
+/// city on file, or the profile read fails. A missing city is an *empty* state,
+/// not an error: profile-read failures collapse to `null` (mirroring
+/// [profileExistsProvider]) so dependents render "no city / nothing to show yet"
+/// instead of an error screen.
+///
+/// Reactive: rebuilds when auth changes or the profile is re-fetched, so risk
+/// consumers (dashboard card, trend, map) follow a city change automatically.
+final userCityProvider = FutureProvider<String?>((ref) async {
+  final user = await ref.watch(authStateProvider.future);
+  if (user == null) return null;
+
+  final result = await ref
+      .read(healthProfileRepositoryProvider)
+      .getProfile(user.uid);
+
+  return result.fold((_) => null, (profile) {
+    final city = profile?.city;
+    return (city == null || city.isEmpty) ? null : city;
+  });
+});

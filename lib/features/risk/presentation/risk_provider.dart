@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -28,18 +27,22 @@ final latestRiskForCityProvider =
 /// Latest risk estimate for the *current user's* city, as
 /// `AsyncValue<RiskEstimate?>`.
 ///
-/// Derives the city from the signed-in user's health profile, then delegates to
-/// [latestRiskForCityProvider]. Returns `null` when there is no user, no
-/// profile, or no city on file.
+/// Derives the city from [userCityProvider], then delegates to
+/// [latestRiskForCityProvider]. This is the single source the dashboard binds
+/// to; its `AsyncValue` maps directly onto the four UI states:
+///
+/// * **loading** — `AsyncLoading` while the city / estimate resolve;
+/// * **data**    — `AsyncData(estimate)` with a real [RiskEstimateModel];
+/// * **empty**   — `AsyncData(null)` when there is no user, no city on file, or
+///   no estimate yet for the city (a clean empty state, never a crash);
+/// * **error / offline-without-cache** — `AsyncError`, surfaced by the read
+///   throwing (e.g. a denied read, or offline with nothing cached). When the
+///   device is offline *with* a cached estimate, Firestore serves it and this
+///   resolves to **data** transparently (see
+///   [FirestoreRiskRepository.getLatestRiskForCity]).
 final currentCityRiskProvider = FutureProvider<RiskEstimateModel?>((ref) async {
-  final user = await ref.watch(authStateProvider.future);
-  if (user == null) return null;
-
-  final profileResult = await ref
-      .read(healthProfileRepositoryProvider)
-      .getProfile(user.uid);
-  final city = profileResult.fold((_) => null, (profile) => profile?.city);
-  if (city == null || city.isEmpty) return null;
+  final city = await ref.watch(userCityProvider.future);
+  if (city == null) return null;
 
   return ref.watch(latestRiskForCityProvider(city).future);
 });

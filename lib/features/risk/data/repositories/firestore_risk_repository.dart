@@ -23,6 +23,12 @@ class FirestoreRiskRepository implements RiskRepository {
   Future<RiskEstimateModel?> getLatestRiskForCity(String city) async {
     // Latest estimate = highest `generatedAt` for the city. `generatedAt` is an
     // ISO-8601 UTC string (frozen contract), which sorts correctly as a string.
+    //
+    // Offline behaviour: `get()` uses the default `Source.serverAndCache`, and
+    // Firestore's local persistence is enabled by default on mobile — so when
+    // the device is offline this transparently returns the last cached estimate
+    // (a `data` state). It only throws when offline *and* nothing is cached for
+    // the query, which surfaces upstream as an `AsyncError` (offline/error UI).
     final snapshot = await _collection
         .where('city', isEqualTo: city)
         .orderBy('generatedAt', descending: true)
@@ -43,7 +49,10 @@ class FirestoreRiskRepository implements RiskRepository {
     final normalised = Map<String, dynamic>.from(data);
     final generatedAt = normalised['generatedAt'];
     if (generatedAt is Timestamp) {
-      normalised['generatedAt'] = generatedAt.toDate().toUtc().toIso8601String();
+      normalised['generatedAt'] = generatedAt
+          .toDate()
+          .toUtc()
+          .toIso8601String();
     }
     return RiskEstimateModel.fromJson(normalised);
   }

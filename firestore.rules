@@ -3,12 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // riskEstimates (ADR-001 / docs/RISK_SCHEMA.md):
-    // Authenticated clients may READ; clients may NEVER write. The collection is
-    // written only by the backend service account, whose Admin SDK bypasses
-    // these rules. NOTE: Firestore ORs `allow` rules across matching blocks, so
-    // the recursive wildcard below also matches this path — `write: if false`
-    // only guarantees denial while that wildcard does not itself allow writes.
+    // riskEstimates (ADR-001 / docs/RISK_SCHEMA.md) — Sprint 3 risk binding:
+    // Any AUTHENTICATED client may READ; clients may NEVER write. The collection
+    // is written only by the backend service account, whose Admin SDK bypasses
+    // these rules. This rule is self-sufficient: `read: if request.auth != null`
+    // denies unauthenticated reads on its own, and does not rely on the
+    // catch-all below (which is intentionally left untouched here — it governs
+    // the frozen Sprint 1/2 collections, e.g. users / health profiles /
+    // medications). NOTE: Firestore ORs `allow` rules across matching blocks, so
+    // `write: if false` only guarantees denial while no other matching block
+    // (the wildcard) itself allows writes to this path.
     match /riskEstimates/{docId} {
       allow read: if request.auth != null;
       allow write: if false;
