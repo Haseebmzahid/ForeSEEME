@@ -18,7 +18,7 @@ import 'package:fyp_foreseeme/features/medication/presentation/add_medication_sc
 import 'package:fyp_foreseeme/features/medication/presentation/check_in_screen.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_history_screen.dart';
 
-import 'package:fyp_foreseeme/features/resources/presentation/resources_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
 import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 
@@ -191,7 +191,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/resources',
-                builder: (context, state) => const ResourcesScreen(),
+                builder: (context, state) => const ResourceCenterScreen(),
               ),
             ],
           ),
