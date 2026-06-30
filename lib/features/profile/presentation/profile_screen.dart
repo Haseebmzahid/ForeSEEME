@@ -144,8 +144,7 @@ class ProfileScreen extends ConsumerWidget {
                           icon: Icons.notifications_outlined,
                           title: 'Notifications',
                           subtitle: 'Manage push alerts',
-                          onTap: () =>
-                              context.push('/notifications/permission'),
+                          onTap: () => context.push('/notifications/settings'),
                         ),
                         _Divider(),
                         _SettingsTile(
