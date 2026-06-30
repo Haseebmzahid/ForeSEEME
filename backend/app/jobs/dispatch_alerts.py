@@ -23,10 +23,10 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Protocol
 
-from app.jobs.alerting import recommendation_lookup, targeting
+from app.jobs.alerting import recommendation_lookup, targeting, throttle
 from app.jobs.alerting.messaging import (
     FcmSender,
     FirebaseAdminFcmSender,
@@ -35,6 +35,7 @@ from app.jobs.alerting.messaging import (
 )
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import CityRisk, Target, TargetUser
+from app.jobs.alerting.throttle import ThrottleDecision
 from ml.pipelines import clean
 
 logger = logging.getLogger("foreseeme.jobs.dispatch_alerts")
@@ -42,12 +43,14 @@ logger = logging.getLogger("foreseeme.jobs.dispatch_alerts")
 COLLECTION_RISK = "riskEstimates"
 COLLECTION_LOG = "alertDispatchLog"
 COLLECTION_USER_ALERTS = "userAlerts"
-THROTTLE_WINDOW = timedelta(hours=24)
+THROTTLE_WINDOW = throttle.THROTTLE_WINDOW
 
 _REASONS = {
     "sent": "delivered",
     "token_invalid": "fcm token unregistered",
     "failed": "fcm send failed",
+    "skipped_idempotent": "already dispatched for this estimate",
+    "skipped_throttled": "within 24h of a prior alert for this category",
 }
 
 
@@ -69,11 +72,19 @@ class UserDirectory(Protocol):
 
 
 class DispatchRepository(Protocol):
-    """Idempotent writes for the audit log + the in-app inbox."""
+    """Reads + idempotent writes for the audit log/inbox, plus token hygiene."""
 
     def write_dispatch_log(self, log_id: str, body: dict) -> None: ...
 
     def write_user_alert(self, uid: str, alert_id: str, body: dict) -> None: ...
+
+    # Ledger reads for the throttle/idempotency gate (Prompt 3).
+    def has_dispatch(self, log_id: str) -> bool: ...
+
+    def recently_sent(self, uid: str, category: str, since: datetime) -> bool: ...
+
+    # Token hygiene (Prompt 3): drop a token FCM reported as unregistered.
+    def prune_token(self, uid: str) -> None: ...
 
 
 @dataclass
@@ -150,8 +161,36 @@ def _dispatch(
     repository: DispatchRepository,
     now: datetime,
 ) -> DispatchOutcome:
-    recommendation = recommendation_lookup.lookup(target.category, target.driver)
     log_id = dispatch_key(target.uid, latest.doc_id, target.category)
+
+    # Idempotency + 24h throttle gate (Prompt 3) — before any send.
+    decision = throttle.evaluate(
+        repository,
+        uid=target.uid,
+        category=target.category,
+        log_id=log_id,
+        now=now,
+    )
+    if decision is ThrottleDecision.SKIP_IDEMPOTENT:
+        # The estimate was already dispatched; leave the original log intact.
+        logger.info(
+            "skipped_idempotent", extra={"uid": target.uid, "log_id": log_id}
+        )
+        return DispatchOutcome(
+            target.uid, target.city, target.category, "skipped_idempotent", log_id
+        )
+    if decision is ThrottleDecision.SKIP_THROTTLED:
+        repository.write_dispatch_log(
+            log_id, _skip_log_body(target, latest, "skipped_throttled", now)
+        )
+        logger.info(
+            "skipped_throttled", extra={"uid": target.uid, "log_id": log_id}
+        )
+        return DispatchOutcome(
+            target.uid, target.city, target.category, "skipped_throttled", log_id
+        )
+
+    recommendation = recommendation_lookup.lookup(target.category, target.driver)
     title, body, data = build_notification(target, recommendation, latest.doc_id)
 
     assert user.fcm_token is not None  # guaranteed by targeting.evaluate
@@ -166,6 +205,10 @@ def _dispatch(
             log_id,
             _alert_body(target, latest, recommendation, title, body, now),
         )
+    elif result.status == "token_invalid":
+        # Token hygiene: drop the dead token so future runs skip it.
+        repository.prune_token(target.uid)
+        logger.info("token_pruned", extra={"uid": target.uid})
 
     logger.info(
         "dispatch_attempt",
@@ -241,6 +284,30 @@ def _alert_body(
         "createdAt": now,
         "read": False,
         "readAt": None,
+    }
+
+
+def _skip_log_body(
+    target: Target, latest: CityRisk, status: str, now: datetime
+) -> dict:
+    """Audit entry for a suppressed (throttled) dispatch — no send, no inbox."""
+    return {
+        "uid": target.uid,
+        "city": target.city,
+        "category": target.category,
+        "riskEstimateId": latest.doc_id,
+        "generatedAt": latest.generated_at,
+        "previousRiskLevel": target.previous_risk_level,
+        "riskLevel": target.risk_level,
+        "disease": target.disease,
+        "driver": target.driver,
+        "modelVersion": latest.model_version,
+        "status": status,
+        "reason": _REASONS.get(status, status),
+        "recommendationId": None,
+        "fcmMessageId": None,
+        "createdAt": now,
+        "throttleWindowEnd": now + THROTTLE_WINDOW,
     }
 
 
@@ -342,6 +409,32 @@ class FirestoreDispatchRepository:
             .collection("items")
             .document(alert_id)
             .set(body)
+        )
+
+    def has_dispatch(self, log_id: str) -> bool:
+        return self._db.collection(COLLECTION_LOG).document(log_id).get().exists
+
+    def recently_sent(self, uid: str, category: str, since: datetime) -> bool:
+        from google.cloud.firestore_v1.base_query import FieldFilter
+
+        # Needs the composite index (uid, category, status, createdAt) in
+        # firestore.indexes.json.
+        snapshot = (
+            self._db.collection(COLLECTION_LOG)
+            .where(filter=FieldFilter("uid", "==", uid))
+            .where(filter=FieldFilter("category", "==", category))
+            .where(filter=FieldFilter("status", "==", "sent"))
+            .where(filter=FieldFilter("createdAt", ">=", since))
+            .limit(1)
+            .get()
+        )
+        return len(list(snapshot)) > 0
+
+    def prune_token(self, uid: str) -> None:
+        from firebase_admin import firestore
+
+        self._db.collection("users").document(uid).update(
+            {"fcmToken": firestore.DELETE_FIELD}
         )
 
 

@@ -43,6 +43,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- FCM background/terminated notifications use the Risk Alerts channel
+             (Sprint 4, Prompt 4). The channel itself is created at runtime. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="risk_alerts" />
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />

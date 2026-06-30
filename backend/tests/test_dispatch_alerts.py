@@ -9,7 +9,7 @@ doc; a token-invalid send is audited without an inbox doc.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.jobs import dispatch_alerts as job
 from app.jobs.alerting.messaging import SendResult
@@ -74,15 +74,33 @@ class FakeSender:
 
 
 class FakeRepository:
+    """In-memory ledger that reads its own logs (realistic throttle/idempotency)."""
+
     def __init__(self):
         self.logs: dict[str, dict] = {}
         self.alerts: dict[tuple[str, str], dict] = {}
+        self.pruned: list[str] = []
 
     def write_dispatch_log(self, log_id, body):
         self.logs[log_id] = body
 
     def write_user_alert(self, uid, alert_id, body):
         self.alerts[(uid, alert_id)] = body
+
+    def has_dispatch(self, log_id):
+        return log_id in self.logs
+
+    def recently_sent(self, uid, category, since):
+        return any(
+            b["uid"] == uid
+            and b["category"] == category
+            and b["status"] == "sent"
+            and b["createdAt"] >= since
+            for b in self.logs.values()
+        )
+
+    def prune_token(self, uid):
+        self.pruned.append(uid)
 
 
 def _run(history, directory, sender=None, repository=None):
@@ -167,6 +185,7 @@ def test_token_invalid_is_audited_without_inbox() -> None:
     log_id = "u1__Lahore_2026-06-30__respiratory"
     assert repo.logs[log_id]["status"] == "token_invalid"
     assert ("u1", log_id) not in repo.alerts  # no inbox doc on failure
+    assert repo.pruned == ["u1"]  # token hygiene: dead token removed
 
 
 def test_insufficient_history_skips_city() -> None:
@@ -184,3 +203,66 @@ def test_dispatch_key_is_derived_from_the_estimate() -> None:
         job.dispatch_key("u1", "Lahore_2026-06-30", "respiratory")
         == "u1__Lahore_2026-06-30__respiratory"
     )
+
+
+def test_rerun_same_estimate_sends_nothing_new() -> None:
+    history = FakeHistory({"Lahore": (_city("High"), _city("Medium"))})
+    directory = FakeDirectory({"Lahore": [_user("u1", ["Asthma"])]})
+    sender = FakeSender()
+    repo = FakeRepository()
+
+    def _go(now):
+        return job.run(
+            history=history,
+            directory=directory,
+            sender=sender,
+            repository=repo,
+            cities=CITIES,
+            now=now,
+        )
+
+    first = _go(NOW)
+    second = _go(NOW)  # identical estimate
+
+    assert first[0].status == "sent"
+    assert second[0].status == "skipped_idempotent"
+    assert len(sender.sends) == 1  # zero duplicate sends on re-run
+    assert len(repo.alerts) == 1  # one inbox doc total
+
+
+def test_second_event_within_24h_is_throttled() -> None:
+    directory = FakeDirectory({"Lahore": [_user("u1", ["Asthma"])]})
+    sender = FakeSender()
+    repo = FakeRepository()
+
+    # First qualifying event.
+    job.run(
+        history=FakeHistory({"Lahore": (_city("High"), _city("Medium"))}),
+        directory=directory,
+        sender=sender,
+        repository=repo,
+        cities=CITIES,
+        now=NOW,
+    )
+
+    # A second, DIFFERENT estimate ~1h later (new key, but within 24h).
+    later = CityRisk(
+        city="Lahore",
+        risk_level="High",
+        disease="Smog",
+        generated_at="2026-07-01T00:00:00.000Z",
+        model_version="rf-1.0.0",
+        doc_id="Lahore_2026-07-01",
+    )
+    outcomes = job.run(
+        history=FakeHistory({"Lahore": (later, _city("Medium"))}),
+        directory=directory,
+        sender=sender,
+        repository=repo,
+        cities=CITIES,
+        now=NOW + timedelta(hours=1),
+    )
+
+    assert outcomes[0].status == "skipped_throttled"
+    assert len(sender.sends) == 1  # second event suppressed (no spam)
+    assert repo.logs["u1__Lahore_2026-07-01__respiratory"]["status"] == "skipped_throttled"

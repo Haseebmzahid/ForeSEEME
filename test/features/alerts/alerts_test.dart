@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_fcm_token_repository.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/models/incoming_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
@@ -35,6 +36,16 @@ class FakePushMessagingService implements PushMessagingService {
   Stream<String> onTokenRefresh() => _refresh.stream;
 
   void emitRefresh(String token) => _refresh.add(token);
+
+  // Inbound-message members (Prompt 4) — unused by these capture-only tests.
+  @override
+  Stream<IncomingAlert> get onForegroundMessage => const Stream.empty();
+
+  @override
+  Stream<IncomingAlert> get onMessageOpened => const Stream.empty();
+
+  @override
+  Future<IncomingAlert?> getInitialMessage() async => null;
 }
 
 class RecordingFcmTokenRepository implements FcmTokenRepository {

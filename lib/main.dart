@@ -6,6 +6,7 @@ import 'core/routes/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/services/local_notification_service.dart';
+import 'features/alerts/presentation/alerts_providers.dart';
 // TODO: import 'firebase_options.dart'; once generated
 
 void main() async {
@@ -29,11 +30,26 @@ void main() async {
   );
 }
 
-class ForeSeeMeApp extends ConsumerWidget {
+class ForeSeeMeApp extends ConsumerStatefulWidget {
   const ForeSeeMeApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ForeSeeMeApp> createState() => _ForeSeeMeAppState();
+}
+
+class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Start FCM message handling once the first frame (and router) are ready,
+    // so a terminated-launch tap can be routed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(fcmMessageHandlerProvider).start();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeNotifierProvider);
 
