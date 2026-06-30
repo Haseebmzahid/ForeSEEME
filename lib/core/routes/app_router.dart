@@ -22,6 +22,7 @@ import 'package:fyp_foreseeme/features/resources/presentation/resource_center_sc
 import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
+import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorDashboardKey =
@@ -148,6 +149,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/nearby-hospitals',
         builder: (context, state) => const NearbyHospitalsScreen(),
+      ),
+      GoRoute(
+        path: '/notifications/permission',
+        builder: (context, state) => const NotificationPermissionScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

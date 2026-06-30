@@ -18,6 +18,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // users/{uid} (Sprint 3 P7/P8): a signed-in user may read and write ONLY
+    // their own document and subtree — this is where `fcmToken` and
+    // `notificationPreferences` live (and the health-profile subcollection).
+    // A user can never read or write another user's token/data (uid must match).
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /{document=**} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid == userId;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if request.time < timestamp.date(2026, 6, 1);
     }

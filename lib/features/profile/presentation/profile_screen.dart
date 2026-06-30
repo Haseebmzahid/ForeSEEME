@@ -37,7 +37,10 @@ class ProfileScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+            ),
             onPressed: () {},
           ),
           const SizedBox(width: 8),
@@ -50,7 +53,11 @@ class ProfileScreen extends ConsumerWidget {
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF06111D), Color(0xFF0D1F38), Color(0xFF040A12)],
+                  colors: [
+                    Color(0xFF06111D),
+                    Color(0xFF0D1F38),
+                    Color(0xFF040A12),
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   stops: [0.0, 0.4, 1.0],
@@ -82,7 +89,10 @@ class ProfileScreen extends ConsumerWidget {
           SafeArea(
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24.0,
+                vertical: 20.0,
+              ),
               child: Column(
                 children: [
                   // Hero Profile Section
@@ -124,14 +134,18 @@ class ProfileScreen extends ConsumerWidget {
                           icon: Icons.health_and_safety_outlined,
                           title: 'Health Profile',
                           subtitle: 'Edit your medical history',
-                          onTap: () => context.push('/health-profile', extra: {'isEditMode': true}),
+                          onTap: () => context.push(
+                            '/health-profile',
+                            extra: {'isEditMode': true},
+                          ),
                         ),
                         _Divider(),
                         _SettingsTile(
                           icon: Icons.notifications_outlined,
                           title: 'Notifications',
                           subtitle: 'Manage push alerts',
-                          onTap: () {},
+                          onTap: () =>
+                              context.push('/notifications/permission'),
                         ),
                         _Divider(),
                         _SettingsTile(
@@ -262,7 +276,11 @@ class _ProfileHeroSection extends StatelessWidget {
                   color: _kCyan,
                   border: Border.all(color: const Color(0xFF0D1F38), width: 3),
                 ),
-                child: const Icon(Icons.edit_rounded, color: Color(0xFF0D1F38), size: 16),
+                child: const Icon(
+                  Icons.edit_rounded,
+                  color: Color(0xFF0D1F38),
+                  size: 16,
+                ),
               ),
             ),
           ],
@@ -342,7 +360,11 @@ class _HealthOverviewSection extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.health_and_safety_rounded, color: _kCyan, size: 18),
+              const Icon(
+                Icons.health_and_safety_rounded,
+                color: _kCyan,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 'HEALTH OVERVIEW',
@@ -482,7 +504,10 @@ class _OverviewCard extends StatelessWidget {
               if (badge != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: badgeColor?.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -513,7 +538,8 @@ class _PremiumThemeSwitcher extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeNotifierProvider);
-    final isDark = themeMode == ThemeMode.dark ||
+    final isDark =
+        themeMode == ThemeMode.dark ||
         (themeMode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
@@ -555,13 +581,17 @@ class _PremiumThemeSwitcher extends ConsumerWidget {
                   icon: Icons.dark_mode_rounded,
                   label: 'Dark',
                   isSelected: isDark,
-                  onTap: () => ref.read(themeNotifierProvider.notifier).setThemeMode(ThemeMode.dark),
+                  onTap: () => ref
+                      .read(themeNotifierProvider.notifier)
+                      .setThemeMode(ThemeMode.dark),
                 ),
                 _ThemeToggleButton(
                   icon: Icons.light_mode_rounded,
                   label: 'Light',
                   isSelected: !isDark,
-                  onTap: () => ref.read(themeNotifierProvider.notifier).setThemeMode(ThemeMode.light),
+                  onTap: () => ref
+                      .read(themeNotifierProvider.notifier)
+                      .setThemeMode(ThemeMode.light),
                 ),
               ],
             ),
@@ -602,7 +632,7 @@ class _ThemeToggleButton extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
-                  )
+                  ),
                 ]
               : [],
         ),
@@ -611,7 +641,9 @@ class _ThemeToggleButton extends StatelessWidget {
             Icon(
               icon,
               size: 14,
-              color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.4),
+              color: isSelected
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.4),
             ),
             const SizedBox(width: 6),
             Text(
@@ -619,7 +651,9 @@ class _ThemeToggleButton extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -663,7 +697,9 @@ class _SettingsTileState extends State<_SettingsTile> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: _isHovered ? Colors.white.withValues(alpha: 0.05) : Colors.transparent,
+          color: _isHovered
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.transparent,
         ),
         child: Row(
           children: [
@@ -715,10 +751,7 @@ class _SettingsTileState extends State<_SettingsTile> {
 class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 1,
-      color: Colors.white.withValues(alpha: 0.05),
-    );
+    return Container(height: 1, color: Colors.white.withValues(alpha: 0.05));
   }
 }
 
