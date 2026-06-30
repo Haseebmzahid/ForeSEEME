@@ -7,14 +7,33 @@ import '../../domain/repositories/risk_repository.dart';
 /// (Low / Medium / High). Inject custom data via [seed]; unknown cities
 /// resolve to `null` (mirroring "no estimate yet" from Firestore).
 class FakeRiskRepository implements RiskRepository {
-  FakeRiskRepository({Map<String, RiskEstimateModel>? seed})
-    : _byCity = seed ?? _defaultSeed();
+  FakeRiskRepository({
+    Map<String, RiskEstimateModel>? seed,
+    Map<String, List<RiskEstimateModel>>? history,
+  }) : _byCity = seed ?? _defaultSeed(),
+       _history = history ?? const {};
 
   final Map<String, RiskEstimateModel> _byCity;
+  final Map<String, List<RiskEstimateModel>> _history;
 
   @override
   Future<RiskEstimateModel?> getLatestRiskForCity(String city) async {
     return _byCity[city];
+  }
+
+  @override
+  Future<List<RiskEstimateModel>> getRiskHistory(
+    String city, {
+    int weeks = 6,
+  }) async {
+    // Prefer an explicit history seed; otherwise fall back to the single latest
+    // estimate (one-element history) so callers get consistent behaviour.
+    final source =
+        _history[city] ??
+        (_byCity[city] != null ? [_byCity[city]!] : <RiskEstimateModel>[]);
+    final sorted = [...source]
+      ..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
+    return sorted.take(weeks).toList();
   }
 
   static Map<String, RiskEstimateModel> _defaultSeed() {

@@ -7,6 +7,7 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/health_profil
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
 
 /// The dashboard's primary at-a-glance signal: the user's current city risk,
 /// bound live to [currentCityRiskProvider].
@@ -136,30 +137,49 @@ class _RiskCardData extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${estimate.city} · Today'.toUpperCase(),
-              style: AppTextStylesV2.microLabel,
-            ),
-            const SizedBox(height: 6),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(a.icon, color: a.color, size: 24),
-                const SizedBox(width: 9),
-                Flexible(
-                  child: Text(
-                    a.headline,
-                    style: AppTextStylesV2.headline.copyWith(color: a.color),
-                    overflow: TextOverflow.ellipsis,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${estimate.city} · Today'.toUpperCase(),
+                        style: AppTextStylesV2.microLabel,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(a.icon, color: a.color, size: 24),
+                          const SizedBox(width: 9),
+                          Flexible(
+                            child: Text(
+                              a.headline,
+                              style: AppTextStylesV2.headline.copyWith(
+                                color: a.color,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _subtitle(estimate),
+                        style: AppTextStylesV2.body.copyWith(
+                          color: AppColorsV2.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: RiskTrendBadge(),
+                ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _subtitle(estimate),
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textSecondary,
-              ),
             ),
             const SizedBox(height: 14),
             Row(

@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
 
@@ -65,6 +66,7 @@ void main() {
             currentCityRiskProvider.overrideWith(
               (ref) => estimate(level: RiskLevel.high),
             ),
+            riskTrendProvider.overrideWith((ref) => TrendDirection.rising),
           ],
           child: _host,
         ),
@@ -86,6 +88,7 @@ void main() {
             currentCityRiskProvider.overrideWith(
               (ref) => estimate(level: RiskLevel.medium),
             ),
+            riskTrendProvider.overrideWith((ref) => TrendDirection.stable),
           ],
           child: _host,
         ),
@@ -104,6 +107,7 @@ void main() {
             currentCityRiskProvider.overrideWith(
               (ref) => estimate(level: RiskLevel.low),
             ),
+            riskTrendProvider.overrideWith((ref) => TrendDirection.falling),
           ],
           child: _host,
         ),
@@ -123,6 +127,9 @@ void main() {
           overrides: [
             currentCityRiskProvider.overrideWith(
               (ref) => estimate(level: RiskLevel.high, lowConfidence: true),
+            ),
+            riskTrendProvider.overrideWith(
+              (ref) => TrendDirection.insufficient,
             ),
           ],
           child: _host,

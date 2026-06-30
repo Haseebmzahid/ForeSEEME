@@ -10,4 +10,11 @@ abstract class RiskRepository {
   /// Returns the most recent [RiskEstimateModel] for [city], or `null` if no
   /// estimate exists for that city.
   Future<RiskEstimateModel?> getLatestRiskForCity(String city);
+
+  /// Returns up to [weeks] most-recent estimates for [city], newest first.
+  ///
+  /// Additive read for the trend indicator (Sprint 3, Prompt 3): it only reads
+  /// the same `riskEstimates` collection and never touches the write path. May
+  /// return fewer than [weeks] (or an empty list) when little history exists.
+  Future<List<RiskEstimateModel>> getRiskHistory(String city, {int weeks});
 }

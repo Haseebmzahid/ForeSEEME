@@ -39,6 +39,26 @@ class FirestoreRiskRepository implements RiskRepository {
     return modelFromSnapshotData(snapshot.docs.first.data());
   }
 
+  @override
+  Future<List<RiskEstimateModel>> getRiskHistory(
+    String city, {
+    int weeks = 6,
+  }) async {
+    // Trailing window: the [weeks] most recent estimates for the city, newest
+    // first. Same read shape as [getLatestRiskForCity] (city equality +
+    // generatedAt order), so it uses the same composite index; purely additive
+    // and read-only — it never touches the batch job's write path.
+    final snapshot = await _collection
+        .where('city', isEqualTo: city)
+        .orderBy('generatedAt', descending: true)
+        .limit(weeks)
+        .get();
+
+    return snapshot.docs
+        .map((doc) => modelFromSnapshotData(doc.data()))
+        .toList();
+  }
+
   /// Maps a raw Firestore document body to a [RiskEstimateModel].
   ///
   /// Normalises `generatedAt` so a Firestore [Timestamp] (if a writer stores one

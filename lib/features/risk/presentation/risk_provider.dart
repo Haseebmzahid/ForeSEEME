@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_trend_service.dart';
 
 /// Provides the concrete [RiskRepository].
 ///
@@ -45,4 +47,30 @@ final currentCityRiskProvider = FutureProvider<RiskEstimateModel?>((ref) async {
   if (city == null) return null;
 
   return ref.watch(latestRiskForCityProvider(city).future);
+});
+
+/// Trailing risk history for an explicit [city] (newest first), as
+/// `AsyncValue<List<RiskEstimate>>`.
+///
+/// Additive read (Prompt 3); fetches the last [kTrendWindowWeeks] estimates.
+/// Reuses the same `riskEstimates` collection — never the write path.
+final riskHistoryProvider =
+    FutureProvider.family<List<RiskEstimateModel>, String>((ref, city) {
+      final repository = ref.watch(riskRepositoryProvider);
+      return repository.getRiskHistory(city, weeks: kTrendWindowWeeks);
+    });
+
+/// Risk trend (Rising / Stable / Falling / Insufficient) for the current user's
+/// city, as `AsyncValue<TrendDirection>`.
+///
+/// Derives the city from [userCityProvider], pulls the trailing history, and
+/// applies the deterministic [computeTrend]. Returns
+/// [TrendDirection.insufficient] when there is no city or too little history —
+/// never a misleading arrow.
+final riskTrendProvider = FutureProvider<TrendDirection>((ref) async {
+  final city = await ref.watch(userCityProvider.future);
+  if (city == null) return TrendDirection.insufficient;
+
+  final history = await ref.watch(riskHistoryProvider(city).future);
+  return computeTrend(history);
 });

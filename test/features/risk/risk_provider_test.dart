@@ -15,6 +15,14 @@ class _ThrowingRiskRepository implements RiskRepository {
   Future<RiskEstimateModel?> getLatestRiskForCity(String city) async {
     throw Exception('read failed');
   }
+
+  @override
+  Future<List<RiskEstimateModel>> getRiskHistory(
+    String city, {
+    int weeks = 6,
+  }) async {
+    throw Exception('read failed');
+  }
 }
 
 void main() {
