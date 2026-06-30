@@ -33,3 +33,16 @@ services:
       FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-}
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
     command: ["python", "-m", "app.jobs.compute_risk"]
+
+  # Sprint 4 sibling job: the scheduled FCM alert dispatch engine (Cloud
+  # Scheduler -> Cloud Run Job). Same image; service-account / emulator auth as above.
+  dispatch-alerts-job:
+    build: .
+    image: foreseeme-backend
+    profiles: ["jobs"]        # opt-in: `docker compose --profile jobs run dispatch-alerts-job`
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      FIRESTORE_EMULATOR_HOST: ${FIRESTORE_EMULATOR_HOST:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+    command: ["python", "-m", "app.jobs.dispatch_alerts"]
