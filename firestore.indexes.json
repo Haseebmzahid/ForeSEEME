@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "riskEstimates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "city", "order": "ASCENDING" },
+        { "fieldPath": "generatedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

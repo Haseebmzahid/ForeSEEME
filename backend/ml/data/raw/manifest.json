@@ -1,218 +1,218 @@
 {
   "entries": {
     "raw/aqi/Islamabad.json": {
-      "bytes": 1116207,
+      "bytes": 64876,
       "city": "Islamabad",
-      "fetched_at": "2026-06-28T17:14:10.350393+00:00",
+      "fetched_at": "2026-06-30T08:13:48.792661+00:00",
       "params": {
         "end_date": "2026-06-28",
         "hourly": "pm2_5,pm10,us_aqi",
         "latitude": 33.6844,
         "longitude": 73.0479,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/aqi/Islamabad.json",
-      "sha256": "98821e755d4ee7e4bed9c93b2ec32d7ef8ab5262029b6735699740ddbb22f5b6",
+      "sha256": "ff90e9b04dec67a5da1595bb625f652a0cee4e62b0200046b93616888318b1df",
       "source": "open_meteo_air_quality",
       "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/aqi/Karachi.json": {
-      "bytes": 1107638,
+      "bytes": 64466,
       "city": "Karachi",
-      "fetched_at": "2026-06-28T17:14:19.362559+00:00",
+      "fetched_at": "2026-06-30T08:14:04.007440+00:00",
       "params": {
         "end_date": "2026-06-28",
         "hourly": "pm2_5,pm10,us_aqi",
         "latitude": 24.8607,
         "longitude": 67.0011,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/aqi/Karachi.json",
-      "sha256": "920e62576c9229f3a6e4eba10004cee0378c86ed2a42375b484a616681abfc93",
+      "sha256": "195ad4d155a108136bd8c7a98f03804f9316983c399b440fc38800ab02188275",
       "source": "open_meteo_air_quality",
       "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/aqi/Lahore.json": {
-      "bytes": 1143765,
+      "bytes": 65916,
       "city": "Lahore",
-      "fetched_at": "2026-06-28T17:14:17.644388+00:00",
+      "fetched_at": "2026-06-30T08:13:58.874153+00:00",
       "params": {
         "end_date": "2026-06-28",
         "hourly": "pm2_5,pm10,us_aqi",
         "latitude": 31.5497,
         "longitude": 74.3436,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/aqi/Lahore.json",
-      "sha256": "df453ca6993cdae31c8d8a8874464a114b8b8567ed85dfe86011d1c5ce2ba721",
+      "sha256": "a6929afba94bc283b4e623ac8a4e38bc470743e66f088473259e7b07b9b80c2b",
       "source": "open_meteo_air_quality",
       "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/aqi/Peshawar.json": {
-      "bytes": 1113624,
+      "bytes": 64726,
       "city": "Peshawar",
-      "fetched_at": "2026-06-28T17:14:21.323513+00:00",
+      "fetched_at": "2026-06-30T08:14:08.824174+00:00",
       "params": {
         "end_date": "2026-06-28",
         "hourly": "pm2_5,pm10,us_aqi",
         "latitude": 34.0151,
         "longitude": 71.5249,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/aqi/Peshawar.json",
-      "sha256": "3cf678f344729b3edd5fd1114e9bd3e89bc1d03588c1fecb1dbc00997c6e8c9d",
+      "sha256": "dfcb365859600eda0fedafccdff9ba45e6dba09b8666bbb3968fe4ccfd083c52",
       "source": "open_meteo_air_quality",
       "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/aqi/Rawalpindi.json": {
-      "bytes": 1116201,
+      "bytes": 64870,
       "city": "Rawalpindi",
-      "fetched_at": "2026-06-28T17:14:15.120104+00:00",
+      "fetched_at": "2026-06-30T08:13:54.026886+00:00",
       "params": {
         "end_date": "2026-06-28",
         "hourly": "pm2_5,pm10,us_aqi",
         "latitude": 33.5651,
         "longitude": 73.0169,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/aqi/Rawalpindi.json",
-      "sha256": "43e278bbfcbbaa9cc6f4832b9b805dac734941ff616d39aff5e921cd5164d675",
+      "sha256": "3ad338be6faa66ebca37bef6186e71585b0e2360579b890a31ad1a9811346c61",
       "source": "open_meteo_air_quality",
       "url": "https://air-quality-api.open-meteo.com/v1/air-quality",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/weather/Islamabad.json": {
-      "bytes": 785138,
+      "bytes": 46159,
       "city": "Islamabad",
-      "fetched_at": "2026-06-28T17:05:47.571630+00:00",
+      "fetched_at": "2026-06-30T08:13:47.449392+00:00",
       "params": {
         "daily": "temperature_2m_mean,precipitation_sum",
         "end_date": "2026-06-28",
         "hourly": "relative_humidity_2m",
         "latitude": 33.6844,
         "longitude": 73.0479,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/weather/Islamabad.json",
-      "sha256": "de8232d6764c7743e6bf9fefb30093ec00a0743882c395d1c85ce25dad53b6b6",
+      "sha256": "d41053f5b28f5de445f945330b51045d7325590953d39e3f93321ae26d83a903",
       "source": "open_meteo_weather",
       "url": "https://archive-api.open-meteo.com/v1/archive",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/weather/Karachi.json": {
-      "bytes": 785041,
+      "bytes": 46153,
       "city": "Karachi",
-      "fetched_at": "2026-06-28T17:05:59.398249+00:00",
+      "fetched_at": "2026-06-30T08:14:02.849073+00:00",
       "params": {
         "daily": "temperature_2m_mean,precipitation_sum",
         "end_date": "2026-06-28",
         "hourly": "relative_humidity_2m",
         "latitude": 24.8607,
         "longitude": 67.0011,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/weather/Karachi.json",
-      "sha256": "1eb50511cb863dbafe9fdc9c4dc1e1a60cb0398b983c71e2fd4a53436c46baad",
+      "sha256": "b57bffe5cf30fcb669e67b728ae0bc38b40b5948aa02401bae5001b0520ef0d2",
       "source": "open_meteo_weather",
       "url": "https://archive-api.open-meteo.com/v1/archive",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/weather/Lahore.json": {
-      "bytes": 785348,
+      "bytes": 46161,
       "city": "Lahore",
-      "fetched_at": "2026-06-28T17:05:54.691033+00:00",
+      "fetched_at": "2026-06-30T08:13:57.713316+00:00",
       "params": {
         "daily": "temperature_2m_mean,precipitation_sum",
         "end_date": "2026-06-28",
         "hourly": "relative_humidity_2m",
         "latitude": 31.5497,
         "longitude": 74.3436,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/weather/Lahore.json",
-      "sha256": "9d1e3d394c64653c44d02e5dcaf74c55efbda7f9a498a57c94c731701fee6b6e",
+      "sha256": "785735d46264db26ccaeb249b4ca1612c5d78f3c640e83f529c3d41b05cc6b36",
       "source": "open_meteo_weather",
       "url": "https://archive-api.open-meteo.com/v1/archive",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/weather/Peshawar.json": {
-      "bytes": 784958,
+      "bytes": 46161,
       "city": "Peshawar",
-      "fetched_at": "2026-06-28T17:06:08.380091+00:00",
+      "fetched_at": "2026-06-30T08:14:07.624861+00:00",
       "params": {
         "daily": "temperature_2m_mean,precipitation_sum",
         "end_date": "2026-06-28",
         "hourly": "relative_humidity_2m",
         "latitude": 34.0151,
         "longitude": 71.5249,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/weather/Peshawar.json",
-      "sha256": "de6ab32d66e7fce290d9cd13135c6c4fda78dc14a31dcde66ec03241e98996ad",
+      "sha256": "34ba3f7c0445e50ac825456cad9f0e88c2008038ff5a7ec5b66f3be11a0f1ccf",
       "source": "open_meteo_weather",
       "url": "https://archive-api.open-meteo.com/v1/archive",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     },
     "raw/weather/Rawalpindi.json": {
-      "bytes": 785081,
+      "bytes": 46161,
       "city": "Rawalpindi",
-      "fetched_at": "2026-06-28T17:05:51.224291+00:00",
+      "fetched_at": "2026-06-30T08:13:52.866269+00:00",
       "params": {
         "daily": "temperature_2m_mean,precipitation_sum",
         "end_date": "2026-06-28",
         "hourly": "relative_humidity_2m",
         "latitude": 33.5651,
         "longitude": 73.0169,
-        "start_date": "2022-08-05",
+        "start_date": "2026-04-07",
         "timezone": "UTC"
       },
       "path": "raw/weather/Rawalpindi.json",
-      "sha256": "70d80e8540410f4d4289712dd9531acd9263dbbd1ec6dcf2e95d64346eddc661",
+      "sha256": "3709bd730d3fc30db82f4c6fc3950b6375e485f7044368a6be6f1b816f591c34",
       "source": "open_meteo_weather",
       "url": "https://archive-api.open-meteo.com/v1/archive",
       "window": {
         "end": "2026-06-28",
-        "start": "2022-08-05"
+        "start": "2026-04-07"
       }
     }
   },

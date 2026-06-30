@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
 
 const _kTeal = Color(0xFF006D77);
 const _kCyan = Color(0xFF28DDE8);
@@ -71,7 +72,9 @@ String _relativeTime(DateTime scheduled) {
   final diff = scheduled.difference(DateTime.now());
   if (diff.inMinutes <= 1) return 'Now';
   if (diff.inMinutes < 60) return 'In ${diff.inMinutes} mins';
-  if (diff.inHours < 24) return 'In ${diff.inHours} hr${diff.inHours > 1 ? 's' : ''}';
+  if (diff.inHours < 24) {
+    return 'In ${diff.inHours} hr${diff.inHours > 1 ? 's' : ''}';
+  }
   return 'Tomorrow';
 }
 
@@ -104,7 +107,11 @@ class DashboardScreen extends ConsumerWidget {
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF06111D), Color(0xFF0A1628), Color(0xFF040A12)],
+                  colors: [
+                    Color(0xFF06111D),
+                    Color(0xFF0A1628),
+                    Color(0xFF040A12),
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   stops: [0.0, 0.5, 1.0],
@@ -123,10 +130,7 @@ class DashboardScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [
-                    _kCyan.withValues(alpha: 0.15),
-                    Colors.transparent,
-                  ],
+                  colors: [_kCyan.withValues(alpha: 0.15), Colors.transparent],
                 ),
               ),
             ),
@@ -149,8 +153,8 @@ class DashboardScreen extends ConsumerWidget {
 
                         const SizedBox(height: 32),
 
-                        // 2. RISK / ALERT SECTION
-                        const _RiskAlertCard(),
+                        // 2. LIVE RISK CARD (current city environmental risk)
+                        const RiskCard(),
 
                         const SizedBox(height: 24),
 
@@ -187,7 +191,9 @@ class DashboardScreen extends ConsumerWidget {
                         const SizedBox(height: 16),
                         const _QuickActionsRow(),
 
-                        const SizedBox(height: 120), // Padding for bottom nav bar
+                        const SizedBox(
+                          height: 120,
+                        ), // Padding for bottom nav bar
                       ],
                     ),
                   ),
@@ -244,7 +250,10 @@ class _HeroOverviewSection extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: _kTeal.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
@@ -260,7 +269,11 @@ class _HeroOverviewSection extends StatelessWidget {
                         color: _kCyan,
                         shape: BoxShape.circle,
                         boxShadow: [
-                          BoxShadow(color: _kCyan, blurRadius: 4, spreadRadius: 1),
+                          BoxShadow(
+                            color: _kCyan,
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
                         ],
                       ),
                     ),
@@ -275,7 +288,7 @@ class _HeroOverviewSection extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           ),
         ),
@@ -303,62 +316,14 @@ class _HeroOverviewSection extends StatelessWidget {
               shape: BoxShape.circle,
               color: Color(0xFF0D1F38),
             ),
-            child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-// ── Risk Alert Card ──────────────────────────────────────────────────────────
-
-class _RiskAlertCard extends StatelessWidget {
-  const _RiskAlertCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassContainer(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF4B4B).withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFFF4B4B).withValues(alpha: 0.3)),
-            ),
-            child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF4B4B)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Interaction Alert',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Potential conflict detected between Lisinopril and recent supplements.',
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withValues(alpha: 0.6),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -380,7 +345,11 @@ class _AdherenceSummaryCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.analytics_outlined, color: _kCyan, size: 18),
+                    const Icon(
+                      Icons.analytics_outlined,
+                      color: _kCyan,
+                      size: 18,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'ADHERENCE',
@@ -488,7 +457,10 @@ class _UpcomingMedicationCard extends ConsumerWidget {
               color: _kTeal.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.medication_rounded, color: Colors.white.withValues(alpha: 0.4)),
+            child: Icon(
+              Icons.medication_rounded,
+              color: Colors.white.withValues(alpha: 0.4),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -543,7 +515,9 @@ class _UpcomingMedicationCard extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        med.dosage.isNotEmpty ? med.dosage : med.frequency.label,
+                        med.dosage.isNotEmpty
+                            ? med.dosage
+                            : med.frequency.label,
                         style: GoogleFonts.manrope(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
