@@ -20,6 +20,7 @@ import 'package:fyp_foreseeme/features/medication/presentation/adherence_history
 
 import 'package:fyp_foreseeme/features/resources/presentation/resources_screen.dart';
 import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorDashboardKey =
@@ -138,6 +139,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final isEditMode = extra is Map && extra['isEditMode'] == true;
           return HealthProfileScreen(isEditMode: isEditMode);
         },
+      ),
+      GoRoute(
+        path: '/risk-map',
+        builder: (context, state) => const RiskMapScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

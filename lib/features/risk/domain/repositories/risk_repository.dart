@@ -17,4 +17,11 @@ abstract class RiskRepository {
   /// the same `riskEstimates` collection and never touches the write path. May
   /// return fewer than [weeks] (or an empty list) when little history exists.
   Future<List<RiskEstimateModel>> getRiskHistory(String city, {int weeks});
+
+  /// Returns the latest estimate for each of [cities] that has one.
+  ///
+  /// Additive read for the national risk map (Sprint 3, Prompt 4): latest-per-
+  /// city, read-only. Cities without an estimate are simply omitted, so the
+  /// result has at most `cities.length` entries (order not guaranteed).
+  Future<List<RiskEstimateModel>> getLatestRiskAllCities(List<String> cities);
 }

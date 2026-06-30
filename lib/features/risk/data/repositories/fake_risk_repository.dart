@@ -36,6 +36,16 @@ class FakeRiskRepository implements RiskRepository {
     return sorted.take(weeks).toList();
   }
 
+  @override
+  Future<List<RiskEstimateModel>> getLatestRiskAllCities(
+    List<String> cities,
+  ) async {
+    return [
+      for (final city in cities)
+        if (_byCity[city] != null) _byCity[city]!,
+    ];
+  }
+
   static Map<String, RiskEstimateModel> _defaultSeed() {
     final generatedAt = DateTime.utc(2026, 6, 28);
     return {

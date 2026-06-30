@@ -670,18 +670,18 @@ class _QuickActionsRow extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: _QuickActionCard(
-            icon: Icons.analytics_outlined,
-            label: 'Analytics',
-            // Correct path: existing adherence history screen
-            onTap: () => context.push('/adherence-history'),
+            icon: Icons.place_outlined,
+            label: 'Risk Map',
+            // National risk map (Sprint 3, Prompt 4).
+            onTap: () => context.push('/risk-map'),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _QuickActionCard(
-            icon: Icons.qr_code_scanner_rounded,
-            label: 'Scan Pill',
-            onTap: () {},
+            icon: Icons.menu_book_rounded,
+            label: 'Resources',
+            onTap: () => context.go('/resources'),
           ),
         ),
       ],

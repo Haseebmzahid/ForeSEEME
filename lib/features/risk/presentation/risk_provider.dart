@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fyp_foreseeme/features/health_profile/domain/constants/cities_constants.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -73,4 +74,15 @@ final riskTrendProvider = FutureProvider<TrendDirection>((ref) async {
 
   final history = await ref.watch(riskHistoryProvider(city).future);
   return computeTrend(history);
+});
+
+/// Latest risk estimate for every supported city, as
+/// `AsyncValue<List<RiskEstimate>>` — backs the national risk map (Prompt 4).
+///
+/// Additive, read-only (ADR-001). Cities without an estimate are omitted, so
+/// the map renders only the cities that currently have data.
+final allCitiesRiskProvider = FutureProvider<List<RiskEstimateModel>>((ref) {
+  return ref
+      .watch(riskRepositoryProvider)
+      .getLatestRiskAllCities(kSupportedCities);
 });

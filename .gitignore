@@ -52,7 +52,9 @@ coverage/
 android/.gradle/
 android/build/
 android/captures/
+# Holds the Google Maps Android key (MAPS_API_KEY) + local SDK paths — NEVER commit.
 android/local.properties
+**/local.properties
 
 # Generated APKs / App Bundles
 *.apk

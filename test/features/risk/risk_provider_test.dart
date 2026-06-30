@@ -23,6 +23,13 @@ class _ThrowingRiskRepository implements RiskRepository {
   }) async {
     throw Exception('read failed');
   }
+
+  @override
+  Future<List<RiskEstimateModel>> getLatestRiskAllCities(
+    List<String> cities,
+  ) async {
+    throw Exception('read failed');
+  }
 }
 
 void main() {

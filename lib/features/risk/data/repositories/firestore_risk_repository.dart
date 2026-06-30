@@ -59,6 +59,17 @@ class FirestoreRiskRepository implements RiskRepository {
         .toList();
   }
 
+  @override
+  Future<List<RiskEstimateModel>> getLatestRiskAllCities(
+    List<String> cities,
+  ) async {
+    // Latest-per-city via parallel single-city reads (each uses the same
+    // composite index). Exact and bounded (one query per city), avoiding an
+    // unbounded collection scan. Cities without an estimate drop out.
+    final results = await Future.wait(cities.map(getLatestRiskForCity));
+    return results.whereType<RiskEstimateModel>().toList();
+  }
+
   /// Maps a raw Firestore document body to a [RiskEstimateModel].
   ///
   /// Normalises `generatedAt` so a Firestore [Timestamp] (if a writer stores one
