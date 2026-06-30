@@ -408,3 +408,99 @@ class AuthStateError extends AuthState { }
 | Type Safety | Null-safe Dart | Fewer runtime errors |
 | Error as Values | Either<E, T> monad | Explicit error handling |
 | Reactive Data | Stream-based architecture | Real-time UI updates |
+
+---
+
+## Sprint 3 — Risk Consumption & Visualization Layer
+
+Sprint 3 connects the Flutter client to the Sprint 2 `riskEstimates` feed and adds
+the Resource Center and notification *prep*. All additive and feature-first; the
+Sprint 2 ML pipeline, FastAPI service, and prediction contract are **untouched**.
+Flutter reads risk **only** from Firestore `riskEstimates` and never calls
+`/predict` (ADR-001).
+
+### New / extended features
+
+```
+lib/features/
+  risk/         data: getLatestRiskForCity, getRiskHistory, getLatestRiskAllCities
+                presentation: risk_provider (currentCityRisk / riskTrend / allCitiesRisk),
+                widgets: risk_card, trend_badge, risk_legend, risk_visuals;
+                screens/risk_map_screen
+  resources/    data: static_resource_repository, google_places_repository (cached);
+                services: geolocator_location_service;
+                presentation: resource_center_screen, nearby_hospitals_screen,
+                widgets: emergency_card, resource_article_card, article_detail_sheet,
+                         hospital_list, nearby_hospitals_entry
+  alerts/       data: firestore_fcm_token_repository, firebase_push_messaging_service,
+                      firestore_notification_preferences_repository;
+                presentation: alerts_controller, notification_preferences_controller,
+                              notification_permission_screen, notification_settings_screen
+core/
+  services/launcher_service.dart        # tel: dial + external URLs (url_launcher)
+  theme/app_design_v2.dart              # v2 "Liquid Glass" design tokens (Sprint 3 surfaces)
+```
+
+### Data flow — risk view
+
+```
+Sprint 2 batch job ──(service-account write)──► Firestore: riskEstimates/{city}_{YYYY-MM-DD}
+                                                       │ (authenticated read, ADR-001)
+                                                       ▼
+FirestoreRiskRepository
+  getLatestRiskForCity(city)   ── latestRiskForCityProvider ─┐
+  getRiskHistory(city, weeks)  ── riskHistoryProvider ──► riskTrendProvider (computeTrend)
+  getLatestRiskAllCities(...)  ── allCitiesRiskProvider      │
+                                                              ▼
+userCityProvider (auth + health profile) ──► currentCityRiskProvider ──► RiskCard (dashboard)
+                                                                          RiskMapScreen (zones)
+```
+
+Each read query (`where city == … orderBy generatedAt`) uses the composite index
+`(city ASC, generatedAt DESC)` tracked in `firestore.indexes.json` and deployed to
+the project.
+
+### State handling (every risk surface)
+
+`currentCityRiskProvider` maps to four UI states: **loading** (skeleton), **data**,
+**empty** (`AsyncData(null)` → "no risk data yet for {city}"), **error/offline**
+(retry). Offline reads are served from Firestore's local cache; an estimate older
+than `kRiskStaleAfter` (9 days) shows a **"this estimate may be out of date"**
+staleness hint. Accessibility: every risk signal pairs colour with a **label + a
+distinct icon/glyph** (✓ ! △ ? and trend arrows / dash) — never colour alone.
+
+### Integrations (client-side, restricted keys)
+
+| Integration | Use | Key handling | Cost guard |
+|---|---|---|---|
+| Google Maps SDK (Android) | National risk map (colored zones) | `android/local.properties` → Gradle `manifestPlaceholders` (git-ignored) | n/a |
+| Google Places (New) REST | Nearby hospitals | `--dart-define MAPS_API_KEY` from git-ignored `dart_defines.json` | TTL cache (15 min) + per-session live-call quota guard |
+| `geolocator` | Search origin | runtime permission; **falls back to city centroid** when denied | n/a |
+| `firebase_messaging` | FCM token capture (no dispatch) | n/a | n/a |
+| `url_launcher` | Emergency `tel:` dial, source links, directions | n/a | n/a |
+
+> Both keys must be **platform-restricted + API-restricted** in Cloud Console
+> before release (Android app + SHA-1; Places New for the REST key).
+
+### Firestore (additive)
+
+```
+riskEstimates/{city}_{YYYY-MM-DD}   # Sprint 2 writes; Sprint 3 reads (authenticated)
+users/{uid}
+  ├── fcmToken: string                       # Sprint 3 P7 (self-write)
+  ├── fcmTokenUpdatedAt: timestamp
+  └── notificationPreferences: map           # Sprint 3 P8 — see docs/notification-preferences-schema.md
+```
+
+**Rules** (deployed + verified active): authenticated read of `riskEstimates`,
+no client writes; `users/{uid}` (+ subtree) owner-only read/write
+(`request.auth.uid == uid`) — self-write allowed, cross-user denied; covers
+`fcmToken`, `notificationPreferences`, and the existing profile / medication /
+adherence subcollections. No new collections.
+
+### Sprint 4 hand-off
+
+FCM tokens + `notificationPreferences` are **captured and stored, never consumed**
+in Sprint 3. Sprint 4's dispatch engine reads them (severity toggle on AND
+condition enabled → send to `fcmToken`, with a 24h throttle + audit log).
+

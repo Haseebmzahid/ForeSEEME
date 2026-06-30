@@ -206,4 +206,39 @@ void main() {
       expect(find.text('No risk data yet'), findsNothing);
     });
   });
+
+  group('RiskCard staleness', () {
+    testWidgets('an old estimate shows the out-of-date hint', (tester) async {
+      final stale = estimate().copyWith(
+        generatedAt: DateTime.now().toUtc().subtract(const Duration(days: 30)),
+      );
+      await pumpScope(
+        tester,
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) => stale),
+            riskTrendProvider.overrideWith((ref) => TrendDirection.rising),
+          ],
+          child: _host,
+        ),
+      );
+
+      expect(find.text('This estimate may be out of date'), findsOneWidget);
+    });
+
+    testWidgets('a fresh estimate hides the hint', (tester) async {
+      await pumpScope(
+        tester,
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) => estimate()),
+            riskTrendProvider.overrideWith((ref) => TrendDirection.rising),
+          ],
+          child: _host,
+        ),
+      );
+
+      expect(find.text('This estimate may be out of date'), findsNothing);
+    });
+  });
 }

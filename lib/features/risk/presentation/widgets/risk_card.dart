@@ -199,12 +199,24 @@ class _RiskCardData extends StatelessWidget {
                 ),
               ],
             ),
+            if (_isStale(estimate.generatedAt)) ...[
+              const SizedBox(height: 10),
+              const _StaleHint(),
+            ],
           ],
         ),
       ),
     );
   }
 }
+
+/// An estimate older than this is flagged "possibly out of date" — the weekly
+/// batch cadence plus grace. Offline reads serve the last cached estimate, so a
+/// stale one surfaces this hint rather than silently looking current.
+const Duration kRiskStaleAfter = Duration(days: 9);
+
+bool _isStale(DateTime generatedAt) =>
+    DateTime.now().toUtc().difference(generatedAt.toUtc()) > kRiskStaleAfter;
 
 /// Secondary line under the headline. Low-confidence estimates flag uncertainty
 /// rather than a (derived) driver, since the classification is unreliable.
@@ -234,6 +246,44 @@ String _ageLabel(DateTime generatedAt) {
   }
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   return diff.inDays == 1 ? '1 day ago' : '${diff.inDays} days ago';
+}
+
+/// Amber "may be out of date" treatment shown when the estimate is stale (e.g.
+/// served from cache while offline). Pairs colour with an icon + text.
+class _StaleHint extends StatelessWidget {
+  const _StaleHint();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColorsV2.riskMedium.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColorsV2.riskMedium.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.history_toggle_off_rounded,
+            size: 14,
+            color: AppColorsV2.riskMedium,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              'This estimate may be out of date',
+              style: AppTextStylesV2.caption.copyWith(
+                color: AppColorsV2.riskMedium,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
