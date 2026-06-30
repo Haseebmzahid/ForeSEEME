@@ -100,6 +100,9 @@ venv/
 *.env
 !*.env.example
 backend/.env
+# Flutter --dart-define-from-file secrets (holds MAPS_API_KEY for Places) — NEVER commit
+dart_defines.json
+*.dart_defines.json
 **/serviceAccount*.json
 **/service-account*.json
 **/*firebase-adminsdk*.json

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/article_detail_sheet.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/emergency_card.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/nearby_hospitals_entry.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_article_card.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// Health Resource Center (Sprint 3, Prompt 5): one-tap emergency dial plus
 /// verified, sourced self-care guides. Content is static (no backend); dialing
@@ -18,6 +22,11 @@ class ResourceCenterScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final articles = ref.watch(resourceArticlesProvider);
     final contact = ref.watch(emergencyContactProvider);
+    // Nearby hospitals are surfaced prominently when the user's city risk is High.
+    final isHighRisk =
+        ref.watch(currentCityRiskProvider).value?.riskLevel == RiskLevel.high;
+
+    void openHospitals() => context.push('/nearby-hospitals');
 
     return Scaffold(
       backgroundColor: AppColorsV2.shell,
@@ -40,6 +49,11 @@ class ResourceCenterScreen extends ConsumerWidget {
                   contact: contact,
                   onCall: () => _dial(context, ref, contact.number),
                 ),
+                // High risk: lift the hospitals entry to the top, prominently.
+                if (isHighRisk) ...[
+                  const SizedBox(height: 14),
+                  NearbyHospitalsEntry(prominent: true, onTap: openHospitals),
+                ],
                 const SizedBox(height: 22),
                 Text('SELF-CARE GUIDES', style: AppTextStylesV2.microLabel),
                 const SizedBox(height: 12),
@@ -51,6 +65,11 @@ class ResourceCenterScreen extends ConsumerWidget {
                       onTap: () => _openArticle(context, ref, article),
                     ),
                   ),
+                // Otherwise a calm teaser at the bottom.
+                if (!isHighRisk) ...[
+                  const SizedBox(height: 6),
+                  NearbyHospitalsEntry(prominent: false, onTap: openHospitals),
+                ],
               ],
             ),
           ),
