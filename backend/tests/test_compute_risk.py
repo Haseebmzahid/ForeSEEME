@@ -246,6 +246,35 @@ def test_backfill_is_idempotent_per_week() -> None:
     assert len(repo.docs) == 6 * len(CITIES)     # no duplicates
 
 
+def test_backfill_rerun_is_byte_identical_and_preserves_other_history() -> None:
+    """Running `--backfill 6` twice must not duplicate, mutate, or delete
+    documents: the same input yields the same (city, week) ids with identical
+    bodies, and any *other* existing history (e.g. a prior scheduled doc) is
+    left completely untouched."""
+    repo = FakeRepository()
+
+    # A pre-existing, unrelated document (as if written by the scheduled job on a
+    # different date) that the backfill must never touch.
+    other_id = "Lahore_2099-01-01"
+    repo.docs[other_id] = {"sentinel": True}
+
+    job.backfill(_all_present(), repo, weeks=6, bundle=BUNDLE, cities=CITIES)
+    after_first = {k: dict(v) for k, v in repo.docs.items()}
+
+    job.backfill(_all_present(), repo, weeks=6, bundle=BUNDLE, cities=CITIES)
+
+    # No new documents; identical id set.
+    assert set(repo.docs) == set(after_first)
+    assert len(repo.docs) == 6 * len(CITIES) + 1  # 6/city + the untouched sentinel
+
+    # Every backfilled body is byte-identical on the second run.
+    for doc_id, body in after_first.items():
+        assert repo.docs[doc_id] == body
+
+    # The unrelated existing history is preserved exactly.
+    assert repo.docs[other_id] == {"sentinel": True}
+
+
 def test_backfill_caps_at_available_weeks() -> None:
     """Requesting more weeks than exist yields one doc per available week (never
     fabricated points)."""
