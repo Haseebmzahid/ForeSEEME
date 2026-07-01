@@ -27,4 +27,14 @@ class GeolocatorLocationService implements LocationService {
     final position = await Geolocator.getCurrentPosition();
     return LocationResult.granted(position.latitude, position.longitude);
   }
+
+  @override
+  Future<void> openAppSettings() async {
+    await Geolocator.openAppSettings();
+  }
+
+  @override
+  Future<void> openLocationServiceSettings() async {
+    await Geolocator.openLocationSettings();
+  }
 }

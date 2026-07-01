@@ -49,7 +49,7 @@ class HospitalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canCall = hospital.phoneNumber != null;
+    final canCall = hospital.hasPhone;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -89,28 +89,25 @@ class HospitalCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColorsV2.teal.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: AppColorsV2.teal.withValues(alpha: 0.32),
-                  ),
-                ),
-                child: Text(
-                  '${hospital.distanceKm.toStringAsFixed(1)} km',
-                  style: AppTextStylesV2.caption.copyWith(
-                    color: AppColorsV2.teal,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+              _DistanceChip(distanceKm: hospital.distanceKm),
             ],
           ),
+          if (hospital.hasRating || hospital.openNow != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (hospital.hasRating)
+                  _RatingChip(
+                    rating: hospital.rating!,
+                    count: hospital.userRatingCount,
+                  ),
+                if (hospital.openNow != null)
+                  _OpenNowChip(open: hospital.openNow!),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -120,6 +117,110 @@ class HospitalCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(child: _DirectionsButton(onTap: onDirections)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DistanceChip extends StatelessWidget {
+  final double distanceKm;
+  const _DistanceChip({required this.distanceKm});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColorsV2.teal.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.32)),
+      ),
+      child: Text(
+        '${distanceKm.toStringAsFixed(1)} km',
+        style: AppTextStylesV2.caption.copyWith(
+          color: AppColorsV2.teal,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _RatingChip extends StatelessWidget {
+  final double rating;
+  final int? count;
+  const _RatingChip({required this.rating, this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count != null && count! > 0
+        ? '${rating.toStringAsFixed(1)} (${count!})'
+        : rating.toStringAsFixed(1);
+    return Semantics(
+      label: 'Rated $label out of 5',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColorsV2.riskMedium.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: AppColorsV2.riskMedium.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.star_rounded,
+              size: 14,
+              color: AppColorsV2.riskMedium,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: AppTextStylesV2.caption.copyWith(
+                color: AppColorsV2.riskMedium,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenNowChip extends StatelessWidget {
+  final bool open;
+  const _OpenNowChip({required this.open});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = open ? AppColorsV2.riskLow : AppColorsV2.textTertiary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            open ? Icons.schedule_rounded : Icons.schedule_outlined,
+            size: 13,
+            color: color,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            open ? 'Open now' : 'Closed',
+            style: AppTextStylesV2.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

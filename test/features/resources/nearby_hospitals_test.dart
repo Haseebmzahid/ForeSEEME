@@ -13,8 +13,10 @@ import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_
 import 'package:fyp_foreseeme/features/resources/domain/repositories/places_repository.dart';
 import 'package:fyp_foreseeme/features/resources/domain/services/location_service.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_list.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/nearby_hospitals_entry.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 const _placesBody = '''
 {"places":[
@@ -41,6 +43,10 @@ class _FakeLocationService implements LocationService {
   const _FakeLocationService(this.result);
   @override
   Future<LocationResult> currentLocation() async => result;
+  @override
+  Future<void> openAppSettings() async {}
+  @override
+  Future<void> openLocationServiceSettings() async {}
 }
 
 class _RecordingPlacesRepository implements PlacesRepository {
@@ -167,6 +173,56 @@ void main() {
         throwsA(isA<PlacesNotConfiguredException>()),
       );
     });
+
+    test('parses rating, review count and open-now when present', () async {
+      const body =
+          '{"places":[{"id":"a","displayName":{"text":"Mayo Hospital"},'
+          '"formattedAddress":"Lahore","location":{"latitude":31.58,"longitude":74.31},'
+          '"rating":4.3,"userRatingCount":210,'
+          '"currentOpeningHours":{"openNow":true}}]}';
+      final repo = GooglePlacesRepository(
+        apiKey: 'k',
+        client: client(body),
+        now: () => clock,
+      );
+
+      final result = await repo.nearbyHospitals(
+        latitude: 31.5,
+        longitude: 74.3,
+      );
+      final h = result.hospitals.single;
+      expect(h.rating, 4.3);
+      expect(h.userRatingCount, 210);
+      expect(h.openNow, isTrue);
+    });
+
+    test('leaves rating/open-now null when Places omits them', () async {
+      final repo = GooglePlacesRepository(
+        apiKey: 'k',
+        client: client(_placesBody),
+        now: () => clock,
+      );
+
+      final result = await repo.nearbyHospitals(
+        latitude: 31.5,
+        longitude: 74.3,
+      );
+      expect(result.hospitals.first.rating, isNull);
+      expect(result.hospitals.first.openNow, isNull);
+    });
+
+    test('a transport failure throws PlacesNetworkException', () async {
+      final repo = GooglePlacesRepository(
+        apiKey: 'k',
+        client: MockClient((_) => throw http.ClientException('offline')),
+        now: () => clock,
+      );
+
+      expect(
+        () => repo.nearbyHospitals(latitude: 1, longitude: 1),
+        throwsA(isA<PlacesNetworkException>()),
+      );
+    });
   });
 
   group('nearbyHospitalsProvider location resolution', () {
@@ -202,10 +258,71 @@ void main() {
       expect(repo.longitude, 67.00);
     });
 
-    test('denied location falls back to the user city centroid', () async {
-      final repo = _RecordingPlacesRepository();
-      final container = drive(
-        ProviderContainer(
+    test(
+      'denied location surfaces a permission-denied state (with city)',
+      () async {
+        final container = drive(
+          ProviderContainer(
+            overrides: [
+              placesApiKeyProvider.overrideWithValue('k'),
+              locationServiceProvider.overrideWithValue(
+                const _FakeLocationService(LocationResult.denied()),
+              ),
+              userCityProvider.overrideWith((ref) => 'Lahore'),
+              placesRepositoryProvider.overrideWithValue(
+                _RecordingPlacesRepository(),
+              ),
+            ],
+          ),
+        );
+        await pumpEventQueue(times: 20);
+
+        final state = container.read(nearbyHospitalsProvider);
+        expect(state.hasError, isTrue);
+        final error = state.error;
+        expect(error, isA<LocationPermissionDeniedException>());
+        expect(
+          (error as LocationPermissionDeniedException).fallbackCity,
+          'Lahore',
+        );
+        expect(error.servicesDisabled, isFalse);
+      },
+    );
+
+    test(
+      'services-off marks servicesDisabled on the permission state',
+      () async {
+        final container = drive(
+          ProviderContainer(
+            overrides: [
+              placesApiKeyProvider.overrideWithValue('k'),
+              locationServiceProvider.overrideWithValue(
+                const _FakeLocationService(LocationResult.unavailable()),
+              ),
+              userCityProvider.overrideWith((ref) => null),
+              placesRepositoryProvider.overrideWithValue(
+                _RecordingPlacesRepository(),
+              ),
+            ],
+          ),
+        );
+        await pumpEventQueue(times: 20);
+
+        final error = container.read(nearbyHospitalsProvider).error;
+        expect(error, isA<LocationPermissionDeniedException>());
+        expect(
+          (error as LocationPermissionDeniedException).servicesDisabled,
+          isTrue,
+        );
+        expect(error.hasCityFallback, isFalse);
+      },
+    );
+
+    test(
+      'city fallback (opted-in) searches the profile-city centroid',
+      () async {
+        final repo = _RecordingPlacesRepository();
+        final container = ProviderContainer(
           overrides: [
             placesApiKeyProvider.overrideWithValue('k'),
             locationServiceProvider.overrideWithValue(
@@ -214,41 +331,35 @@ void main() {
             userCityProvider.overrideWith((ref) => 'Lahore'),
             placesRepositoryProvider.overrideWithValue(repo),
           ],
+        );
+        addTearDown(container.dispose);
+        container.read(cityFallbackRequestedProvider.notifier).useCity();
+
+        await container.read(nearbyHospitalsProvider.future);
+
+        expect(repo.latitude, 31.5497); // Lahore centroid (cities.yaml parity)
+        expect(repo.longitude, 74.3436);
+      },
+    );
+
+    test('empty key surfaces an API error, never a placeholder', () async {
+      final container = drive(
+        ProviderContainer(
+          overrides: [
+            placesApiKeyProvider.overrideWithValue(''),
+            locationServiceProvider.overrideWithValue(
+              const _FakeLocationService(LocationResult.granted(1, 1)),
+            ),
+            placesRepositoryProvider.overrideWithValue(
+              _RecordingPlacesRepository(),
+            ),
+          ],
         ),
-      );
-
-      await container.read(nearbyHospitalsProvider.future);
-
-      expect(repo.latitude, 31.5497); // Lahore centroid (cities.yaml parity)
-      expect(repo.longitude, 74.3436);
-    });
-
-    test('denied location + no city -> LocationUnavailableException', () async {
-      final container = ProviderContainer(
-        overrides: [
-          placesApiKeyProvider.overrideWithValue('k'),
-          locationServiceProvider.overrideWithValue(
-            const _FakeLocationService(LocationResult.denied()),
-          ),
-          userCityProvider.overrideWith((ref) => null),
-          placesRepositoryProvider.overrideWithValue(
-            _RecordingPlacesRepository(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      container.listen(
-        nearbyHospitalsProvider,
-        (_, _) {},
-        onError: (_, _) {},
-        fireImmediately: true,
       );
       await pumpEventQueue(times: 20);
 
-      final state = container.read(nearbyHospitalsProvider);
-      expect(state.hasError, isTrue);
-      expect(state.error, isA<LocationUnavailableException>());
+      final error = container.read(nearbyHospitalsProvider).error;
+      expect(error, isA<PlacesRequestException>());
     });
   });
 
@@ -259,6 +370,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          // NoSplash avoids the ink_sparkle shader the test binding can't decode
+          // on an ink tap (environmental, unrelated to the feature).
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
           home: Scaffold(
             body: HospitalList(
               hospitals: [
@@ -302,6 +416,38 @@ void main() {
       await tester.tap(find.text('Call'));
       expect(called, isFalse);
     });
+
+    testWidgets('shows rating and open-now chips when available', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HospitalList(
+              hospitals: const [
+                Hospital(
+                  id: 'a',
+                  name: 'Mayo Hospital',
+                  address: 'Lahore',
+                  latitude: 31.5,
+                  longitude: 74.3,
+                  distanceKm: 1.2,
+                  phoneNumber: '042111',
+                  rating: 4.3,
+                  userRatingCount: 210,
+                  openNow: true,
+                ),
+              ],
+              onCall: (_) {},
+              onDirections: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.textContaining('4.3'), findsOneWidget);
+      expect(find.text('Open now'), findsOneWidget);
+    });
   });
 
   group('NearbyHospitalsEntry', () {
@@ -311,6 +457,7 @@ void main() {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
           home: Scaffold(
             body: NearbyHospitalsEntry(
               prominent: true,
@@ -344,6 +491,100 @@ void main() {
         find.text('Surfaced because risk is High in your area'),
         findsNothing,
       );
+    });
+  });
+
+  group('NearbyHospitalsScreen states (no placeholder)', () {
+    const app = MaterialApp(home: NearbyHospitalsScreen());
+
+    testWidgets(
+      'permission denied → enable-location + city fallback, no placeholder',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentCityRiskProvider.overrideWith((ref) async => null),
+              nearbyHospitalsProvider.overrideWith(
+                (ref) => Future.error(
+                  const LocationPermissionDeniedException(
+                    fallbackCity: 'Lahore',
+                  ),
+                ),
+              ),
+            ],
+            child: app,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Location permission needed'), findsOneWidget);
+        expect(find.text('Enable location'), findsOneWidget);
+        expect(find.text('Search near Lahore instead'), findsOneWidget);
+        // The old placeholder must be gone entirely.
+        expect(find.textContaining('not configured'), findsNothing);
+        expect(find.textContaining('Coming Soon'), findsNothing);
+      },
+    );
+
+    testWidgets('empty results → no-hospitals state', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) async => null),
+            nearbyHospitalsProvider.overrideWith(
+              (ref) async => NearbyHospitalsResult(
+                hospitals: const [],
+                fetchedAt: DateTime.utc(2026, 6, 30),
+                servedFromCache: false,
+              ),
+            ),
+          ],
+          child: app,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No hospitals found nearby'), findsOneWidget);
+    });
+
+    testWidgets('network error → offline copy with retry', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) async => null),
+            nearbyHospitalsProvider.overrideWith(
+              (ref) => Future.error(const PlacesNetworkException('offline')),
+            ),
+          ],
+          child: app,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining("Couldn't reach the network"), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+    });
+
+    testWidgets('success → list + View on map', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) async => null),
+            nearbyHospitalsProvider.overrideWith(
+              (ref) async => NearbyHospitalsResult(
+                hospitals: [_hospital('Mayo Hospital', phone: '042111')],
+                fetchedAt: DateTime.utc(2026, 6, 30),
+                servedFromCache: false,
+              ),
+            ),
+          ],
+          child: app,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mayo Hospital'), findsOneWidget);
+      expect(find.text('View on map'), findsOneWidget);
     });
   });
 }

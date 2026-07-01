@@ -86,27 +86,36 @@ class GooglePlacesRepository implements PlacesRepository {
   }
 
   Future<List<Hospital>> _fetch(double latitude, double longitude) async {
-    final response = await _client.post(
-      _endpoint,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': _apiKey,
-        'X-Goog-FieldMask':
-            'places.id,places.displayName,places.formattedAddress,'
-            'places.location,places.nationalPhoneNumber',
-      },
-      body: jsonEncode({
-        'includedTypes': ['hospital'],
-        'maxResultCount': 12,
-        'rankPreference': 'DISTANCE',
-        'locationRestriction': {
-          'circle': {
-            'center': {'latitude': latitude, 'longitude': longitude},
-            'radius': searchRadiusMeters,
-          },
+    final http.Response response;
+    try {
+      response = await _client.post(
+        _endpoint,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': _apiKey,
+          'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,'
+              'places.location,places.nationalPhoneNumber,places.rating,'
+              'places.userRatingCount,places.currentOpeningHours.openNow',
         },
-      }),
-    );
+        body: jsonEncode({
+          'includedTypes': ['hospital'],
+          'maxResultCount': 12,
+          'rankPreference': 'DISTANCE',
+          'locationRestriction': {
+            'circle': {
+              'center': {'latitude': latitude, 'longitude': longitude},
+              'radius': searchRadiusMeters,
+            },
+          },
+        }),
+      );
+    } on http.ClientException catch (e) {
+      throw PlacesNetworkException(e); // offline / DNS / connection reset
+    } on Exception catch (e) {
+      // SocketException et al. are not typed by `http`; treat as network.
+      throw PlacesNetworkException(e);
+    }
 
     if (response.statusCode != 200) {
       throw PlacesRequestException(response.statusCode, response.body);
@@ -122,6 +131,7 @@ class GooglePlacesRepository implements PlacesRepository {
       if (loc == null) continue;
       final hLat = (loc['latitude'] as num).toDouble();
       final hLon = (loc['longitude'] as num).toDouble();
+      final hours = p['currentOpeningHours'] as Map<String, dynamic>?;
       hospitals.add(
         Hospital(
           id: (p['id'] as String?) ?? '${p['displayName']?['text']}',
@@ -132,6 +142,9 @@ class GooglePlacesRepository implements PlacesRepository {
           latitude: hLat,
           longitude: hLon,
           phoneNumber: p['nationalPhoneNumber'] as String?,
+          rating: (p['rating'] as num?)?.toDouble(),
+          userRatingCount: (p['userRatingCount'] as num?)?.toInt(),
+          openNow: hours?['openNow'] as bool?,
           distanceKm: _haversineKm(latitude, longitude, hLat, hLon),
         ),
       );
