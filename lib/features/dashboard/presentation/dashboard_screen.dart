@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
@@ -156,6 +157,11 @@ class DashboardScreen extends ConsumerWidget {
 
                         // 2. LIVE RISK CARD (current city environmental risk)
                         const RiskCard(),
+
+                        const SizedBox(height: 16),
+
+                        // 2b. CITED RECOMMENDATION (deterministic, sourced)
+                        const RecommendationsCard(),
 
                         const SizedBox(height: 24),
 
