@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_deep_link_router.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -31,6 +32,7 @@ class AlertInboxScreen extends ConsumerWidget {
         foregroundColor: AppColorsV2.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
         title: Text('Alerts', style: AppTextStylesV2.cardTitle),
@@ -77,9 +79,12 @@ class _AlertList extends ConsumerWidget {
             // known in-app route (reuses the Prompt 4 router's whitelist).
             await ref.read(markAlertReadProvider)(alert.id);
             final route = alert.deepLink;
-            if (context.mounted &&
-                AlertDeepLinkRouter.knownRoutes.contains(route)) {
-              context.push(route);
+            if (AlertDeepLinkRouter.knownRoutes.contains(route)) {
+              // Engagement hook (Prompt 9): record the inbox open.
+              ref
+                  .read(alertAnalyticsProvider)
+                  .logAlertOpened(route: route, source: AlertOpenSource.inbox);
+              if (context.mounted) context.push(route);
             }
           },
         );

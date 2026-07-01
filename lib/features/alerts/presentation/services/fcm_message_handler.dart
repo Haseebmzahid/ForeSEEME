@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fyp_foreseeme/features/alerts/domain/models/incoming_alert.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_deep_link_router.dart';
@@ -18,13 +19,16 @@ class FcmMessageHandler {
     required PushMessagingService messaging,
     required AlertPresenter presenter,
     required void Function(String route) navigate,
+    AlertAnalytics? analytics,
   }) : _messaging = messaging,
        _presenter = presenter,
-       _navigate = navigate;
+       _navigate = navigate,
+       _analytics = analytics;
 
   final PushMessagingService _messaging;
   final AlertPresenter _presenter;
   final void Function(String route) _navigate;
+  final AlertAnalytics? _analytics;
 
   StreamSubscription<IncomingAlert>? _foregroundSub;
   StreamSubscription<IncomingAlert>? _openedSub;
@@ -47,7 +51,11 @@ class FcmMessageHandler {
   }
 
   void _route(IncomingAlert alert) {
-    _navigate(AlertDeepLinkRouter.resolve(alert.data));
+    final route = AlertDeepLinkRouter.resolve(alert.data);
+    // Engagement hook (Prompt 9): records the open before navigating; a null
+    // sink or an analytics failure must never block the tap.
+    _analytics?.logAlertOpened(route: route, source: AlertOpenSource.push);
+    _navigate(route);
   }
 
   void dispose() {

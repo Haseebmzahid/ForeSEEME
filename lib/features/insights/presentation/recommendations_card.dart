@@ -147,7 +147,9 @@ class _LearnMoreButton extends StatelessWidget {
       style: TextButton.styleFrom(
         foregroundColor: AppColorsV2.teal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        visualDensity: VisualDensity.compact,
+        // Keep a ≥48px accessible tap target (Prompt 9 a11y pass).
+        minimumSize: const Size(0, 48),
+        tapTargetSize: MaterialTapTargetSize.padded,
         textStyle: AppTextStylesV2.caption.copyWith(
           fontWeight: FontWeight.w700,
         ),

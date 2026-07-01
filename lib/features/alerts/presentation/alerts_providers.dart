@@ -4,6 +4,7 @@ import 'package:fyp_foreseeme/core/routes/app_router.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_notification_preferences_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_user_alerts_repository.dart';
+import 'package:fyp_foreseeme/features/alerts/data/services/debug_alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/data/services/firebase_push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/data/services/local_notification_alert_presenter.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
@@ -12,6 +13,7 @@ import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/notification_preferences_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/user_alerts_repository.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_controller.dart';
@@ -40,6 +42,12 @@ final alertPresenterProvider = Provider<AlertPresenter>((ref) {
   return LocalNotificationAlertPresenter();
 });
 
+/// Deep-link engagement analytics sink (Prompt 9). Overridable in tests and
+/// swappable for a real backend in production without touching call sites.
+final alertAnalyticsProvider = Provider<AlertAnalytics>((ref) {
+  return const DebugAlertAnalytics();
+});
+
 /// Wires inbound FCM messages to display + deep-link navigation (Prompt 4).
 /// Started once at app launch; routes via the app GoRouter.
 final fcmMessageHandlerProvider = Provider<FcmMessageHandler>((ref) {
@@ -47,6 +55,7 @@ final fcmMessageHandlerProvider = Provider<FcmMessageHandler>((ref) {
     messaging: ref.watch(pushMessagingServiceProvider),
     presenter: ref.watch(alertPresenterProvider),
     navigate: (route) => ref.read(appRouterProvider).go(route),
+    analytics: ref.watch(alertAnalyticsProvider),
   );
   ref.onDispose(handler.dispose);
   return handler;

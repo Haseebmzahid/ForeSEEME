@@ -27,6 +27,7 @@ class HealthInsightsScreen extends ConsumerWidget {
         foregroundColor: AppColorsV2.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
         title: Text('Health Insights', style: AppTextStylesV2.cardTitle),

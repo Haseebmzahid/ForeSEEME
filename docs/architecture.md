@@ -504,3 +504,74 @@ FCM tokens + `notificationPreferences` are **captured and stored, never consumed
 in Sprint 3. Sprint 4's dispatch engine reads them (severity toggle on AND
 condition enabled → send to `fcmToken`, with a 24h throttle + audit log).
 
+---
+
+## Sprint 4 — Proactive alerting & insights (delivered)
+
+Sprint 4 turns the platform from predictive to **proactive**, additively over the
+frozen Sprint 1–3 foundation. Nothing in the risk/ML pipeline, prediction
+contract, or existing feature internals changed.
+
+### Dispatch engine (backend, scheduled)
+
+A new scheduled Cloud Run job `backend/app/jobs/dispatch_alerts.py` (sibling of
+`compute_risk`, same firebase-admin service account) turns a **rising city-risk
+transition** into a personalized, consented, throttled FCM alert. **Flutter never
+dispatches and never calls `/predict`** (ADR-001). Supporting pure modules:
+`alerting/targeting.py` (transition × vulnerability × consent predicate),
+`alerting/throttle.py` (24h window + per-estimate idempotency), `alerting/
+messaging.py` (firebase-admin send + token-invalid handling), `alerting/
+recommendation_lookup.py` (deterministic cited advisory).
+
+```
+Cloud Scheduler → dispatch_alerts
+  read riskEstimates (latest+prev) + healthProfiles + users(token,prefs) + alertDispatchLog
+  → transition? → vulnerable ∧ consented? → idempotent ∧ not throttled?
+  → send FCM (+ cited recommendation) → write alertDispatchLog + userAlerts
+  (token invalid → prune users.fcmToken)
+```
+
+Safeguards (fatigue + cost): transition-triggering, 24h per-(user,category)
+throttle, per-estimate idempotency key `{uid}__{riskEstimateId}__{category}`, and
+token pruning. Proven end-to-end in `backend/tests/test_e2e_dispatch.py`
+(repeated runs → no spam/duplicates) — see `docs/alert_fatigue_cost_audit.md`.
+
+### New Firestore collections (additive; rules tested)
+
+```
+alertDispatchLog/{logId}            # ops audit + throttle/idempotency ledger
+                                    #   service-account ONLY — allow read,write: if false
+userAlerts/{uid}/items/{alertId}    # in-app inbox — engine writes (Admin SDK)
+  ├── title, body, category, city, riskLevel, disease
+  ├── recommendation: {id, text, source, sourceUrl}   # cited, never generated
+  ├── deepLink, riskEstimateId, createdAt
+  └── read, readAt                  #   owner read; owner may set read/readAt only
+```
+
+Rules are additive (existing rules untouched) and verified on the emulator
+(`test_rules/firestore_rules.test.mjs`: owner read, cross-user denied, scoped
+mark-read, no create/delete). Contract frozen in `docs/alert_dispatch_design.md`.
+
+### Flutter (additive, feature-first)
+
+- **`alerts`** (extended): FCM message handlers (fg/bg/terminated) + deep-link
+  router (P4), user-scoped **inbox** with unread badge + mark-read (P5), and an
+  `AlertAnalytics` deep-link engagement seam (P9, `logAlertOpened(route,source)`).
+- **`insights`** (new): a deterministic **cited recommendation** engine mirroring
+  the backend lookup field-for-field (P6), **supportive read-only adherence
+  intelligence** over existing logs (P7), and a non-diagnostic **Health Insights**
+  summary composing risk + recommendation + adherence with a medical disclaimer
+  (P8). Recommendations are looked up, never generated (Rule 11); insights carry
+  no failure scoring.
+
+### APIs / packages
+
+FCM send is backend-only via firebase-admin; **no client API changes** and no new
+Flutter packages. Deep-link opens are recorded through the in-app analytics seam
+(default: debug sink; swappable in production via `alertAnalyticsProvider`).
+
+> **Screenshots** of the new surfaces (alert inbox, recommendation card, adherence
+> insights, health-insights summary) are captured manually on device and attached
+> to the Sprint 4 report — the automated suite covers behaviour, and device
+> capture (like the Sprint 3 map render) remains a manual step.
+
