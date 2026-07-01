@@ -190,6 +190,92 @@ def test_document_id_format() -> None:
     assert DOC_ID_RE.match(job.document_id("Karachi", GENERATED_AT))
 
 
+# --- Backfill: real, distinct, per-week historical estimates ----------------
+
+
+def test_backfill_writes_one_contract_valid_doc_per_week() -> None:
+    """`backfill(weeks=6)` produces 6 distinct dated docs per city, each a
+    contract-valid estimate — reusing the same model path as the scheduled job."""
+    repo = FakeRepository()
+    outcomes = job.backfill(
+        _all_present(), repo, weeks=6, bundle=BUNDLE, cities=CITIES,
+    )
+
+    assert all(o.status == "written" for o in outcomes)
+    assert repo.upsert_calls == 6 * len(CITIES)
+    assert len(repo.docs) == 6 * len(CITIES)  # 6 distinct (city, week) ids each
+
+    for city in CITIES:
+        ids = sorted(k for k in repo.docs if k.startswith(f"{city['name']}_"))
+        assert len(ids) == 6
+        dates = [k.split("_", 1)[1] for k in ids]
+        assert len(set(dates)) == 6  # six distinct calendar weeks
+        for doc_id in ids:
+            assert DOC_ID_RE.match(doc_id)
+            body = repo.docs[doc_id]
+            RiskEstimateResponse(**body)  # re-validate against the frozen contract
+            assert body["riskLevel"] in ("Low", "Medium", "High")
+            assert body["modelVersion"] == BUNDLE["model_version"]
+
+
+def test_backfill_points_are_real_per_week_not_redated_copies() -> None:
+    """Each backfilled week is evaluated at its own cutoff, so the conditions
+    (and thus the estimate) differ week to week — proving no re-dated duplication."""
+    repo = FakeRepository()
+    # _fake_base has a rising temperature/AQI trend, so per-week cutoffs differ.
+    job.backfill(_all_present(), repo, weeks=6, bundle=BUNDLE, cities=[{"name": "Lahore"}])
+
+    lahore = [repo.docs[k] for k in sorted(repo.docs) if k.startswith("Lahore_")]
+    assert len(lahore) == 6
+    temps = [d["temperature"] for d in lahore]
+    aqis = [d["aqi"] for d in lahore]
+    # Distinct trailing conditions per week (a re-dated single estimate would be
+    # identical across all six).
+    assert len(set(temps)) == 6
+    assert len(set(aqis)) == 6
+    assert temps == sorted(temps)  # rising fixture -> monotonically increasing
+
+
+def test_backfill_is_idempotent_per_week() -> None:
+    repo = FakeRepository()
+    job.backfill(_all_present(), repo, weeks=6, bundle=BUNDLE, cities=CITIES)
+    first = dict(repo.docs)
+    job.backfill(_all_present(), repo, weeks=6, bundle=BUNDLE, cities=CITIES)
+
+    assert set(repo.docs) == set(first)          # same ids overwritten
+    assert len(repo.docs) == 6 * len(CITIES)     # no duplicates
+
+
+def test_backfill_caps_at_available_weeks() -> None:
+    """Requesting more weeks than exist yields one doc per available week (never
+    fabricated points)."""
+    repo = FakeRepository()
+    provider = FakeProvider({"Lahore": _fake_base("Lahore", n_weeks=4, start_week=20)})
+    outcomes = job.backfill(provider, repo, weeks=6, bundle=BUNDLE,
+                            cities=[{"name": "Lahore"}])
+
+    written = [o for o in outcomes if o.status == "written"]
+    assert len(repo.docs) == len(written) <= 4   # at most the 4 real weeks
+
+
+def test_backfill_reuses_estimate_for_city() -> None:
+    """The latest backfilled week equals what estimate_for_city produces for the
+    full window at that week's date — i.e. the shared pipeline, not a fork."""
+    base = _fake_base("Lahore", n_weeks=8, start_week=12)
+    repo = FakeRepository()
+    job.backfill(FakeProvider({"Lahore": base}), repo, weeks=1, bundle=BUNDLE,
+                 cities=[{"name": "Lahore"}])
+
+    ((doc_id, body),) = repo.docs.items()
+    # The single (latest) week id is the Monday of that ISO week.
+    iso_year, week = 2026, 12 + 8 - 1
+    expected_gen = job._iso_week_start(iso_year, week)
+    assert doc_id == job.document_id("Lahore", expected_gen)
+    reference = job.estimate_for_city(BUNDLE, "Lahore", base, expected_gen)
+    assert body["riskLevel"] == reference.risk_level
+    assert body["confidence"] == pytest.approx(reference.confidence)
+
+
 # --- Real provider construction (no network) --------------------------------
 
 

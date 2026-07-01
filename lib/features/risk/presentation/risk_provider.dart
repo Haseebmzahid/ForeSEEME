@@ -76,6 +76,23 @@ final riskTrendProvider = FutureProvider<TrendDirection>((ref) async {
   return computeTrend(history);
 });
 
+/// Trailing risk history for the **current user's** city (newest first), as
+/// `AsyncValue<List<RiskEstimate>>` — backs the Risk Details trend chart.
+///
+/// The single new provider for the Risk Details screen (per the plan): it only
+/// composes existing pieces — derives the city from [userCityProvider] and
+/// delegates to the existing [riskHistoryProvider] family (which reads the same
+/// `riskEstimates` collection via [RiskRepository.getRiskHistory]). No new
+/// repository, query, or business logic. Returns an empty list when there is no
+/// user/city so the chart can show its empty state rather than error.
+final currentCityRiskHistoryProvider = FutureProvider<List<RiskEstimateModel>>((
+  ref,
+) async {
+  final city = await ref.watch(userCityProvider.future);
+  if (city == null) return const [];
+  return ref.watch(riskHistoryProvider(city).future);
+});
+
 /// Latest risk estimate for every supported city, as
 /// `AsyncValue<List<RiskEstimate>>` — backs the national risk map (Prompt 4).
 ///

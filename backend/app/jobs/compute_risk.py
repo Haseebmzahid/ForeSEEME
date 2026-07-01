@@ -33,7 +33,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 
 import pandas as pd
@@ -155,6 +155,13 @@ def document_id(city_name: str, generated_at: datetime) -> str:
     return f"{city_name}_{generated_at.strftime('%Y-%m-%d')}"
 
 
+def _iso_week_start(iso_year: int, week_of_year: int) -> datetime:
+    """The UTC datetime for the Monday of an ISO ``(year, week)`` — the canonical
+    calendar date used to id/date a backfilled weekly estimate."""
+    d = date.fromisocalendar(int(iso_year), int(week_of_year), 1)
+    return datetime(d.year, d.month, d.day, tzinfo=timezone.utc)
+
+
 # --- Orchestration ----------------------------------------------------------
 
 
@@ -202,6 +209,81 @@ def run(
         )
         outcomes.append(CityOutcome(name, "written", doc_id,
                                     body["riskLevel"], body["disease"]))
+    return outcomes
+
+
+def backfill(
+    provider: WeeklyBaseProvider,
+    repository: RiskRepository,
+    *,
+    weeks: int = 6,
+    bundle: dict[str, Any] | None = None,
+    cities: list[dict[str, Any]] | None = None,
+) -> list[CityOutcome]:
+    """Backfill the last ``weeks`` **weekly** ``riskEstimates`` per city.
+
+    Reuses the SAME feature-engineering + model path as :func:`run` / the
+    scheduled job (:func:`estimate_for_city`), only evaluated at each historical
+    week's *cutoff*: for a target week ``W`` the base is truncated to weeks
+    ``<= W`` so ``estimate_for_city`` classifies week ``W`` using its own trailing
+    lags/rollings. Every point is therefore a **genuine, leakage-free** estimate
+    for that week — never a re-dated copy of "today", and no fabricated values.
+
+    Idempotent per ``(city, week)`` via the ``{city}_{YYYY-MM-DD}`` doc id (the
+    Monday of the ISO week). One city's/week's missing data is skipped + logged;
+    the rest still write.
+    """
+    bundle = bundle or load_bundle(resolve_artifact_path())
+    cities = cities or load_cities()
+
+    outcomes: list[CityOutcome] = []
+    for city in cities:
+        name = city["name"]
+        try:
+            base = provider.recent_weekly_base(city)
+        except Exception as exc:  # one city's fetch failure must not kill the run
+            logger.error("city_fetch_failed", extra={"city": name, "error": str(exc)})
+            outcomes.append(CityOutcome(name, "error"))
+            continue
+
+        if base is None or base.empty:
+            logger.warning("city_skipped_no_data", extra={"city": name})
+            outcomes.append(CityOutcome(name, "skipped_no_data"))
+            continue
+
+        ordered = base.sort_values(KEY).reset_index(drop=True)
+        week_keys = list(
+            ordered[["iso_year", "week_of_year"]]
+            .drop_duplicates()
+            .itertuples(index=False, name=None)
+        )
+        targets = week_keys[-weeks:]  # the most recent `weeks` real data weeks
+
+        for iso_year, woy in targets:
+            cutoff = ordered[
+                (ordered["iso_year"] < iso_year)
+                | ((ordered["iso_year"] == iso_year) & (ordered["week_of_year"] <= woy))
+            ]
+            generated_at = _iso_week_start(iso_year, woy)
+            estimate = estimate_for_city(bundle, name, cutoff, generated_at)
+            if estimate is None:
+                logger.info(
+                    "week_skipped_insufficient",
+                    extra={"city": name, "iso_year": int(iso_year), "week": int(woy)},
+                )
+                outcomes.append(CityOutcome(name, "skipped_insufficient"))
+                continue
+
+            body = estimate.model_dump(by_alias=True, mode="json")
+            doc_id = document_id(name, generated_at)
+            repository.upsert(doc_id, body)
+            logger.info(
+                "risk_backfilled",
+                extra={"city": name, "doc_id": doc_id,
+                       "riskLevel": body["riskLevel"], "disease": body["disease"]},
+            )
+            outcomes.append(CityOutcome(name, "written", doc_id,
+                                        body["riskLevel"], body["disease"]))
     return outcomes
 
 
@@ -321,23 +403,51 @@ class OpenMeteoWeeklyBaseProvider:
 # --- Entry point ------------------------------------------------------------
 
 
-def main() -> int:
+def _parse_backfill(argv: list[str]) -> int | None:
+    """Returns the requested backfill week-count when ``--backfill [N]`` is passed
+    (default 6), else ``None`` for the normal single-run mode."""
+    if "--backfill" not in argv:
+        return None
+    idx = argv.index("--backfill")
+    if idx + 1 < len(argv) and argv[idx + 1].isdigit():
+        return int(argv[idx + 1])
+    return 6
+
+
+def main(argv: list[str] | None = None) -> int:
+    import sys
+
     from app.logging_config import configure_logging
 
+    argv = sys.argv[1:] if argv is None else argv
     configure_logging(os.getenv("LOG_LEVEL", "INFO"))
-    provider = OpenMeteoWeeklyBaseProvider(
-        lookback_weeks=int(os.getenv("RISK_LOOKBACK_WEEKS", "12"))
-    )
+
+    weeks = _parse_backfill(argv)
+    is_backfill = weeks is not None
+
+    # Backfill needs enough trailing weeks for BOTH the target window and the
+    # lag/rolling features of the earliest target week.
+    lookback = int(os.getenv("RISK_LOOKBACK_WEEKS", "12"))
+    if is_backfill:
+        lookback = max(lookback, weeks + 8)
+
+    provider = OpenMeteoWeeklyBaseProvider(lookback_weeks=lookback)
     repository = init_firestore_repository()
-    outcomes = run(provider, repository)
+
+    outcomes = (
+        backfill(provider, repository, weeks=weeks)
+        if is_backfill
+        else run(provider, repository)
+    )
 
     written = sum(1 for o in outcomes if o.status == "written")
+    label = f"backfill({weeks}w)" if is_backfill else "run"
     for o in outcomes:
         if o.status == "written":
             print(f"  {o.city:11} {o.status:22} {o.doc_id} -> {o.risk_level} ({o.disease})")
         else:
             print(f"  {o.city:11} {o.status}")
-    print(f"done: {written}/{len(outcomes)} cities written to {COLLECTION}")
+    print(f"done [{label}]: {written} documents written to {COLLECTION}")
     return 0
 
 

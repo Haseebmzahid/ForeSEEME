@@ -156,8 +156,11 @@ class DashboardScreen extends ConsumerWidget {
 
                         const SizedBox(height: 32),
 
-                        // 2. LIVE RISK CARD (current city environmental risk)
-                        const RiskCard(),
+                        // 2. LIVE RISK CARD (tap → full Risk Details analytics)
+                        GestureDetector(
+                          onTap: () => context.push('/risk-details'),
+                          child: const RiskCard(),
+                        ),
 
                         const SizedBox(height: 16),
 
