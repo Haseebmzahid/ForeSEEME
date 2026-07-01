@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
@@ -292,6 +293,8 @@ class _HeroOverviewSection extends StatelessWidget {
             ],
           ),
         ),
+        const _InboxBellButton(),
+        const SizedBox(width: 12),
         Container(
           width: 56,
           height: 56,
@@ -324,6 +327,47 @@ class _HeroOverviewSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Alert Inbox Bell ─────────────────────────────────────────────────────────
+
+/// Dashboard entry point to the alert inbox (Sprint 4, Prompt 5), with a live
+/// unread badge sourced from [unreadAlertCountProvider].
+class _InboxBellButton extends ConsumerWidget {
+  const _InboxBellButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadAlertCountProvider);
+
+    return Semantics(
+      button: true,
+      label: unread > 0 ? 'Alerts, $unread unread' : 'Alerts',
+      child: Badge.count(
+        count: unread,
+        isLabelVisible: unread > 0,
+        backgroundColor: const Color(0xFFF35B6B),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+          child: IconButton(
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            tooltip: 'Alerts',
+            onPressed: () => context.push('/alerts'),
+          ),
+        ),
+      ),
     );
   }
 }
