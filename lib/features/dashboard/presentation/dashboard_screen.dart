@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
@@ -167,6 +168,11 @@ class DashboardScreen extends ConsumerWidget {
 
                         // 3. ADHERENCE SUMMARY CARD
                         const _AdherenceSummaryCard(),
+
+                        const SizedBox(height: 16),
+
+                        // 3b. SUPPORTIVE ADHERENCE INSIGHTS (real, read-only)
+                        const AdherenceInsightsCard(),
 
                         const SizedBox(height: 32),
 

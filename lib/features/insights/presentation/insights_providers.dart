@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
+import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/domain/repositories/recommendation_repository.dart';
+import 'package:fyp_foreseeme/features/insights/domain/services/adherence_insights_use_case.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_mapper.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// The verified recommendation content library. Overridable with a fake in tests.
@@ -58,4 +61,29 @@ final currentRecommendationProvider = FutureProvider<HealthRecommendation>((
   final conditions = await ref.watch(userConditionsProvider.future);
   final key = resolveKey(conditions, risk.disease);
   return repository.lookup(key.category ?? '*', key.driver);
+});
+
+/// The read-only adherence-intelligence use case (Prompt 7). Overridable in tests.
+///
+/// Reuses the frozen Sprint-1 [adherenceLogRepositoryProvider] — additive and
+/// read-only; it never writes to `adherenceLogs`.
+final adherenceInsightsUseCaseProvider = Provider<AdherenceInsightsUseCase>((
+  ref,
+) {
+  return AdherenceInsightsUseCase(
+    adherenceLogRepository: ref.watch(adherenceLogRepositoryProvider),
+  );
+});
+
+/// Supportive adherence insights for the current user (Prompt 7).
+///
+/// Resolves to [AdherenceInsights.empty] when signed out or with no logs (a calm
+/// empty state, never an error), and rebuilds when auth changes.
+final adherenceInsightsProvider = FutureProvider<AdherenceInsights>((
+  ref,
+) async {
+  final user = await ref.watch(authStateProvider.future);
+  if (user == null) return AdherenceInsights.empty();
+
+  return ref.watch(adherenceInsightsUseCaseProvider).compute(user.uid);
 });
