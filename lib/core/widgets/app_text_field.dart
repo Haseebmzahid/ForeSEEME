@@ -11,6 +11,23 @@ class AppTextField extends StatefulWidget {
   final bool isPassword;
   final Widget? prefixIcon;
 
+  // ── Additive (defaults preserve existing behaviour) ──────────────────────────
+  /// Platform autofill hints (e.g. `[AutofillHints.email]`). Enables OS/browser
+  /// autofill when the field sits inside an [AutofillGroup].
+  final Iterable<String>? autofillHints;
+
+  /// Keyboard action button (e.g. `TextInputAction.done`/`.next`).
+  final TextInputAction? textInputAction;
+
+  /// Called when the user submits from the keyboard action button.
+  final ValueChanged<String>? onFieldSubmitted;
+
+  /// External focus node (for focus traversal / programmatic focus).
+  final FocusNode? focusNode;
+
+  /// When false, the field is disabled (e.g. while a request is in flight).
+  final bool enabled;
+
   const AppTextField({
     super.key,
     required this.label,
@@ -20,6 +37,11 @@ class AppTextField extends StatefulWidget {
     this.validator,
     this.isPassword = false,
     this.prefixIcon,
+    this.autofillHints,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.focusNode,
+    this.enabled = true,
   });
 
   @override
@@ -27,7 +49,9 @@ class AppTextField extends StatefulWidget {
 }
 
 class AppTextFieldState extends State<AppTextField> {
-  final FocusNode _focusNode = FocusNode();
+  FocusNode? _ownedFocusNode;
+  FocusNode get _focusNode =>
+      widget.focusNode ?? (_ownedFocusNode ??= FocusNode());
   bool _isFocused = false;
   bool _obscureText = true;
 
@@ -76,7 +100,7 @@ class AppTextFieldState extends State<AppTextField> {
   @override
   void dispose() {
     _focusNode.removeListener(_handleFocusChange);
-    _focusNode.dispose();
+    _ownedFocusNode?.dispose(); // never dispose an externally-provided node
     super.dispose();
   }
 
@@ -126,6 +150,12 @@ class AppTextFieldState extends State<AppTextField> {
               keyboardType: widget.keyboardType,
               validator: _validate,
               obscureText: widget.isPassword ? _obscureText : false,
+              enabled: widget.enabled,
+              autofillHints: widget.autofillHints,
+              textInputAction: widget.textInputAction,
+              onFieldSubmitted: widget.onFieldSubmitted,
+              autocorrect: !widget.isPassword,
+              enableSuggestions: !widget.isPassword,
               style: AppTextStyles.bodyText.copyWith(
                 color: AppColors.textPrimary,
               ),
