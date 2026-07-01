@@ -174,6 +174,11 @@ class DashboardScreen extends ConsumerWidget {
                         // 3b. SUPPORTIVE ADHERENCE INSIGHTS (real, read-only)
                         const AdherenceInsightsCard(),
 
+                        const SizedBox(height: 16),
+
+                        // 3c. HEALTH INSIGHTS SUMMARY ENTRY POINT
+                        const _HealthInsightsEntry(),
+
                         const SizedBox(height: 32),
 
                         // 4. TODAY'S MEDICATION CARD (dynamic)
@@ -377,6 +382,77 @@ class _InboxBellButton extends ConsumerWidget {
             ),
             tooltip: 'Alerts',
             onPressed: () => context.push('/alerts'),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Health Insights Entry ────────────────────────────────────────────────────
+
+/// Dashboard entry point to the unified Health Insights summary (Sprint 4, P8).
+class _HealthInsightsEntry extends StatelessWidget {
+  const _HealthInsightsEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/health-insights'),
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _kTeal.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.insights_rounded,
+                  color: _kCyan,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Health Insights',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Risk, tips & your routine in one view',
+                      style: GoogleFonts.manrope(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ],
           ),
         ),
       ),
