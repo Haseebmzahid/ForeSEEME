@@ -6,10 +6,13 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/health_profil
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
+import 'package:fyp_foreseeme/features/insights/domain/models/weekly_report.dart';
 import 'package:fyp_foreseeme/features/insights/domain/repositories/recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/adherence_insights_use_case.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_mapper.dart';
+import 'package:fyp_foreseeme/features/insights/domain/services/weekly_report_use_case.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// The verified recommendation content library. Overridable with a fake in tests.
@@ -98,4 +101,47 @@ final adherenceInsightsProvider = FutureProvider<AdherenceInsights>((
   if (user == null) return AdherenceInsights.empty();
 
   return ref.watch(adherenceInsightsUseCaseProvider).compute(user.uid);
+});
+
+/// The current Monday (UTC) — the ISO week a weekly report covers. Overridable
+/// in tests for a deterministic ``weekOf``.
+final weekOfProvider = Provider<DateTime>((ref) {
+  final now = DateTime.now().toUtc();
+  final monday = now.subtract(Duration(days: now.weekday - DateTime.monday));
+  return DateTime.utc(monday.year, monday.month, monday.day);
+});
+
+/// The composed Weekly Health Report for the current user (Sprint 5, Prompt 8).
+///
+/// Pure composition of EXISTING signals — the week's risk, its trend, adherence
+/// insights, and a cited recommendation — via [composeWeeklyReport]. It degrades
+/// gracefully: a risk read that fails (offline/denied) or a recommendation guard
+/// violation is treated as "unavailable" (that section shows its empty copy)
+/// rather than failing the whole digest, so the report still shows what it can.
+final weeklyReportProvider = FutureProvider<WeeklyReport>((ref) async {
+  RiskEstimateModel? risk;
+  try {
+    risk = await ref.watch(currentCityRiskProvider.future);
+  } catch (_) {
+    risk = null;
+  }
+
+  final trend = await ref.watch(riskTrendProvider.future);
+  final adherence = await ref.watch(adherenceInsightsProvider.future);
+
+  HealthRecommendation? recommendation;
+  try {
+    recommendation = await ref.watch(currentRecommendationProvider.future);
+  } catch (_) {
+    // Rule 11 guard tripped, or no estimate — never surface un-sourced text.
+    recommendation = null;
+  }
+
+  return composeWeeklyReport(
+    weekOf: ref.watch(weekOfProvider),
+    risk: risk,
+    trend: trend,
+    adherence: adherence,
+    recommendation: recommendation,
+  );
 });

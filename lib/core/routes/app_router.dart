@@ -30,6 +30,7 @@ import 'package:fyp_foreseeme/features/alerts/presentation/notification_settings
 import 'package:fyp_foreseeme/features/alerts/presentation/alert_inbox_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
 
 /// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
 /// fade-through transition (see [AppMotion.pageTransition]). Routes, paths and
@@ -201,6 +202,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/model-transparency',
         pageBuilder: (context, state) =>
             _motionPage(state, const ModelTransparencyScreen()),
+      ),
+      GoRoute(
+        path: '/weekly-report',
+        pageBuilder: (context, state) =>
+            _motionPage(state, const WeeklyReportScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

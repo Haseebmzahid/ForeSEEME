@@ -11,13 +11,15 @@ class AlertDeepLinkRouter {
   static const String fallbackRoute = '/home';
 
   /// Routes a tapped alert may open (kept in sync with the GoRouter).
-  /// `/alerts` (inbox) is added by Prompt 5; listing it here freezes the target.
+  /// `/alerts` (inbox) is added by Prompt 5; `/weekly-report` by Sprint 5
+  /// Prompt 8. Listing them here freezes the valid targets.
   static const Set<String> knownRoutes = {
     '/home',
     '/risk-map',
     '/resources',
     '/nearby-hospitals',
     '/alerts',
+    '/weekly-report',
   };
 
   /// Resolves the destination route for a tapped alert [data] payload.
@@ -25,6 +27,10 @@ class AlertDeepLinkRouter {
     final deepLink = (data['deepLink'] as String?)?.trim();
     if (deepLink != null && knownRoutes.contains(deepLink)) {
       return deepLink;
+    }
+    // The weekly digest opens the report even if its deep link is stripped.
+    if (data['type'] == 'weekly_report') {
+      return '/weekly-report';
     }
     // A risk alert with no/invalid deep link opens the risk view.
     if (data['type'] == 'risk_alert') {

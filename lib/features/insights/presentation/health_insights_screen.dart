@@ -91,9 +91,32 @@ class HealthInsightsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 22),
 
+            // Entry point to the proactive Weekly Health Report (Sprint 5,
+            // Prompt 8) — also delivered via the alert channel.
+            const AppReveal(
+              delayMs: 260,
+              child: _NavLink(
+                icon: Icons.calendar_month_rounded,
+                iconColor: AppColorsV2.teal,
+                title: 'This week’s report',
+                subtitle: 'Your risk, routine and cited guidance',
+                route: '/weekly-report',
+              ),
+            ),
+            const SizedBox(height: 14),
+
             // Entry point to the Model Transparency page — how risk is produced
             // and its limits (Sprint 5, Prompt 7).
-            const AppReveal(delayMs: 280, child: _TransparencyLink()),
+            const AppReveal(
+              delayMs: 300,
+              child: _NavLink(
+                icon: Icons.info_outline_rounded,
+                iconColor: AppColorsV2.violet,
+                title: 'How ForeSeeMe works',
+                subtitle: 'Data, label methodology, and honest limits',
+                route: '/model-transparency',
+              ),
+            ),
             const SizedBox(height: 24),
           ],
               ),
@@ -121,19 +144,31 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Tappable row linking to the Model Transparency page — data provenance, label
-/// methodology, and limits. Reinforces the honest-labelling story.
-class _TransparencyLink extends StatelessWidget {
-  const _TransparencyLink();
+/// A tappable navigation row (glass card) used for the insights sub-pages —
+/// the weekly report and the model transparency page.
+class _NavLink extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  const _NavLink({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: 'How ForeSeeMe works — data, methodology and limits',
+      label: '$title — $subtitle',
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => context.push('/model-transparency'),
+        onTap: () => context.push(route),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -143,28 +178,21 @@ class _TransparencyLink extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.info_outline_rounded,
-                size: 18,
-                color: AppColorsV2.violet,
-              ),
+              Icon(icon, size: 18, color: iconColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'How ForeSeeMe works',
+                      title,
                       style: AppTextStylesV2.body.copyWith(
                         color: AppColorsV2.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      'Data, label methodology, and honest limits',
-                      style: AppTextStylesV2.caption,
-                    ),
+                    Text(subtitle, style: AppTextStylesV2.caption),
                   ],
                 ),
               ),
