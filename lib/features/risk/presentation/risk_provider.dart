@@ -6,6 +6,7 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/explanation_templater.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_comparison_service.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_trend_service.dart';
 
 /// Provides the concrete [RiskRepository].
@@ -122,3 +123,16 @@ final allCitiesRiskProvider = FutureProvider<List<RiskEstimateModel>>((ref) {
       .watch(riskRepositoryProvider)
       .getLatestRiskAllCities(kSupportedCities);
 });
+
+/// Descriptive per-disease breakdown for a [city] over its recent history
+/// (Sprint 5, Prompt 9) — the diseases that have been the dominant risk, each
+/// with its latest level + weeks observed.
+///
+/// Pure composition: reuses the existing [riskHistoryProvider] read (never a new
+/// query or write path) and applies the deterministic [summarizeDiseasesForCity].
+/// Returns an empty list when the city has no history yet (a clean empty state).
+final cityDiseaseSummaryProvider =
+    FutureProvider.family<List<DiseaseRiskSummary>, String>((ref, city) async {
+      final history = await ref.watch(riskHistoryProvider(city).future);
+      return summarizeDiseasesForCity(history);
+    });

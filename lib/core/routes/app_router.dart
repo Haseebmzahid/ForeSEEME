@@ -24,6 +24,7 @@ import 'package:fyp_foreseeme/features/resources/presentation/resource_center_sc
 import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_details_screen.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/screens/comparison_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_settings_screen.dart';
@@ -172,6 +173,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/risk-details',
         pageBuilder: (context, state) =>
             _motionPage(state, const RiskDetailsScreen()),
+      ),
+      GoRoute(
+        path: '/compare',
+        pageBuilder: (context, state) =>
+            _motionPage(state, const ComparisonScreen()),
       ),
       GoRoute(
         path: '/nearby-hospitals',

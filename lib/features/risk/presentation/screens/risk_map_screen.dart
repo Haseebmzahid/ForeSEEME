@@ -51,6 +51,13 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text('National Risk Map', style: AppTextStylesV2.cardTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'Compare cities & diseases',
+            onPressed: () => context.push('/compare'),
+          ),
+        ],
       ),
       body: AppMotion.stateSwitcher(
         context,
