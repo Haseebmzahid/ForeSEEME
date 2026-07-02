@@ -149,3 +149,5 @@ temp/
 **/.dart_tool/**
 **/.gradle/**
 **/.pub-cache/**
+backend/secure/
+*.json

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 300" width="360" height="300">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3B5BFF"></stop><stop offset="1" stop-color="#2CE5C8"></stop></linearGradient></defs>
+  <g transform="translate(132 24) scale(1.5)">
+    <path d="M37.43 11.72 A21 21 0 1 0 52.28 37.43" fill="none" stroke="url(#g)" stroke-width="8" stroke-linecap="round"></path>
+    <circle cx="40.6" cy="27" r="6" fill="#2CE5C8"></circle>
+  </g>
+  <text x="180" y="248" text-anchor="middle" font-family="Sora, sans-serif" font-weight="600" font-size="52" letter-spacing="-2"><tspan fill="#0F1E3D">Fore</tspan><tspan fill="#2CE5C8">See</tspan><tspan fill="#0F1E3D">Me</tspan></text>
+</svg>

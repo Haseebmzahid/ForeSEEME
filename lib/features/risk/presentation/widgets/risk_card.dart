@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shimmer/shimmer.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -401,30 +401,19 @@ class _RiskCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget bar(double width, double height) => Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-    );
-
-    return _CardShell(
+    return const _CardShell(
       borderColor: AppColorsV2.stroke,
-      child: Shimmer.fromColors(
-        baseColor: Colors.white.withValues(alpha: 0.05),
-        highlightColor: Colors.white.withValues(alpha: 0.13),
+      child: AppSkeleton(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            bar(120, 12),
-            const SizedBox(height: 14),
-            bar(180, 28),
-            const SizedBox(height: 14),
-            bar(220, 12),
-            const SizedBox(height: 10),
-            bar(140, 12),
+            SkeletonBar(width: 120, height: 12),
+            SizedBox(height: 14),
+            SkeletonBar(width: 180, height: 28),
+            SizedBox(height: 14),
+            SkeletonBar(width: 220, height: 12),
+            SizedBox(height: 10),
+            SkeletonBar(width: 140, height: 12),
           ],
         ),
       ),

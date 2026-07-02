@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
@@ -564,10 +565,31 @@ class _UpcomingMedicationCard extends ConsumerWidget {
 
     return medsAsync.when(
       loading: () => _GlassContainer(
-        child: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(_kCyan),
-            strokeWidth: 2,
+        child: const AppSkeleton(
+          child: Row(
+            children: [
+              SkeletonBox(width: 48, height: 48, radius: 24),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SkeletonBar(width: 140, height: 16),
+                    SizedBox(height: 8),
+                    SkeletonBar(width: 90, height: 12),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SkeletonBar(width: 56, height: 14),
+                  SizedBox(height: 8),
+                  SkeletonBar(width: 40, height: 12),
+                ],
+              ),
+            ],
           ),
         ),
       ),
