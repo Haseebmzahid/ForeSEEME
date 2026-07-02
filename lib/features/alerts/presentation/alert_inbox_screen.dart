@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -39,12 +40,7 @@ class AlertInboxScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: async.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColorsV2.teal),
-              strokeWidth: 2.5,
-            ),
-          ),
+          loading: () => const BrandLoading(),
           error: (_, _) => Center(
             child: TextButton.icon(
               onPressed: () => ref.invalidate(userAlertsStreamProvider),

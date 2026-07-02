@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_exception.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
@@ -550,19 +551,16 @@ class _Centered extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Full-screen wait → the unified branded loader (never a bare spinner).
+    if (spinner) return BrandLoading(message: title);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (spinner)
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColorsV2.teal),
-                strokeWidth: 2.5,
-              )
-            else
-              Icon(icon, size: 56, color: AppColorsV2.textTertiary),
+            Icon(icon, size: 56, color: AppColorsV2.textTertiary),
             const SizedBox(height: 18),
             Text(
               title,

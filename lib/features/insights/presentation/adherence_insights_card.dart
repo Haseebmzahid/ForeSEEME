@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
 
@@ -19,18 +20,25 @@ class AdherenceInsightsCard extends ConsumerWidget {
     final async = ref.watch(adherenceInsightsProvider);
 
     return async.when(
+      // Content-loading (the card sits among other visible content) → an
+      // in-place skeleton of the card shape, not the full-screen brand loader.
       loading: () => const _CardShell(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.all(8),
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColorsV2.teal),
-                strokeWidth: 2,
+        child: AppSkeleton(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  SkeletonBox(width: 18, height: 18, radius: 6),
+                  SizedBox(width: 8),
+                  SkeletonBar(width: 130, height: 12),
+                ],
               ),
-            ),
+              SizedBox(height: 16),
+              SkeletonBox(height: 12, radius: 6),
+              SizedBox(height: 8),
+              SkeletonBar(width: 200, height: 12),
+            ],
           ),
         ),
       ),

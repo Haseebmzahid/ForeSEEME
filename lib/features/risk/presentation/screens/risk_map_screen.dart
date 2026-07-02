@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/features/risk/domain/constants/city_coordinates.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -297,19 +298,16 @@ class _MapStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Full-screen wait → the unified branded loader (never a bare spinner).
+    if (spinner) return BrandLoading(message: title);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (spinner)
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColorsV2.teal),
-                strokeWidth: 2.5,
-              )
-            else
-              Icon(icon, size: 56, color: AppColorsV2.textTertiary),
+            Icon(icon, size: 56, color: AppColorsV2.textTertiary),
             const SizedBox(height: 18),
             Text(
               title,

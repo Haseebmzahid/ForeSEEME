@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shimmer/shimmer.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
@@ -686,36 +685,27 @@ class _DetailsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget box(double h) => Container(
-      height: h,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-    );
-
-    return SingleChildScrollView(
+    // Reuses the shared AppSkeleton shimmer primitive — no bespoke shimmer here.
+    return const SingleChildScrollView(
       // Scrollable so the skeleton never overflows a short viewport (responsive).
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-      child: Shimmer.fromColors(
-        baseColor: Colors.white.withValues(alpha: 0.05),
-        highlightColor: Colors.white.withValues(alpha: 0.13),
+      physics: NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 28),
+      child: AppSkeleton(
         child: Column(
           children: [
-            box(190),
-            const SizedBox(height: 18),
-            box(230),
-            const SizedBox(height: 18),
+            SkeletonBox(height: 190),
+            SizedBox(height: 18),
+            SkeletonBox(height: 230),
+            SizedBox(height: 18),
             Row(
               children: [
-                Expanded(child: box(104)),
-                const SizedBox(width: 14),
-                Expanded(child: box(104)),
+                Expanded(child: SkeletonBox(height: 104)),
+                SizedBox(width: 14),
+                Expanded(child: SkeletonBox(height: 104)),
               ],
             ),
-            const SizedBox(height: 18),
-            box(120),
+            SizedBox(height: 18),
+            SkeletonBox(height: 120),
           ],
         ),
       ),
