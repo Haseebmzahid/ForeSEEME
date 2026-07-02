@@ -89,6 +89,11 @@ class HealthInsightsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 22),
+
+            // Entry point to the Model Transparency page — how risk is produced
+            // and its limits (Sprint 5, Prompt 7).
+            const AppReveal(delayMs: 280, child: _TransparencyLink()),
             const SizedBox(height: 24),
           ],
               ),
@@ -113,5 +118,65 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppTextStylesV2.microLabel);
+  }
+}
+
+/// Tappable row linking to the Model Transparency page — data provenance, label
+/// methodology, and limits. Reinforces the honest-labelling story.
+class _TransparencyLink extends StatelessWidget {
+  const _TransparencyLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'How ForeSeeMe works — data, methodology and limits',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => context.push('/model-transparency'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColorsV2.glassFill,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColorsV2.stroke),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 18,
+                color: AppColorsV2.violet,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'How ForeSeeMe works',
+                      style: AppTextStylesV2.body.copyWith(
+                        color: AppColorsV2.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Data, label methodology, and honest limits',
+                      style: AppTextStylesV2.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColorsV2.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
