@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -38,14 +39,14 @@ class NotificationSettingsScreen extends ConsumerWidget {
                   onRetry: () =>
                       ref.invalidate(notificationPreferencesControllerProvider),
                 )
-              : Center(
-                  child: TextButton.icon(
-                    onPressed: () => ref.invalidate(
-                      notificationPreferencesControllerProvider,
-                    ),
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Retry'),
-                  ),
+              : ErrorState(
+                  title: "Couldn't load settings",
+                  explanation:
+                      'Something went wrong loading your notification '
+                      'settings. Please try again.',
+                  onRetry: () =>
+                      ref.invalidate(notificationPreferencesControllerProvider),
+                  detail: '$error',
                 ),
           data: (prefs) => _content(context, ref, prefs),
         ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
+import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_exception.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
@@ -162,15 +163,16 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     final quota = error is PlacesQuotaExceededException;
     return _RefreshWrap(
       onRefresh: () => _refresh(ref),
-      child: _Centered(
+      child: ErrorState(
         icon: Icons.cloud_off_rounded,
         title: quota ? 'Search limit reached' : "Couldn't load hospitals",
-        message: quota
+        explanation: quota
             ? 'You have reached the lookup limit for now. Please try again '
                   'later.'
             : 'The hospital service is temporarily unavailable. Please try '
                   'again.',
         onRetry: () => _retry(ref),
+        detail: '$error',
       ),
     );
   }

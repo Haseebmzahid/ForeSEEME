@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
+import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/risk/domain/constants/city_coordinates.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -51,13 +52,17 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
         title: Text('National Risk Map', style: AppTextStylesV2.cardTitle),
       ),
       body: async.when(
-        loading: () => const _MapStatus.loading(),
+        loading: () => const BrandLoading(message: 'Loading national risk…'),
         error: (error, _) => isOfflineError(error)
             ? OfflineState(
                 onRetry: () => ref.invalidate(allCitiesRiskProvider),
               )
-            : _MapStatus.error(
+            : ErrorState(
+                title: "Couldn't load the map",
+                explanation:
+                    'Something went wrong loading the map. Please try again.',
                 onRetry: () => ref.invalidate(allCitiesRiskProvider),
+                detail: '$error',
               ),
         data: (estimates) {
           if (estimates.isEmpty) {
@@ -269,86 +274,6 @@ class CityDetailSheet extends StatelessWidget {
   }
 }
 
-// ── Loading / empty / error ───────────────────────────────────────────────────
-
-class _MapStatus extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  final bool spinner;
-  final VoidCallback? onRetry;
-
-  const _MapStatus._({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.spinner = false,
-    this.onRetry,
-  });
-
-  const _MapStatus.loading()
-    : this._(
-        icon: Icons.public_rounded,
-        title: 'Loading national risk…',
-        message: 'Fetching the latest estimate for each city.',
-        spinner: true,
-      );
-
-  const _MapStatus.error({required VoidCallback onRetry})
-    : this._(
-        icon: Icons.error_outline_rounded,
-        title: "Couldn't load the map",
-        message: 'Something went wrong loading the map. Please try again.',
-        onRetry: onRetry,
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    // Full-screen wait → the unified branded loader (never a bare spinner).
-    if (spinner) return BrandLoading(message: title);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: AppColorsV2.textTertiary),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: AppTextStylesV2.cardTitle,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: AppTextStylesV2.body,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 18),
-              TextButton.icon(
-                onPressed: onRetry,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColorsV2.teal,
-                  side: BorderSide(
-                    color: AppColorsV2.teal.withValues(alpha: 0.4),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('Retry'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // A dark Google Map style so the map matches the v2 deep-space shell.
 const String _kDarkMapStyle = '''

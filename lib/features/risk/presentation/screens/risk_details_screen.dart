@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
+import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
@@ -55,7 +56,13 @@ class RiskDetailsScreen extends ConsumerWidget {
             // Connectivity loss and server errors are separate states.
             return isOfflineError(error)
                 ? OfflineState(onRetry: retry)
-                : _ErrorView(onRetry: retry);
+                : ErrorState(
+                    title: "Couldn't load risk details",
+                    explanation:
+                        'Something went wrong loading this. Please try again.',
+                    onRetry: retry,
+                    detail: '$error',
+                  );
           },
           data: (estimate) => estimate == null
               ? const EmptyState(
@@ -727,52 +734,3 @@ class _DetailsSkeleton extends StatelessWidget {
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _ErrorView({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 56,
-              color: AppColorsV2.textTertiary,
-            ),
-            const SizedBox(height: 18),
-            Text(
-              "Couldn't load risk details",
-              style: AppTextStylesV2.cardTitle,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Something went wrong loading this. Please try again.',
-              style: AppTextStylesV2.body,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 18),
-            TextButton.icon(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColorsV2.teal,
-                side: BorderSide(
-                  color: AppColorsV2.teal.withValues(alpha: 0.4),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
