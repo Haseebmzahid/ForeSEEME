@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
@@ -44,12 +45,17 @@ class RiskDetailsScreen extends ConsumerWidget {
       body: SafeArea(
         child: riskAsync.when(
           loading: () => const _DetailsSkeleton(),
-          error: (_, _) => _ErrorView(
-            onRetry: () {
+          error: (error, _) {
+            void retry() {
               ref.invalidate(userCityProvider);
               ref.invalidate(currentCityRiskProvider);
-            },
-          ),
+            }
+
+            // Connectivity loss and server errors are separate states.
+            return isOfflineError(error)
+                ? OfflineState(onRetry: retry)
+                : _ErrorView(onRetry: retry);
+          },
           data: (estimate) => estimate == null
               ? const _NoRiskView()
               : _Content(estimate: estimate),
@@ -769,7 +775,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'You may be offline. Try again when your connection is back.',
+              'Something went wrong loading this. Please try again.',
               style: AppTextStylesV2.body,
               textAlign: TextAlign.center,
             ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_exception.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
@@ -148,15 +149,10 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     }
 
     if (error is PlacesNetworkException) {
+      // Genuine connectivity loss → the shared offline surface.
       return _RefreshWrap(
         onRefresh: () => _refresh(ref),
-        child: _Centered(
-          icon: Icons.wifi_off_rounded,
-          title: "Couldn't reach the network",
-          message:
-              'You appear to be offline. Check your connection and try again.',
-          onRetry: () => _retry(ref),
-        ),
+        child: OfflineState(onRetry: () => _retry(ref)),
       );
     }
 

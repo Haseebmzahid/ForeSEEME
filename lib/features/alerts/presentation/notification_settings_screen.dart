@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
@@ -32,14 +33,20 @@ class NotificationSettingsScreen extends ConsumerWidget {
       body: SafeArea(
         child: async.when(
           loading: () => const BrandLoading(),
-          error: (_, _) => Center(
-            child: TextButton.icon(
-              onPressed: () =>
-                  ref.invalidate(notificationPreferencesControllerProvider),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
-          ),
+          error: (error, _) => isOfflineError(error)
+              ? OfflineState(
+                  onRetry: () =>
+                      ref.invalidate(notificationPreferencesControllerProvider),
+                )
+              : Center(
+                  child: TextButton.icon(
+                    onPressed: () => ref.invalidate(
+                      notificationPreferencesControllerProvider,
+                    ),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ),
           data: (prefs) => _content(context, ref, prefs),
         ),
       ),

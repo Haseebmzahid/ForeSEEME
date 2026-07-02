@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/risk/domain/constants/city_coordinates.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -50,9 +51,13 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
       ),
       body: async.when(
         loading: () => const _MapStatus.loading(),
-        error: (_, _) => _MapStatus.error(
-          onRetry: () => ref.invalidate(allCitiesRiskProvider),
-        ),
+        error: (error, _) => isOfflineError(error)
+            ? OfflineState(
+                onRetry: () => ref.invalidate(allCitiesRiskProvider),
+              )
+            : _MapStatus.error(
+                onRetry: () => ref.invalidate(allCitiesRiskProvider),
+              ),
         data: (estimates) {
           if (estimates.isEmpty) return const _MapStatus.empty();
           return _buildMap(estimates);
@@ -292,7 +297,7 @@ class _MapStatus extends StatelessWidget {
     : this._(
         icon: Icons.error_outline_rounded,
         title: "Couldn't load the map",
-        message: 'You may be offline. Try again when your connection is back.',
+        message: 'Something went wrong loading the map. Please try again.',
         onRetry: onRetry,
       );
 

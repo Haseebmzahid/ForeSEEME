@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -41,13 +42,17 @@ class AlertInboxScreen extends ConsumerWidget {
       body: SafeArea(
         child: async.when(
           loading: () => const BrandLoading(),
-          error: (_, _) => Center(
-            child: TextButton.icon(
-              onPressed: () => ref.invalidate(userAlertsStreamProvider),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-            ),
-          ),
+          error: (error, _) => isOfflineError(error)
+              ? OfflineState(
+                  onRetry: () => ref.invalidate(userAlertsStreamProvider),
+                )
+              : Center(
+                  child: TextButton.icon(
+                    onPressed: () => ref.invalidate(userAlertsStreamProvider),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Retry'),
+                  ),
+                ),
           data: (alerts) =>
               alerts.isEmpty ? const _EmptyInbox() : _AlertList(alerts: alerts),
         ),

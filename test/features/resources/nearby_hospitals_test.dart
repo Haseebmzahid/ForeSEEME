@@ -561,7 +561,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining("Couldn't reach the network"), findsOneWidget);
+      expect(find.text('No Internet Connection'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
     });
 
