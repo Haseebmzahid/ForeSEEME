@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
@@ -53,8 +54,15 @@ class AlertInboxScreen extends ConsumerWidget {
                     label: const Text('Retry'),
                   ),
                 ),
-          data: (alerts) =>
-              alerts.isEmpty ? const _EmptyInbox() : _AlertList(alerts: alerts),
+          data: (alerts) => alerts.isEmpty
+              ? const EmptyState(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'No alerts yet',
+                  description:
+                      'When risk rises in your city, your alerts will appear '
+                      'here so you can review them anytime.',
+                )
+              : _AlertList(alerts: alerts),
         ),
       ),
     );
@@ -221,38 +229,3 @@ class _RecommendationRow extends StatelessWidget {
   }
 }
 
-class _EmptyInbox extends StatelessWidget {
-  const _EmptyInbox();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.notifications_none_rounded,
-              size: 56,
-              color: AppColorsV2.textTertiary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No alerts yet',
-              style: AppTextStylesV2.cardTitle,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "When risk rises in your city, your alerts will appear here so you "
-              'can review them anytime.',
-              style: AppTextStylesV2.body,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

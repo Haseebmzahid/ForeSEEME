@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/risk/domain/constants/city_coordinates.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -59,7 +60,14 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
                 onRetry: () => ref.invalidate(allCitiesRiskProvider),
               ),
         data: (estimates) {
-          if (estimates.isEmpty) return const _MapStatus.empty();
+          if (estimates.isEmpty) {
+            return const EmptyState(
+              icon: Icons.map_outlined,
+              title: 'No risk data yet',
+              description:
+                  'We have no city estimates to map this week. Check back soon.',
+            );
+          }
           return _buildMap(estimates);
         },
       ),
@@ -284,13 +292,6 @@ class _MapStatus extends StatelessWidget {
         title: 'Loading national risk…',
         message: 'Fetching the latest estimate for each city.',
         spinner: true,
-      );
-
-  const _MapStatus.empty()
-    : this._(
-        icon: Icons.map_outlined,
-        title: 'No risk data yet',
-        message: 'We have no city estimates to map this week. Check back soon.',
       );
 
   const _MapStatus.error({required VoidCallback onRetry})

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_exception.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
@@ -74,10 +75,10 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     if (result.hospitals.isEmpty) {
       return _RefreshWrap(
         onRefresh: () => _refresh(ref),
-        child: const _Centered(
+        child: const EmptyState(
           icon: Icons.search_off_rounded,
           title: 'No hospitals found nearby',
-          message:
+          description:
               'We could not find facilities within range. Pull down to refresh '
               'or move to a different area.',
         ),

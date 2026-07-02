@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
+import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
@@ -57,7 +58,14 @@ class RiskDetailsScreen extends ConsumerWidget {
                 : _ErrorView(onRetry: retry);
           },
           data: (estimate) => estimate == null
-              ? const _NoRiskView()
+              ? const EmptyState(
+                  icon: Icons.monitor_heart_outlined,
+                  title: 'No risk data yet',
+                  description:
+                      "We don't have an environmental risk estimate for your "
+                      'city this week. New estimates arrive weekly — check back '
+                      'soon.',
+                )
               : _Content(estimate: estimate),
         ),
       ),
@@ -712,38 +720,6 @@ class _DetailsSkeleton extends StatelessWidget {
             ),
             SizedBox(height: 18),
             SkeletonBox(height: 120),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NoRiskView extends StatelessWidget {
-  const _NoRiskView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.monitor_heart_outlined,
-              size: 56,
-              color: AppColorsV2.textTertiary,
-            ),
-            const SizedBox(height: 18),
-            Text('No risk data yet', style: AppTextStylesV2.cardTitle),
-            const SizedBox(height: 8),
-            Text(
-              "We don't have an environmental risk estimate for your city this "
-              'week. New estimates arrive weekly — check back soon.',
-              style: AppTextStylesV2.body,
-              textAlign: TextAlign.center,
-            ),
           ],
         ),
       ),
