@@ -9,6 +9,13 @@
 //   1. The Pydantic `RiskEstimateResponse` (backend/app/schemas.py).
 //   2. This Dart `RiskEstimateModel`.
 //   3. The Firestore document `riskEstimates/{city}_{YYYY-MM-DD}`.
+//
+// Additive (Sprint 5, Prompt 5): the optional [attributions] field mirrors the
+// document's additive `attributions` object (genuine model explainability). It is
+// nullable — documents written before Sprint 5 do not carry it — so every reader
+// must tolerate its absence.
+
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
 
 /// Disease-risk classification level for a city.
 ///
@@ -83,6 +90,12 @@ class RiskEstimateModel {
   /// Optional in the contract; defaults to `false`.
   final bool lowConfidence;
 
+  /// Genuine, model-derived explanation for this estimate (top drivers +
+  /// confidence rationale). Additive & optional (Sprint 5, Prompt 5): `null` on
+  /// documents produced before the explainability layer shipped. The UI only
+  /// formats and visualises this stored data — it never recomputes it.
+  final RiskAttributions? attributions;
+
   const RiskEstimateModel({
     required this.city,
     required this.riskLevel,
@@ -94,6 +107,7 @@ class RiskEstimateModel {
     required this.generatedAt,
     required this.modelVersion,
     this.lowConfidence = false,
+    this.attributions,
   });
 
   // ── Serialisation ──────────────────────────────────────────────────────────
@@ -114,6 +128,11 @@ class RiskEstimateModel {
       generatedAt: DateTime.parse(json['generatedAt'] as String).toUtc(),
       modelVersion: (json['modelVersion'] as String?) ?? '',
       lowConfidence: (json['lowConfidence'] as bool?) ?? false,
+      // Additive & optional: only present on Sprint-5+ documents. Absence (an
+      // old document, or any non-map value) parses to `null`, never an error.
+      attributions: json['attributions'] is Map<String, dynamic>
+          ? RiskAttributions.fromJson(json['attributions'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -133,6 +152,9 @@ class RiskEstimateModel {
       'generatedAt': generatedAt.toUtc().toIso8601String(),
       'modelVersion': modelVersion,
       'lowConfidence': lowConfidence,
+      // Additive: emit only when present, so an estimate without explainability
+      // serialises to the exact pre-Sprint-5 shape (no `attributions: null` key).
+      if (attributions != null) 'attributions': attributions!.toJson(),
     };
   }
 
@@ -161,6 +183,7 @@ class RiskEstimateModel {
     DateTime? generatedAt,
     String? modelVersion,
     bool? lowConfidence,
+    RiskAttributions? attributions,
   }) {
     return RiskEstimateModel(
       city: city ?? this.city,
@@ -173,6 +196,7 @@ class RiskEstimateModel {
       generatedAt: generatedAt ?? this.generatedAt,
       modelVersion: modelVersion ?? this.modelVersion,
       lowConfidence: lowConfidence ?? this.lowConfidence,
+      attributions: attributions ?? this.attributions,
     );
   }
 
@@ -195,7 +219,8 @@ class RiskEstimateModel {
           other.aqi == aqi &&
           other.generatedAt == generatedAt &&
           other.modelVersion == modelVersion &&
-          other.lowConfidence == lowConfidence;
+          other.lowConfidence == lowConfidence &&
+          other.attributions == attributions;
 
   @override
   int get hashCode => Object.hash(
@@ -209,5 +234,6 @@ class RiskEstimateModel {
     generatedAt,
     modelVersion,
     lowConfidence,
+    attributions,
   );
 }

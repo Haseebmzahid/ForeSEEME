@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -200,6 +201,90 @@ void main() {
         expect(value.error, isA<Exception>());
       },
     );
+  });
+
+  group('currentCityExplanationProvider', () {
+    RiskEstimateModel withAttributions() => RiskEstimateModel(
+      city: 'Lahore',
+      riskLevel: RiskLevel.medium,
+      disease: 'Dengue',
+      confidence: 0.72,
+      temperature: 32.6,
+      humidity: 76.0,
+      aqi: 113.0,
+      generatedAt: DateTime.utc(2026, 7, 2),
+      modelVersion: 'rf-1.0.0',
+      attributions: const RiskAttributions(
+        method: 'tree_path_contributions',
+        modelVersion: 'rf-1.0.0',
+        disease: 'dengue',
+        predictedClass: 'Medium',
+        baseValue: 0.33,
+        topContributors: [
+          FeatureContribution(
+            feature: 'temperature',
+            contribution: 0.44,
+            magnitude: 0.44,
+            direction: ContributionDirection.increases,
+            value: 32.6,
+          ),
+        ],
+        confidenceRationale: ConfidenceRationale(
+          confidence: 0.72,
+          predictedClass: 'Medium',
+          runnerUpClass: 'High',
+          runnerUpConfidence: 0.2,
+          margin: 0.5,
+          agreement: 0.9,
+          strength: ConfidenceStrength.moderate,
+          lowConfidence: false,
+        ),
+      ),
+    );
+
+    Future<ProviderContainer> containerFor(RiskEstimateModel? estimate) async {
+      final container = ProviderContainer(
+        overrides: [
+          currentCityRiskProvider.overrideWith((ref) async => estimate),
+        ],
+      );
+      addTearDown(container.dispose);
+      // Drive the (overridden) async estimate to completion so the derived
+      // synchronous provider can read its resolved value.
+      await container.read(currentCityRiskProvider.future);
+      return container;
+    }
+
+    test('templates the stored attributions into a view', () async {
+      final container = await containerFor(withAttributions());
+      final view = container.read(currentCityExplanationProvider);
+
+      expect(view, isNotNull);
+      expect(view!.title, 'Why this estimate?');
+      expect(view.drivers.single.label, 'Temperature');
+      expect(view.strength, ConfidenceStrength.moderate);
+    });
+
+    test('is null when the estimate has no attributions (legacy doc)', () async {
+      final legacy = RiskEstimateModel(
+        city: 'Lahore',
+        riskLevel: RiskLevel.low,
+        disease: 'Dengue',
+        confidence: 0.6,
+        temperature: 20,
+        humidity: 50,
+        aqi: 80,
+        generatedAt: DateTime.utc(2026, 7, 2),
+        modelVersion: 'rf-1.0.0',
+      );
+      final container = await containerFor(legacy);
+      expect(container.read(currentCityExplanationProvider), isNull);
+    });
+
+    test('is null when there is no estimate', () async {
+      final container = await containerFor(null);
+      expect(container.read(currentCityExplanationProvider), isNull);
+    });
   });
 
   group('FirestoreRiskRepository.modelFromSnapshotData', () {

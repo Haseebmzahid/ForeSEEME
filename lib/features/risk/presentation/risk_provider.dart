@@ -5,6 +5,7 @@ import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_rep
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/explanation_templater.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_trend_service.dart';
 
 /// Provides the concrete [RiskRepository].
@@ -91,6 +92,24 @@ final currentCityRiskHistoryProvider = FutureProvider<List<RiskEstimateModel>>((
   final city = await ref.watch(userCityProvider.future);
   if (city == null) return const [];
   return ref.watch(riskHistoryProvider(city).future);
+});
+
+/// Deterministically-templated "why this prediction" explanation for the current
+/// user's city, as `ExplanationView?` (Sprint 5, Prompt 6).
+///
+/// Pure composition: it reads the already-loaded [currentCityRiskProvider] and
+/// maps the estimate's stored [attributions] through the framework-free
+/// [ExplanationTemplater] — no new repository, query, or business logic, and no
+/// recomputation of the model's numbers. Returns `null` while the estimate is
+/// still loading, when there is no estimate, or when the estimate predates the
+/// explainability layer (no attributions) — the panel renders an
+/// "explanation unavailable" state in that case.
+final currentCityExplanationProvider = Provider<ExplanationView?>((ref) {
+  // `.asData?.value` yields the estimate only in the data state (null while
+  // loading, on error, or when there is no estimate) — never throws.
+  final estimate = ref.watch(currentCityRiskProvider).asData?.value;
+  if (estimate == null) return null;
+  return ExplanationTemplater.build(estimate);
 });
 
 /// Latest risk estimate for every supported city, as

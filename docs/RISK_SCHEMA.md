@@ -128,8 +128,12 @@ model saw, post-imputation).
 (`"strong"`\|`"moderate"`\|`"weak"`, a deterministic bucket of margin+agreement),
 `lowConfidence` (bool, `confidence < 0.55`).
 
-Prompt 6 (Flutter) renders these deterministically into plain-language
-explanation — no generative text.
+The Dart side mirrors this additively: `RiskAttributions` (+ `FeatureContribution`
+/ `ConfidenceRationale`) in `lib/features/risk/domain/models/risk_attributions.dart`,
+parsed into the optional `RiskEstimateModel.attributions` (null on legacy docs).
+Prompt 6 (Flutter) renders these deterministically into plain-language explanation
+via `ExplanationTemplater` — no generative text; the UI only formats and
+visualises the stored data (it never recomputes attributions).
 
 ---
 

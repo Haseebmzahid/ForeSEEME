@@ -18,6 +18,7 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_driver_service.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
@@ -118,6 +119,10 @@ class _Content extends ConsumerWidget {
           const SizedBox(height: 18),
           const _EmergencyAffordance(),
         ],
+        // Genuine, model-derived "why this prediction" + confidence rationale
+        // (Sprint 5, Prompt 6) — the trust surface, placed high.
+        const SizedBox(height: 18),
+        const ExplanationPanel(),
         const SizedBox(height: 18),
         const _TrendChartCard(),
         const SizedBox(height: 18),
