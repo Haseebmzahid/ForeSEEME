@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -385,46 +386,34 @@ class _RegisterHeroHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                const Color(0xFF28DDE8).withValues(alpha: 0.20),
-                const Color(0xFF006D77).withValues(alpha: 0.08),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.55, 1.0],
-            ),
-          ),
-          child: Center(
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF28DDE8).withValues(alpha: 0.38),
-                    blurRadius: 16,
-                    spreadRadius: -4,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.health_and_safety_outlined,
-                  color: Colors.white, size: 20),
-            ),
+        // ── ForeSeeMe brand identity (logo · name · tagline) ──
+        // Matches BrandLoading: same theme-aware SVG mark at the same 72px size.
+        SvgPicture.asset(
+          isDark
+              ? 'assets/branding/logo/foreseeme-icon-white.svg'
+              : 'assets/branding/logo/foreseeme-icon-black.svg',
+          width: 72,
+          height: 72,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'ForeSeeMe',
+          style: AppTextStyles.heading2.copyWith(
+            color: isDark ? Colors.white : AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          'AI-Powered Health Intelligence',
+          style: GoogleFonts.manrope(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+            color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         Text(
           'Create Account',
           style: GoogleFonts.spaceGrotesk(
