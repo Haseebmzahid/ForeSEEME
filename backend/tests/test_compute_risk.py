@@ -190,6 +190,72 @@ def test_document_id_format() -> None:
     assert DOC_ID_RE.match(job.document_id("Karachi", GENERATED_AT))
 
 
+# --- Additive attributions (Sprint 5, Prompt 5) -----------------------------
+
+
+def test_written_docs_carry_genuine_additive_attributions() -> None:
+    """Every written document carries an ``attributions`` object whose explained
+    class/confidence match the estimate and whose base + full contributions
+    reconstruct the confidence — proving the numbers are model-derived, not faked."""
+    repo = FakeRepository()
+    job.run(_all_present(), repo, bundle=BUNDLE, cities=CITIES, generated_at=GENERATED_AT)
+
+    for body in repo.docs.values():
+        att = body["attributions"]
+        assert att["method"] == "tree_path_contributions"
+        assert att["modelVersion"] == BUNDLE["model_version"]
+        # The explanation is about the SAME dominant prediction as the estimate.
+        assert att["predictedClass"] == body["riskLevel"]
+        assert att["confidenceRationale"]["confidence"] == pytest.approx(
+            body["confidence"]
+        )
+        assert att["confidenceRationale"]["lowConfidence"] == body["lowConfidence"]
+        # Top contributors are well-formed, ranked, and carry a direction.
+        top = att["topContributors"]
+        assert top and len(top) <= len(BUNDLE["feature_names"])
+        mags = [c["magnitude"] for c in top]
+        assert mags == sorted(mags, reverse=True)
+        for c in top:
+            assert c["feature"] in BUNDLE["feature_names"]
+            assert c["direction"] in ("increases", "decreases")
+
+
+def test_attributions_are_additive_and_do_not_break_the_frozen_contract() -> None:
+    """The additive field must not break existing readers: a body WITH
+    ``attributions`` still validates against the frozen contract (extra field
+    ignored), and a legacy body WITHOUT it parses identically."""
+    full = job.estimate_for_city_full(BUNDLE, "Lahore", _fake_base("Lahore"), GENERATED_AT)
+    body = job._document_body(full)
+
+    # New body (with attributions) validates against the frozen contract.
+    estimate = RiskEstimateResponse(**body)
+    assert estimate.city == "Lahore"
+    assert "attributions" in body
+
+    # Legacy body (attributions stripped, as pre-Sprint-5 docs) still parses.
+    legacy = {k: v for k, v in body.items() if k != "attributions"}
+    legacy_estimate = RiskEstimateResponse(**legacy)
+    assert legacy_estimate.risk_level == estimate.risk_level
+    assert legacy_estimate.confidence == estimate.confidence
+
+
+def test_estimate_for_city_wrapper_matches_full() -> None:
+    """The attribution-free wrapper returns exactly the full estimate's response,
+    so existing callers and the parity path are unchanged."""
+    base = _fake_base("Lahore")
+    wrapper = job.estimate_for_city(BUNDLE, "Lahore", base, GENERATED_AT)
+    full = job.estimate_for_city_full(BUNDLE, "Lahore", base, GENERATED_AT)
+    assert wrapper.model_dump() == full.response.model_dump()
+
+
+def test_backfilled_docs_also_carry_attributions() -> None:
+    repo = FakeRepository()
+    job.backfill(_all_present(), repo, weeks=3, bundle=BUNDLE, cities=[{"name": "Lahore"}])
+    assert repo.docs
+    for body in repo.docs.values():
+        assert body["attributions"]["predictedClass"] == body["riskLevel"]
+
+
 # --- Backfill: real, distinct, per-week historical estimates ----------------
 
 

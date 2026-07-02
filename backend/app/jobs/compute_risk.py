@@ -38,6 +38,7 @@ from typing import Any, Protocol
 
 import pandas as pd
 
+from app.explain import AttributionSet, compute_attributions
 from app.feature_builder import engineer_serving_features
 from app.predict import (
     LOW_CONFIDENCE_THRESHOLD,
@@ -90,6 +91,14 @@ class CityOutcome:
     disease: str | None = None
 
 
+@dataclass
+class CityEstimate:
+    """A city's contract estimate plus its genuine, additive attributions."""
+
+    response: RiskEstimateResponse
+    attributions: AttributionSet
+
+
 # --- Config -----------------------------------------------------------------
 
 
@@ -109,16 +118,19 @@ def _latest_finite(frame: pd.DataFrame, column: str) -> float | None:
     return float(series.iloc[-1]) if not series.empty else None
 
 
-def estimate_for_city(
+def estimate_for_city_full(
     bundle: dict[str, Any],
     city_name: str,
     base: pd.DataFrame,
     generated_at: datetime,
-) -> RiskEstimateResponse | None:
-    """Engineer features over the trailing window, classify the dominant risk.
+) -> CityEstimate | None:
+    """Engineer features over the trailing window, classify the dominant risk, and
+    compute its **genuine, additive attributions** (Sprint 5, Prompt 5).
 
-    Returns ``None`` when the latest week lacks the core conditions needed for a
-    contract-valid document.
+    The attributions explain the SAME dominant disease the estimate reports, so the
+    explained ``predictedClass`` / ``confidence`` match the document's ``riskLevel``
+    / ``confidence``. Returns ``None`` when the latest week lacks the core
+    conditions needed for a contract-valid document.
     """
     if base is None or base.empty:
         return None
@@ -136,7 +148,7 @@ def estimate_for_city(
     if temperature is None or humidity is None:
         return None  # current conditions missing -> skip this city
 
-    return RiskEstimateResponse(
+    response = RiskEstimateResponse(
         city=city_name,
         risk_level=risk_level,
         disease=display_disease(disease),
@@ -148,11 +160,41 @@ def estimate_for_city(
         model_version=bundle["model_version"],
         low_confidence=confidence < LOW_CONFIDENCE_THRESHOLD,
     )
+    attributions = compute_attributions(bundle, disease, latest_features)
+    return CityEstimate(response=response, attributions=attributions)
+
+
+def estimate_for_city(
+    bundle: dict[str, Any],
+    city_name: str,
+    base: pd.DataFrame,
+    generated_at: datetime,
+) -> RiskEstimateResponse | None:
+    """Contract estimate for one city (thin wrapper over :func:`estimate_for_city_full`).
+
+    Kept as the stable, attribution-free entry point so existing callers and the
+    train/serve parity path are unchanged; the additive attributions live on
+    :class:`CityEstimate`.
+    """
+    full = estimate_for_city_full(bundle, city_name, base, generated_at)
+    return full.response if full is not None else None
 
 
 def document_id(city_name: str, generated_at: datetime) -> str:
     """``{city}_{YYYY-MM-DD}`` — the idempotent (city, date) key (RISK_SCHEMA.md)."""
     return f"{city_name}_{generated_at.strftime('%Y-%m-%d')}"
+
+
+def _document_body(estimate: CityEstimate) -> dict[str, Any]:
+    """Serialise a full estimate to its Firestore document.
+
+    The frozen risk contract is emitted unchanged; the genuine attributions are
+    attached **additively** under ``attributions`` (a purely additive field — old
+    readers/documents that ignore it are unaffected). See docs/RISK_SCHEMA.md.
+    """
+    body = estimate.response.model_dump(by_alias=True, mode="json")
+    body["attributions"] = estimate.attributions.model_dump(by_alias=True, mode="json")
+    return body
 
 
 def _iso_week_start(iso_year: int, week_of_year: int) -> datetime:
@@ -193,13 +235,13 @@ def run(
             outcomes.append(CityOutcome(name, "skipped_no_data"))
             continue
 
-        estimate = estimate_for_city(bundle, name, base, generated_at)
+        estimate = estimate_for_city_full(bundle, name, base, generated_at)
         if estimate is None:
             logger.warning("city_skipped_insufficient", extra={"city": name})
             outcomes.append(CityOutcome(name, "skipped_insufficient"))
             continue
 
-        body = estimate.model_dump(by_alias=True, mode="json")
+        body = _document_body(estimate)
         doc_id = document_id(name, generated_at)
         repository.upsert(doc_id, body)
         logger.info(
@@ -265,7 +307,7 @@ def backfill(
                 | ((ordered["iso_year"] == iso_year) & (ordered["week_of_year"] <= woy))
             ]
             generated_at = _iso_week_start(iso_year, woy)
-            estimate = estimate_for_city(bundle, name, cutoff, generated_at)
+            estimate = estimate_for_city_full(bundle, name, cutoff, generated_at)
             if estimate is None:
                 logger.info(
                     "week_skipped_insufficient",
@@ -274,7 +316,7 @@ def backfill(
                 outcomes.append(CityOutcome(name, "skipped_insufficient"))
                 continue
 
-            body = estimate.model_dump(by_alias=True, mode="json")
+            body = _document_body(estimate)
             doc_id = document_id(name, generated_at)
             repository.upsert(doc_id, body)
             logger.info(
