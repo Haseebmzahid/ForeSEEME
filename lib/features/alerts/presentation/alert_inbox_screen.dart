@@ -7,6 +7,7 @@ import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
+import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
@@ -43,10 +44,13 @@ class AlertInboxScreen extends ConsumerWidget {
         title: Text('Alerts', style: AppTextStylesV2.cardTitle),
       ),
       body: SafeArea(
-        child: AppMotion.stateSwitcher(
-          context,
-          async.when(
-            loading: () => const BrandLoading(),
+        child: Column(
+          children: [
+            Expanded(
+              child: AppMotion.stateSwitcher(
+                context,
+                async.when(
+                  loading: () => const BrandLoading(),
           error: (error, _) => isOfflineError(error)
               ? OfflineState(
                   onRetry: () => ref.invalidate(userAlertsStreamProvider),
@@ -68,7 +72,16 @@ class AlertInboxScreen extends ConsumerWidget {
                       'here so you can review them anytime.',
                 )
               : _AlertList(alerts: alerts),
-        ),
+                ),
+              ),
+            ),
+            // Alerts carry health guidance, so the non-diagnostic framing is
+            // pinned below the list — present in every state, including empty.
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 4, 20, 16),
+              child: MedicalDisclaimer.inline(),
+            ),
+          ],
         ),
       ),
     );

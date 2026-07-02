@@ -7,6 +7,7 @@ import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
+import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
@@ -46,10 +47,13 @@ class RiskDetailsScreen extends ConsumerWidget {
         title: Text('Risk Details', style: AppTextStylesV2.cardTitle),
       ),
       body: SafeArea(
-        child: AppMotion.stateSwitcher(
-          context,
-          riskAsync.when(
-            loading: () => const _DetailsSkeleton(),
+        child: Column(
+          children: [
+            Expanded(
+              child: AppMotion.stateSwitcher(
+                context,
+                riskAsync.when(
+                  loading: () => const _DetailsSkeleton(),
           error: (error, _) {
             void retry() {
               ref.invalidate(userCityProvider);
@@ -77,7 +81,16 @@ class RiskDetailsScreen extends ConsumerWidget {
                       'soon.',
                 )
               : _Content(estimate: estimate),
-        ),
+                ),
+              ),
+            ),
+            // Persistent non-diagnostic framing — always shown, independent of
+            // the risk data state (loading / error / empty / data).
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: MedicalDisclaimer.banner(),
+            ),
+          ],
         ),
       ),
     );

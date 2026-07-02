@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
+import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
@@ -161,6 +162,15 @@ class DashboardScreen extends ConsumerWidget {
                         GestureDetector(
                           onTap: () => context.push('/risk-details'),
                           child: const RiskCard(),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // 2a. NON-DIAGNOSTIC FRAMING — the risk reading is an
+                        // environmental estimate, never a clinical diagnosis.
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 2),
+                          child: MedicalDisclaimer.inline(),
                         ),
 
                         const SizedBox(height: 16),

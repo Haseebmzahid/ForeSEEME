@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
@@ -36,8 +37,10 @@ class NotificationPermissionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Allow notifications so ForeSeeMe can warn you when '
-                    'environmental risk rises in your city.',
+                    'ForeSeeMe watches your city’s weather and air quality, and '
+                    'lets you know when environmental health risk rises — so you '
+                    'don’t have to check. Allowing notifications turns these '
+                    'alerts on; you can change them anytime in Settings.',
                     textAlign: TextAlign.center,
                     style: AppTextStylesV2.body.copyWith(height: 1.5),
                   ),
@@ -45,6 +48,10 @@ class NotificationPermissionScreen extends ConsumerWidget {
                   const _Benefit('Timely high-risk warnings'),
                   const _Benefit('Fully customizable in settings'),
                   const _Benefit('No spam, ever'),
+                  const SizedBox(height: 22),
+                  // Sets expectations honestly at the consent point: these are
+                  // environmental risk estimates, not a medical diagnosis.
+                  const MedicalDisclaimer.inline(),
                   const Spacer(flex: 3),
                   _AllowButton(
                     busy: isBusy,
