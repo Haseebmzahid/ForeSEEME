@@ -4,9 +4,18 @@ import 'package:fyp_foreseeme/features/alerts/domain/models/incoming_alert.dart'
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 
-/// `firebase_messaging`-backed [PushMessagingService]. Capture-only: it requests
-/// permission and reads the token/refresh stream; it registers no message
-/// handlers (dispatch/receiving is Sprint 4).
+/// `firebase_messaging`-backed [PushMessagingService]. Covers both legs:
+/// token capture (permission request + token/refresh stream) and inbound
+/// receiving — it exposes the foreground / opened-app / initial-message streams
+/// that [FcmMessageHandler] wires to display + deep-link routing (Sprint 4 P4).
+///
+/// It maps `firebase_messaging`'s `RemoteMessage` to the domain [IncomingAlert]
+/// so no Firebase type crosses the port. It intentionally does **not** register a
+/// top-level background *data-only* handler (`onBackgroundMessage`): the backend
+/// dispatch engine sends notification-type payloads that the OS renders while
+/// backgrounded/terminated, and the tap is handled via
+/// [onMessageOpened]/[getInitialMessage]. Add one only if a silent
+/// background-processing use case appears.
 class FirebasePushMessagingService implements PushMessagingService {
   final FirebaseMessaging _messaging;
 
