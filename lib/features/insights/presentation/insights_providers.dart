@@ -9,7 +9,9 @@ import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendat
 import 'package:fyp_foreseeme/features/insights/domain/models/weekly_report.dart';
 import 'package:fyp_foreseeme/features/insights/domain/repositories/recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/adherence_insights_use_case.dart';
+import 'package:fyp_foreseeme/features/insights/domain/services/environmental_insights.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_mapper.dart';
+import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_prioritizer.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/weekly_report_use_case.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -101,6 +103,72 @@ final adherenceInsightsProvider = FutureProvider<AdherenceInsights>((
   if (user == null) return AdherenceInsights.empty();
 
   return ref.watch(adherenceInsightsUseCaseProvider).compute(user.uid);
+});
+
+/// Composed environmental-insights view (Sprint 5, Prompt 10): the estimate, the
+/// genuine environmental drivers behind it, and the prioritized cited guidance.
+class EnvironmentalInsightsView {
+  final RiskEstimateModel? estimate;
+  final List<EnvironmentalDriver> drivers;
+  final List<PrioritizedRecommendation> guidance;
+
+  const EnvironmentalInsightsView({
+    required this.estimate,
+    required this.drivers,
+    required this.guidance,
+  });
+
+  /// There is something to show only when an estimate exists and it yields
+  /// either real environmental drivers or prioritized guidance.
+  bool get hasContent =>
+      estimate != null && (drivers.isNotEmpty || guidance.isNotEmpty);
+}
+
+/// Environmental drivers of the current risk (from real attributions) + the
+/// most-relevant cited guidance first (Sprint 5, Prompt 10).
+///
+/// Pure composition of existing signals: the drivers come from the estimate's
+/// stored [attributions] via [deriveEnvironmentalDrivers] (nothing recomputed);
+/// the guidance is the deterministic [prioritizeRecommendations] over the CITED
+/// content library. Every guidance item is re-checked by the Rule-11 guard, so
+/// un-sourced text can never surface. Degrades to empty (never errors) when there
+/// is no estimate.
+final environmentalInsightsProvider = FutureProvider<EnvironmentalInsightsView>((
+  ref,
+) async {
+  RiskEstimateModel? estimate;
+  try {
+    estimate = await ref.watch(currentCityRiskProvider.future);
+  } catch (_) {
+    estimate = null;
+  }
+
+  final drivers = deriveEnvironmentalDrivers(estimate?.attributions);
+
+  var guidance = const <PrioritizedRecommendation>[];
+  if (estimate != null) {
+    final conditions = await ref.watch(userConditionsProvider.future);
+    guidance = prioritizeRecommendations(
+      riskLevel: estimate.riskLevel,
+      disease: estimate.disease,
+      conditions: conditions,
+      repository: ref.watch(recommendationRepositoryProvider),
+    );
+    // Rule 11: every surfaced advisory must be a cited lookup, never generated.
+    for (final item in guidance) {
+      ContentSafetyGuard.requireCited(
+        label: 'recommendation ${item.recommendation.id}',
+        source: item.recommendation.source,
+        sourceUrl: item.recommendation.sourceUrl,
+      );
+    }
+  }
+
+  return EnvironmentalInsightsView(
+    estimate: estimate,
+    drivers: drivers,
+    guidance: guidance,
+  );
 });
 
 /// The current Monday (UTC) — the ISO week a weekly report covers. Overridable

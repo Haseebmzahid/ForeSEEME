@@ -6,6 +6,7 @@ import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/environmental_insights_card.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
 
@@ -65,8 +66,14 @@ class HealthInsightsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 22),
 
+            // Genuine environmental drivers (from attributions) + most-relevant
+            // cited guidance first (Sprint 5, Prompt 10). Hides itself when there
+            // is no estimate/attributions, so no empty section shows.
+            const AppReveal(delayMs: 120, child: EnvironmentalInsightsCard()),
+            const SizedBox(height: 22),
+
             AppReveal(
-              delayMs: 140,
+              delayMs: 160,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
