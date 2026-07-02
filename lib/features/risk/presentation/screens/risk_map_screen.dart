@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -51,8 +52,10 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
         ),
         title: Text('National Risk Map', style: AppTextStylesV2.cardTitle),
       ),
-      body: async.when(
-        loading: () => const BrandLoading(message: 'Loading national risk…'),
+      body: AppMotion.stateSwitcher(
+        context,
+        async.when(
+          loading: () => const BrandLoading(message: 'Loading national risk…'),
         error: (error, _) => isOfflineError(error)
             ? OfflineState(
                 onRetry: () => ref.invalidate(allCitiesRiskProvider),
@@ -75,6 +78,7 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
           }
           return _buildMap(estimates);
         },
+        ),
       ),
     );
   }

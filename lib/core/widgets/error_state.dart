@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 
 /// Shared **recoverable error** surface for Design System v2 screens.
 ///
@@ -159,21 +160,31 @@ class _TechnicalDetailState extends State<_TechnicalDetail> {
             style: AppTextStylesV2.caption.copyWith(color: widget.labelColor),
           ),
         ),
-        if (_open)
-          Container(
-            constraints: const BoxConstraints(maxWidth: 340),
-            margin: const EdgeInsets.only(top: 4),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: widget.borderColor),
-            ),
-            child: SelectableText(
-              widget.detail,
-              textAlign: TextAlign.left,
-              style: AppTextStylesV2.caption.copyWith(color: widget.textColor),
-            ),
-          ),
+        // AnimatedSize smoothly grows/shrinks the panel as the detail reveals.
+        AnimatedSize(
+          duration:
+              AppMotion.reduceMotion(context) ? Duration.zero : AppMotion.medium,
+          curve: AppMotion.curve,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Container(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: widget.borderColor),
+                  ),
+                  child: SelectableText(
+                    widget.detail,
+                    textAlign: TextAlign.left,
+                    style: AppTextStylesV2.caption.copyWith(
+                      color: widget.textColor,
+                    ),
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
       ],
     );
   }

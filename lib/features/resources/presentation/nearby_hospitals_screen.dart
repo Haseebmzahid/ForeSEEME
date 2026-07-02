@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -51,15 +52,19 @@ class NearbyHospitalsScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: async.when(
-          loading: () => const _Centered(
-            spinner: true,
-            icon: Icons.local_hospital_outlined,
-            title: 'Finding nearby hospitals…',
-            message: 'Getting your location and searching facilities near you.',
+        child: AppMotion.stateSwitcher(
+          context,
+          async.when(
+            loading: () => const _Centered(
+              spinner: true,
+              icon: Icons.local_hospital_outlined,
+              title: 'Finding nearby hospitals…',
+              message:
+                  'Getting your location and searching facilities near you.',
+            ),
+            error: (error, _) => _errorView(context, ref, error),
+            data: (result) => _dataView(context, ref, result, isHigh),
           ),
-          error: (error, _) => _errorView(context, ref, error),
-          data: (result) => _dataView(context, ref, result, isHigh),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -45,8 +46,10 @@ class RiskDetailsScreen extends ConsumerWidget {
         title: Text('Risk Details', style: AppTextStylesV2.cardTitle),
       ),
       body: SafeArea(
-        child: riskAsync.when(
-          loading: () => const _DetailsSkeleton(),
+        child: AppMotion.stateSwitcher(
+          context,
+          riskAsync.when(
+            loading: () => const _DetailsSkeleton(),
           error: (error, _) {
             void retry() {
               ref.invalidate(userCityProvider);
@@ -74,6 +77,7 @@ class RiskDetailsScreen extends ConsumerWidget {
                       'soon.',
                 )
               : _Content(estimate: estimate),
+        ),
         ),
       ),
     );

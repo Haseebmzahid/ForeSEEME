@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
+
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/login_screen.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/register_screen.dart';
@@ -27,6 +29,19 @@ import 'package:fyp_foreseeme/features/alerts/presentation/notification_permissi
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_settings_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alert_inbox_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
+
+/// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
+/// fade-through transition (see [AppMotion.pageTransition]). Routes, paths and
+/// redirects are unchanged; this only styles how a page animates in.
+CustomTransitionPage<void> _motionPage(GoRouterState state, Widget child) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    transitionDuration: AppMotion.page,
+    reverseTransitionDuration: AppMotion.page,
+    transitionsBuilder: AppMotion.pageTransition,
+    child: child,
+  );
+}
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorDashboardKey =
@@ -148,31 +163,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/risk-map',
-        builder: (context, state) => const RiskMapScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const RiskMapScreen()),
       ),
       GoRoute(
         path: '/risk-details',
-        builder: (context, state) => const RiskDetailsScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const RiskDetailsScreen()),
       ),
       GoRoute(
         path: '/nearby-hospitals',
-        builder: (context, state) => const NearbyHospitalsScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const NearbyHospitalsScreen()),
       ),
       GoRoute(
         path: '/notifications/permission',
-        builder: (context, state) => const NotificationPermissionScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const NotificationPermissionScreen()),
       ),
       GoRoute(
         path: '/notifications/settings',
-        builder: (context, state) => const NotificationSettingsScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const NotificationSettingsScreen()),
       ),
       GoRoute(
         path: '/alerts',
-        builder: (context, state) => const AlertInboxScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const AlertInboxScreen()),
       ),
       GoRoute(
         path: '/health-insights',
-        builder: (context, state) => const HealthInsightsScreen(),
+        pageBuilder: (context, state) =>
+            _motionPage(state, const HealthInsightsScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

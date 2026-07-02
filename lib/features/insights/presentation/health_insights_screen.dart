@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
@@ -36,29 +37,57 @@ class HealthInsightsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           children: [
-            Text(
-              'A calm, at-a-glance look at your environment, what may help, and '
-              'how your routine is going.',
-              style: AppTextStylesV2.body,
+            // Sections fade + rise in on open, gently staggered (reduced-motion
+            // aware via AppReveal). No layout change — only entrance motion.
+            AppReveal(
+              child: Text(
+                'A calm, at-a-glance look at your environment, what may help, '
+                'and how your routine is going.',
+                style: AppTextStylesV2.body,
+              ),
             ),
             const SizedBox(height: 20),
 
-            _SectionLabel('ENVIRONMENTAL RISK'),
-            const SizedBox(height: 10),
-            const RiskCard(),
+            AppReveal(
+              delayMs: 70,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('ENVIRONMENTAL RISK'),
+                  const SizedBox(height: 10),
+                  const RiskCard(),
+                ],
+              ),
+            ),
             const SizedBox(height: 22),
 
-            _SectionLabel('WHAT MAY HELP'),
-            const SizedBox(height: 10),
-            const RecommendationsCard(),
+            AppReveal(
+              delayMs: 140,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('WHAT MAY HELP'),
+                  const SizedBox(height: 10),
+                  const RecommendationsCard(),
+                ],
+              ),
+            ),
             const SizedBox(height: 22),
 
-            _SectionLabel('YOUR ROUTINE'),
-            const SizedBox(height: 10),
-            const AdherenceInsightsCard(),
+            AppReveal(
+              delayMs: 210,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionLabel('YOUR ROUTINE'),
+                  const SizedBox(height: 10),
+                  const AdherenceInsightsCard(),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
 
-            const _MedicalDisclaimer(),
+            const AppReveal(delayMs: 280, child: _MedicalDisclaimer()),
           ],
         ),
       ),

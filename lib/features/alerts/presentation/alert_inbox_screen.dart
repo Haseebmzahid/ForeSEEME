@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -42,8 +43,10 @@ class AlertInboxScreen extends ConsumerWidget {
         title: Text('Alerts', style: AppTextStylesV2.cardTitle),
       ),
       body: SafeArea(
-        child: async.when(
-          loading: () => const BrandLoading(),
+        child: AppMotion.stateSwitcher(
+          context,
+          async.when(
+            loading: () => const BrandLoading(),
           error: (error, _) => isOfflineError(error)
               ? OfflineState(
                   onRetry: () => ref.invalidate(userAlertsStreamProvider),
@@ -65,6 +68,7 @@ class AlertInboxScreen extends ConsumerWidget {
                       'here so you can review them anytime.',
                 )
               : _AlertList(alerts: alerts),
+        ),
         ),
       ),
     );
