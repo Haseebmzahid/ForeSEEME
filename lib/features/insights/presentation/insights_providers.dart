@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fyp_foreseeme/core/safety/content_safety_guard.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
@@ -53,14 +54,25 @@ final currentRecommendationProvider = FutureProvider<HealthRecommendation>((
   final repository = ref.watch(recommendationRepositoryProvider);
 
   final risk = await ref.watch(currentCityRiskProvider.future);
+  final HealthRecommendation recommendation;
   if (risk == null) {
     // No estimate for the user's city yet → safe cited default (total lookup).
-    return repository.lookup('*', '*');
+    recommendation = repository.lookup('*', '*');
+  } else {
+    final conditions = await ref.watch(userConditionsProvider.future);
+    final key = resolveKey(conditions, risk.disease);
+    recommendation = repository.lookup(key.category ?? '*', key.driver);
   }
 
-  final conditions = await ref.watch(userConditionsProvider.future);
-  final key = resolveKey(conditions, risk.disease);
-  return repository.lookup(key.category ?? '*', key.driver);
+  // Rule 11 guardrail: whatever advisory reaches the user must be a cited
+  // lookup, never generated. A violation surfaces as an AsyncError that the
+  // recommendation card hides — it can never show un-sourced medical text.
+  ContentSafetyGuard.requireCited(
+    label: 'recommendation ${recommendation.id}',
+    source: recommendation.source,
+    sourceUrl: recommendation.sourceUrl,
+  );
+  return recommendation;
 });
 
 /// The read-only adherence-intelligence use case (Prompt 7). Overridable in tests.

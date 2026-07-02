@@ -12,6 +12,8 @@ import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/emergency_card.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_driver_service.dart';
@@ -110,6 +112,12 @@ class _Content extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
         _HeroCard(estimate: estimate),
+        // High risk → surface one-tap emergency help immediately (reuses the
+        // Sprint 3 emergency contact + dialer).
+        if (estimate.riskLevel == RiskLevel.high) ...[
+          const SizedBox(height: 18),
+          const _EmergencyAffordance(),
+        ],
         const SizedBox(height: 18),
         const _TrendChartCard(),
         const SizedBox(height: 18),
@@ -133,6 +141,24 @@ class _Content extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ── Emergency affordance (high risk only) ────────────────────────────────────
+
+/// One-tap emergency dial shown on the Risk Details screen when the current
+/// estimate is High. Reuses the Sprint 3 emergency contact + [EmergencyCard] +
+/// [launcherServiceProvider] — no new content, no medical text generated.
+class _EmergencyAffordance extends ConsumerWidget {
+  const _EmergencyAffordance();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final contact = ref.watch(emergencyContactProvider);
+    return EmergencyCard(
+      contact: contact,
+      onCall: () => ref.read(launcherServiceProvider).dialPhone(contact.number),
     );
   }
 }
