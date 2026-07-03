@@ -50,6 +50,17 @@ service cloud.firestore {
                          .affectedKeys().hasOnly(['read', 'readAt']);
     }
 
+    // overrides/{city} (Sprint 5 P13): the manual risk-override safety valve.
+    // Any AUTHENTICATED client may READ (so every risk surface can honestly
+    // indicate an active override); only an OPERATOR — a user carrying the
+    // `admin` custom claim (granted server-side via backend/scripts/set_admin_claim.py,
+    // so it cannot be forged) — may WRITE. Audit fields (author/reason/timestamp)
+    // live on the document. A normal user is denied all writes here.
+    match /overrides/{city} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
     // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats written
     // only by the backend service account (Admin SDK bypasses rules). They are
     // operator-facing telemetry, not user data, so NO client may read or write —

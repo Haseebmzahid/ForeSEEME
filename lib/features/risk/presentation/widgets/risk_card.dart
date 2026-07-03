@@ -5,8 +5,11 @@ import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_override.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
@@ -24,21 +27,130 @@ class RiskCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final riskAsync = ref.watch(currentCityRiskProvider);
+    // An active operator override (Prompt 13) transparently supersedes the model
+    // estimate on this at-a-glance surface. `.asData?.value` is null while it
+    // loads / on error / when none is active, so the normal path is unaffected.
+    final override = ref.watch(currentCityOverrideProvider).asData?.value;
 
     return riskAsync.when(
       loading: () => const _RiskCardSkeleton(),
-      error: (_, _) => _RiskCardError(
-        onRetry: () {
-          ref.invalidate(userCityProvider);
-          ref.invalidate(currentCityRiskProvider);
-        },
-      ),
+      error: (_, _) => override != null
+          ? _RiskCardOverride(riskOverride: override)
+          : _RiskCardError(
+              onRetry: () {
+                ref.invalidate(userCityProvider);
+                ref.invalidate(currentCityRiskProvider);
+              },
+            ),
       data: (estimate) {
+        if (override != null) {
+          return _RiskCardOverride(
+            riskOverride: override,
+            modelEstimate: estimate,
+          );
+        }
         if (estimate == null) {
           return _RiskCardEmpty(city: ref.watch(userCityProvider).value);
         }
         return _RiskCardData(estimate: estimate);
       },
+    );
+  }
+}
+
+// ── Override state (operator-set risk, clearly labelled) ─────────────────────
+
+class _RiskCardOverride extends StatelessWidget {
+  final RiskOverride riskOverride;
+  final RiskEstimateModel? modelEstimate;
+
+  const _RiskCardOverride({required this.riskOverride, this.modelEstimate});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = RiskVisuals.forLevel(riskOverride.riskLevel);
+
+    return Semantics(
+      container: true,
+      label:
+          'Operator-set risk for ${riskOverride.city}: ${a.headline}, '
+          '${riskOverride.disease}. Reason: ${riskOverride.reason}',
+      child: _CardShell(
+        borderColor: AppColorsV2.violet.withValues(alpha: 0.4),
+        gradient: LinearGradient(
+          colors: [
+            AppColorsV2.violet.withValues(alpha: 0.12),
+            a.fill,
+          ],
+          begin: const Alignment(-0.6, -1),
+          end: const Alignment(0.6, 1),
+        ),
+        glowColor: a.color,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '${riskOverride.city} · Today'.toUpperCase(),
+                  style: AppTextStylesV2.microLabel,
+                ),
+                const Spacer(),
+                const OverrideBadge(),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(a.icon, color: a.color, size: 24),
+                const SizedBox(width: 9),
+                Flexible(
+                  child: Text(
+                    a.headline,
+                    style: AppTextStylesV2.headline.copyWith(color: a.color),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${riskOverride.disease} · set manually by an operator',
+              style: AppTextStylesV2.body.copyWith(
+                color: AppColorsV2.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.notes_rounded,
+                  size: 13,
+                  color: AppColorsV2.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    riskOverride.reason,
+                    style: AppTextStylesV2.caption,
+                  ),
+                ),
+              ],
+            ),
+            if (modelEstimate != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Automated model estimate: '
+                '${RiskVisuals.of(modelEstimate!.riskLevel, lowConfidence: modelEstimate!.lowConfidence).headline}',
+                style: AppTextStylesV2.caption.copyWith(
+                  color: AppColorsV2.textTertiary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

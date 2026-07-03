@@ -47,6 +47,8 @@ async function check(name, fn) {
 
 const alice = testEnv.authenticatedContext('alice').firestore();
 const bob = testEnv.authenticatedContext('bob').firestore();
+const admin = testEnv.authenticatedContext('op', { admin: true }).firestore();
+const anon = testEnv.unauthenticatedContext().firestore();
 
 // Seed as the engine would (Admin SDK bypasses rules).
 await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -91,6 +93,33 @@ await check('userAlerts: owner cannot edit content', () =>
 );
 await check('userAlerts: owner cannot delete', () =>
   assertFails(deleteDoc(doc(alice, 'userAlerts/alice/items/a1'))),
+);
+
+// overrides/{city} (Sprint 5 P13) — admin-role write, authenticated read.
+const overrideDoc = {
+  city: 'Lahore',
+  riskLevel: 'High',
+  disease: 'Smog',
+  reason: 'Pipeline delayed; AQI spiked per advisory.',
+  authorUid: 'op',
+  authorEmail: 'op@example.com',
+  createdAt: '2026-07-02T00:00:00.000Z',
+  active: true,
+};
+await check('overrides: admin (claim) may create', () =>
+  assertSucceeds(setDoc(doc(admin, 'overrides/Lahore'), overrideDoc)),
+);
+await check('overrides: authenticated user may read', () =>
+  assertSucceeds(getDoc(doc(alice, 'overrides/Lahore'))),
+);
+await check('overrides: non-admin write denied', () =>
+  assertFails(setDoc(doc(alice, 'overrides/Karachi'), overrideDoc)),
+);
+await check('overrides: non-admin cannot clear (update) an override', () =>
+  assertFails(updateDoc(doc(bob, 'overrides/Lahore'), { active: false })),
+);
+await check('overrides: unauthenticated read denied', () =>
+  assertFails(getDoc(doc(anon, 'overrides/Lahore'))),
 );
 
 await testEnv.cleanup();

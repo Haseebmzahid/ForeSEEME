@@ -1,5 +1,24 @@
 # Backend ops scripts
 
+## `set_admin_claim.py` (Sprint 5, Prompt 13)
+
+Grants or revokes the `admin` custom claim that gates the manual risk-override
+safety valve. Custom claims can only be set by the Admin SDK (never a client), so
+this is the trusted way to designate an operator. The claim is enforced in
+`firestore.rules` (`overrides/{city}` writes) and used by the app to reveal the
+guarded admin surface.
+
+```bash
+# grant (by uid or email):
+GOOGLE_APPLICATION_CREDENTIALS=/path/sa.json python backend/scripts/set_admin_claim.py operator@example.com
+# revoke:
+GOOGLE_APPLICATION_CREDENTIALS=/path/sa.json python backend/scripts/set_admin_claim.py operator@example.com --revoke
+```
+
+The user must refresh their ID token (sign out/in) for the change to take effect;
+the app force-refreshes the token when reading the claim. See
+`docs/admin_override.md` for the full override design.
+
 ## `seed_risk_estimates.py`
 
 Seeds ~8 sample `riskEstimates` documents (Lahore, Islamabad, Karachi, Peshawar

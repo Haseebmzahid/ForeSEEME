@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 
@@ -178,6 +179,22 @@ class ProfileScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  // Operator-only: manual risk override (Sprint 5, Prompt 13).
+                  // Shown only when the signed-in user carries the admin claim;
+                  // Firestore rules enforce it server-side regardless.
+                  if (ref.watch(isAdminProvider).value ?? false) ...[
+                    const SizedBox(height: 16),
+                    _GlassContainer(
+                      padding: EdgeInsets.zero,
+                      child: _SettingsTile(
+                        icon: Icons.admin_panel_settings_outlined,
+                        title: 'Risk Override',
+                        subtitle: 'Operator: correct a stale/wrong estimate',
+                        onTap: () => context.push('/admin/risk-override'),
+                        showTrailing: true,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
 
                   // Log Out Button

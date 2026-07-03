@@ -15,11 +15,14 @@ import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/emergency_card.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_override.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_driver_service.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
@@ -37,6 +40,9 @@ class RiskDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final riskAsync = ref.watch(currentCityRiskProvider);
+    // An active operator override (Prompt 13) is surfaced as a prominent banner
+    // above the model detail — never applied silently.
+    final override = ref.watch(currentCityOverrideProvider).asData?.value;
 
     return Scaffold(
       backgroundColor: AppColorsV2.shell,
@@ -76,16 +82,26 @@ class RiskDetailsScreen extends ConsumerWidget {
                     detail: '$error',
                   );
           },
-          data: (estimate) => estimate == null
-              ? const EmptyState(
-                  icon: Icons.monitor_heart_outlined,
-                  title: 'No risk data yet',
-                  description:
-                      "We don't have an environmental risk estimate for your "
-                      'city this week. New estimates arrive weekly — check back '
-                      'soon.',
-                )
-              : _Content(estimate: estimate),
+          data: (estimate) {
+            final body = estimate == null
+                ? const EmptyState(
+                    icon: Icons.monitor_heart_outlined,
+                    title: 'No risk data yet',
+                    description:
+                        "We don't have an environmental risk estimate for your "
+                        'city this week. New estimates arrive weekly — check '
+                        'back soon.',
+                  )
+                : _Content(estimate: estimate);
+            if (override == null) return body;
+            // Operator override active: lead with the transparency banner, keep
+            // the automated model detail (labelled) below it.
+            return _OverriddenBody(
+              riskOverride: override,
+              modelEstimate: estimate,
+              child: body,
+            );
+          },
                 ),
               ),
             ),
@@ -152,6 +168,39 @@ class _Content extends ConsumerWidget {
         ),
       ),
       child: content,
+    );
+  }
+}
+
+// ── Operator override overlay (transparency banner + model detail) ───────────
+
+/// Wraps the normal Risk Details body with a prominent [RiskOverrideNotice]
+/// banner when an operator override is active, so the override is unmissable
+/// while the automated model's detail remains visible (and labelled) below.
+class _OverriddenBody extends StatelessWidget {
+  final RiskOverride riskOverride;
+  final RiskEstimateModel? modelEstimate;
+  final Widget child;
+
+  const _OverriddenBody({
+    required this.riskOverride,
+    required this.modelEstimate,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          child: RiskOverrideNotice(
+            riskOverride: riskOverride,
+            modelEstimate: modelEstimate,
+          ),
+        ),
+        Expanded(child: child),
+      ],
     );
   }
 }

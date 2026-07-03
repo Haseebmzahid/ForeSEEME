@@ -32,6 +32,7 @@ import 'package:fyp_foreseeme/features/alerts/presentation/alert_inbox_screen.da
 import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
 
 /// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
 /// fade-through transition (see [AppMotion.pageTransition]). Routes, paths and
@@ -213,6 +214,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/weekly-report',
         pageBuilder: (context, state) =>
             _motionPage(state, const WeeklyReportScreen()),
+      ),
+      GoRoute(
+        path: '/admin/risk-override',
+        pageBuilder: (context, state) =>
+            _motionPage(state, const AdminOverrideScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
