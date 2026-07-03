@@ -40,6 +40,7 @@ import pandas as pd
 
 from app.explain import AttributionSet, compute_attributions
 from app.feature_builder import engineer_serving_features
+from app.jobs import observability
 from app.predict import (
     LOW_CONFIDENCE_THRESHOLD,
     classify_dominant,
@@ -54,6 +55,7 @@ from ml.pipelines.acquisition_base import Window
 
 logger = logging.getLogger("foreseeme.jobs.compute_risk")
 
+JOB_NAME = "compute_risk"
 COLLECTION = "riskEstimates"
 KEY = ["city", "iso_year", "week_of_year"]
 WEATHER_SOURCE = "open_meteo_weather"
@@ -329,6 +331,69 @@ def backfill(
     return outcomes
 
 
+# --- Observability: heartbeat + failure signal (Sprint 5, Prompt 15→P12) ----
+
+
+def classify_run(outcomes: list[CityOutcome], *, cities_count: int) -> str:
+    """Grade a scheduled run's health for the heartbeat/alert signal.
+
+    * ``failed``   — nothing was written though cities exist: the pipeline produced
+      no fresh estimates, so the app would show stale risk (audit H1). This is the
+      "zero output unexpectedly" case an operator must act on.
+    * ``degraded`` — some cities were written but others errored/were skipped: the
+      run partially succeeded and is worth a look, but not a hard failure.
+    * ``ok``       — one estimate written per city, no errors.
+    """
+    written = sum(1 for o in outcomes if o.status == "written")
+    if written == 0 and cities_count > 0:
+        return observability.STATUS_FAILED
+    if written < cities_count or any(o.status == "error" for o in outcomes):
+        return observability.STATUS_DEGRADED
+    return observability.STATUS_OK
+
+
+def run_and_report(
+    provider: WeeklyBaseProvider,
+    repository: RiskRepository,
+    *,
+    heartbeat: observability.HeartbeatSink,
+    bundle: dict[str, Any] | None = None,
+    cities: list[dict[str, Any]] | None = None,
+    generated_at: datetime | None = None,
+) -> tuple[observability.RunReport, list[CityOutcome]]:
+    """Run the scheduled job and emit its heartbeat + run-summary signal.
+
+    Thin observability wrapper over :func:`run` (unchanged): grades the run, writes
+    the ``jobHeartbeats/compute_risk`` document, and logs ``job_run`` at INFO (ok) or
+    ERROR (degraded/failed). A crash before outcomes are produced emits a ``failed``
+    heartbeat and re-raises so the process exits non-zero (Scheduler/Run marks the
+    run failed). Backfill is intentionally NOT wrapped — it is a manual, operator-run
+    operation, not the monitored weekly cadence.
+    """
+    cities = cities or load_cities()
+    started_at = datetime.now(timezone.utc)
+    try:
+        outcomes = run(
+            provider, repository, bundle=bundle, cities=cities,
+            generated_at=generated_at,
+        )
+    except Exception as exc:  # unexpected: emit a failed signal, then propagate
+        report = observability.failed_report(
+            JOB_NAME, started_at, datetime.now(timezone.utc),
+            f"{type(exc).__name__}: {exc}",
+        )
+        observability.emit(report, sink=heartbeat, logger=logger)
+        raise
+
+    status = classify_run(outcomes, cities_count=len(cities))
+    report = observability.RunReport(
+        JOB_NAME, status, started_at, datetime.now(timezone.utc),
+        counts=observability.count_by_status(outcomes),
+    )
+    observability.emit(report, sink=heartbeat, logger=logger)
+    return report, outcomes
+
+
 # --- Firestore repository (service-account writes only) ---------------------
 
 
@@ -476,11 +541,15 @@ def main(argv: list[str] | None = None) -> int:
     provider = OpenMeteoWeeklyBaseProvider(lookback_weeks=lookback)
     repository = init_firestore_repository()
 
-    outcomes = (
-        backfill(provider, repository, weeks=weeks)
-        if is_backfill
-        else run(provider, repository)
-    )
+    # Backfill is a manual operator operation (prints its own summary, no
+    # heartbeat). The scheduled run is monitored: it emits a heartbeat + a
+    # failure signal so a silent/empty run is detectable (audit H1).
+    report: observability.RunReport | None = None
+    if is_backfill:
+        outcomes = backfill(provider, repository, weeks=weeks)
+    else:
+        heartbeat = observability.init_firestore_heartbeat_sink()
+        report, outcomes = run_and_report(provider, repository, heartbeat=heartbeat)
 
     written = sum(1 for o in outcomes if o.status == "written")
     label = f"backfill({weeks}w)" if is_backfill else "run"
@@ -489,8 +558,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {o.city:11} {o.status:22} {o.doc_id} -> {o.risk_level} ({o.disease})")
         else:
             print(f"  {o.city:11} {o.status}")
-    print(f"done [{label}]: {written} documents written to {COLLECTION}")
-    return 0
+    status_note = f" [{report.status}]" if report is not None else ""
+    print(f"done [{label}]: {written} documents written to {COLLECTION}{status_note}")
+    # A failed scheduled run exits non-zero so Cloud Scheduler/Run flags it too.
+    return 1 if report is not None and report.status == observability.STATUS_FAILED else 0
 
 
 if __name__ == "__main__":

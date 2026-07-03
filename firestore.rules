@@ -50,6 +50,14 @@ service cloud.firestore {
                          .affectedKeys().hasOnly(['read', 'readAt']);
     }
 
+    // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats written
+    // only by the backend service account (Admin SDK bypasses rules). They are
+    // operator-facing telemetry, not user data, so NO client may read or write —
+    // the user-facing complement is the in-app staleness indicator (Prompt 11).
+    match /jobHeartbeats/{job} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if request.time < timestamp.date(2026, 6, 1);
     }

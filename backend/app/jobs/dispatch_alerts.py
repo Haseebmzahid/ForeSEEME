@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
+from app.jobs import observability
 from app.jobs.alerting import recommendation_lookup, targeting, throttle
 from app.jobs.alerting.messaging import (
     FcmSender,
@@ -40,6 +41,7 @@ from ml.pipelines import clean
 
 logger = logging.getLogger("foreseeme.jobs.dispatch_alerts")
 
+JOB_NAME = "dispatch_alerts"
 COLLECTION_RISK = "riskEstimates"
 COLLECTION_LOG = "alertDispatchLog"
 COLLECTION_USER_ALERTS = "userAlerts"
@@ -311,6 +313,61 @@ def _skip_log_body(
     }
 
 
+# --- Observability: heartbeat + failure signal (Sprint 5, Prompt 12) --------
+
+
+def classify_run(outcomes: list[DispatchOutcome]) -> str:
+    """Grade a dispatch run's health for the heartbeat/alert signal.
+
+    **Zero sends is normal, not a failure**: most runs have no risk transition, so
+    an empty run is expected (alerting on it would be pure noise — the risk the
+    prompt calls out). A run is only ``degraded`` when an FCM send actually failed
+    (``status == "failed"``); a crash before outcomes are produced is ``failed``
+    (handled in :func:`run_and_report`). Idempotent/throttled skips are healthy —
+    they are the spam-safety guard working.
+    """
+    if any(o.status == "failed" for o in outcomes):
+        return observability.STATUS_DEGRADED
+    return observability.STATUS_OK
+
+
+def run_and_report(
+    *,
+    history: RiskHistoryProvider,
+    directory: UserDirectory,
+    sender: FcmSender,
+    repository: DispatchRepository,
+    heartbeat: observability.HeartbeatSink,
+    cities: list[dict],
+    now: datetime,
+) -> tuple[observability.RunReport, list[DispatchOutcome]]:
+    """Run the dispatch job and emit its heartbeat + run-summary signal.
+
+    Observability wrapper over :func:`run` (unchanged). A crash emits a ``failed``
+    heartbeat and re-raises so the process exits non-zero.
+    """
+    started_at = datetime.now(timezone.utc)
+    try:
+        outcomes = run(
+            history=history, directory=directory, sender=sender,
+            repository=repository, cities=cities, now=now,
+        )
+    except Exception as exc:
+        report = observability.failed_report(
+            JOB_NAME, started_at, datetime.now(timezone.utc),
+            f"{type(exc).__name__}: {exc}",
+        )
+        observability.emit(report, sink=heartbeat, logger=logger)
+        raise
+
+    report = observability.RunReport(
+        JOB_NAME, classify_run(outcomes), started_at, datetime.now(timezone.utc),
+        counts=observability.count_by_status(outcomes),
+    )
+    observability.emit(report, sink=heartbeat, logger=logger)
+    return report, outcomes
+
+
 # --- Firestore seams (service account; lazy firebase imports) ---------------
 
 
@@ -476,11 +533,12 @@ def main() -> int:
 
     configure_logging(os.getenv("LOG_LEVEL", "INFO"))
     db = init_firestore()
-    outcomes = run(
+    report, outcomes = run_and_report(
         history=FirestoreRiskHistoryProvider(db),
         directory=FirestoreUserDirectory(db),
         sender=FirebaseAdminFcmSender(),
         repository=FirestoreDispatchRepository(db),
+        heartbeat=observability.FirestoreHeartbeatSink(db),
         cities=clean.load_cities(),
         now=datetime.now(timezone.utc),
     )
@@ -488,8 +546,8 @@ def main() -> int:
     sent = sum(1 for o in outcomes if o.status == "sent")
     for o in outcomes:
         print(f"  {o.city:11} {o.uid:28} {o.category:14} {o.status}")
-    print(f"done: {sent}/{len(outcomes)} alerts sent")
-    return 0
+    print(f"done: {sent}/{len(outcomes)} alerts sent [{report.status}]")
+    return 1 if report.status == observability.STATUS_FAILED else 0
 
 
 if __name__ == "__main__":
