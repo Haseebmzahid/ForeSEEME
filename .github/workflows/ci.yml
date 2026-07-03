@@ -1,0 +1,72 @@
+name: CI
+
+# Gate every PR (and pushes to main) on analyze + tests for both stacks.
+# No secrets are referenced anywhere in this workflow — all checks run on public
+# toolchains against the checked-in source and committed model artifact.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer commit on the same ref cancels superseded runs (saves CI minutes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    name: Flutter — analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.4
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze (fails on any analyzer issue)
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  backend:
+    name: Backend — lint + pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'          # matches the runtime image (Dockerfile)
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff==0.15.20        # lint-only tool, pinned; not a runtime dep
+
+      - name: Lint (error-level rules — fails on real defects)
+        # Pyflakes/pycodestyle error classes: syntax errors, undefined names,
+        # broken comparisons/assertions. Kept to error level so the gate stays
+        # green on the current code while still catching regressions; style rules
+        # can be layered in later without changing this contract.
+        run: ruff check app ml scripts tests --select E9,F63,F7,F82
+
+      - name: Test
+        run: pytest -q
