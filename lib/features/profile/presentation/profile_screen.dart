@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fyp_foreseeme/core/theme/a11y.dart';
 import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
@@ -843,17 +844,23 @@ class _GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reduced-transparency fallback (audit M4): a translucent, blurred glass
+    // panel over a gradient can drop below contrast thresholds. Under high
+    // contrast we drop the backdrop blur and make the fill opaque with a
+    // stronger border, so text sits on a solid, predictable surface.
+    final sigma = A11y.blurSigma(context, sigma: 16);
+    final reduce = A11y.reduceTransparency(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
+            color: const Color(0xFF0D1F38).withValues(alpha: reduce ? 1.0 : 0.45),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: Colors.white.withValues(alpha: reduce ? 0.20 : 0.05),
               width: 1.0,
             ),
           ),

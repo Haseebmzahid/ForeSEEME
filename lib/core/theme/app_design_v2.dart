@@ -36,8 +36,9 @@ class AppColorsV2 {
   /// Muted label tone used on dark cards in the Sprint 3 screens.
   static const Color textTertiary = Color(0xFF8B96B1);
 
-  /// Faintest hint tone.
-  static const Color textFaint = Color(0xFF697391);
+  /// Faintest hint tone. Raised from `#697391` (≈4.0:1) to meet WCAG AA 4.5:1 on
+  /// the glass surface — see `docs/accessibility_audit.md` (Sprint 5, Prompt 15).
+  static const Color textFaint = Color(0xFF77819E);
 
   // ── Brand & accents ─────────────────────────────────────────────────────────
   static const Color brandViolet = Color(0xFF7158FA);

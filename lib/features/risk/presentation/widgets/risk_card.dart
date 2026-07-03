@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fyp_foreseeme/core/theme/a11y.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
@@ -173,13 +174,16 @@ class _CardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reduced-transparency fallback: neutral cards use an opaque fill and the
+    // low-contrast ambient glow is dropped (audit M4).
+    final reduceTransparency = A11y.reduceTransparency(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           gradient: gradient,
-          color: gradient == null ? AppColorsV2.glassFill : null,
+          color: gradient == null ? A11y.glassFill(context) : null,
           border: Border.all(color: borderColor),
           boxShadow: [
             BoxShadow(
@@ -191,7 +195,7 @@ class _CardShell extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            if (glowColor != null)
+            if (glowColor != null && !reduceTransparency)
               Positioned(
                 top: -44,
                 right: -30,

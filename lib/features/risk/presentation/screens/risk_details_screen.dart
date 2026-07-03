@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/a11y.dart';
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
@@ -789,13 +790,14 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Reduced-transparency fallback: opaque fill + stronger stroke (audit M4).
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
+        color: A11y.glassFill(context),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
+        border: Border.all(color: A11y.stroke(context)),
       ),
       child: child,
     );
