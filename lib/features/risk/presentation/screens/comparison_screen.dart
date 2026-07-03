@@ -15,6 +15,7 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_comparison_service.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
 /// City & Disease Comparison (Sprint 5, Prompt 9).
 ///
@@ -178,6 +179,12 @@ class _CitiesView extends ConsumerWidget {
           );
         }
         final ranked = rankCitiesBySeverity(estimates);
+        // Freshest estimate across the cities — if even that is out of date the
+        // whole comparison is stale, so label it honestly once at the top
+        // (per-row timestamps would be noise on a relative view).
+        final newest = estimates
+            .map((e) => e.generatedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
           children: [
@@ -185,6 +192,7 @@ class _CitiesView extends ConsumerWidget {
               'Latest environmental risk across cities, most severe first.',
               style: AppTextStylesV2.body,
             ),
+            RiskStalenessNotice(generatedAt: newest, topGap: 12),
             const SizedBox(height: 14),
             for (final e in ranked)
               Padding(

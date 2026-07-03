@@ -118,5 +118,35 @@ void main() {
       expect(find.byIcon(Icons.help_outline_rounded), findsOneWidget);
       expect(find.text('High'), findsNothing);
     });
+
+    testWidgets('a stale city estimate labels the sheet honestly', (
+      tester,
+    ) async {
+      // A year in the past → stale regardless of the machine clock.
+      final stale = est(
+        'Lahore',
+        RiskLevel.high,
+      ).copyWith(generatedAt: DateTime.utc(2000, 1, 1));
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: CityDetailSheet(estimate: stale))),
+      );
+
+      expect(find.text('Lahore'), findsOneWidget);
+      expect(find.text('This estimate may be out of date'), findsOneWidget);
+    });
+
+    testWidgets('a fresh city estimate shows no staleness notice', (
+      tester,
+    ) async {
+      final fresh = est(
+        'Lahore',
+        RiskLevel.high,
+      ).copyWith(generatedAt: DateTime.now().toUtc());
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: CityDetailSheet(estimate: fresh))),
+      );
+
+      expect(find.text('This estimate may be out of date'), findsNothing);
+    });
   });
 }

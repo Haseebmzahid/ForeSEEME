@@ -14,6 +14,7 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_legend.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
 /// National risk map (Sprint 3, Prompt 4): one **colored zone per city** (a
 /// circle, never a density heatmap) over a dark Google Map, tappable to a
@@ -279,6 +280,9 @@ class CityDetailSheet extends StatelessWidget {
               ),
             ],
           ),
+          // Honest staleness label for this city's estimate (self-guarding —
+          // shows only when the cached/last estimate is out of date).
+          RiskStalenessNotice(generatedAt: estimate.generatedAt, topGap: 14),
         ],
       ),
     );

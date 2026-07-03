@@ -464,10 +464,17 @@ the project.
 
 `currentCityRiskProvider` maps to four UI states: **loading** (skeleton), **data**,
 **empty** (`AsyncData(null)` → "no risk data yet for {city}"), **error/offline**
-(retry). Offline reads are served from Firestore's local cache; an estimate older
-than `kRiskStaleAfter` (9 days) shows a **"this estimate may be out of date"**
-staleness hint. Accessibility: every risk signal pairs colour with a **label + a
-distinct icon/glyph** (✓ ! △ ? and trend arrows / dash) — never colour alone.
+(retry) — via the shared `EmptyState` / `ErrorState` / `OfflineState` primitives so
+the language is identical on every surface. Offline reads are served from
+Firestore's local cache; an estimate older than the documented threshold
+`kRiskStaleAfter` (9 days = the weekly batch cadence + 2 days grace, per ADR-002)
+shows a **"this estimate may be out of date"** staleness notice. Staleness is
+centralised in `domain/services/risk_staleness.dart` (threshold + classification)
+and rendered by the shared, self-guarding `RiskStalenessNotice` widget, reused on
+the dashboard card, Risk Details, the national map sheet, and the comparison view —
+so no screen can silently present stale risk as current. Accessibility: every risk
+signal pairs colour with a **label + a distinct icon/glyph** (✓ ! △ ? and trend
+arrows / dash) — never colour alone.
 
 ### Integrations (client-side, restricted keys)
 

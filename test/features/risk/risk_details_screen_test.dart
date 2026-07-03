@@ -209,6 +209,29 @@ void main() {
       expect(find.text('No risk data yet'), findsOneWidget);
       expect(find.byType(RiskTrendChart), findsNothing);
     });
+
+    testWidgets('a stale estimate shows the out-of-date notice + age', (
+      tester,
+    ) async {
+      // A year in the past → stale regardless of the machine clock.
+      final stale = _est(level: 'High').copyWith(
+        generatedAt: DateTime.utc(2000, 1, 1),
+      );
+      await _pump(tester, _screen(estimate: stale, history: _risingHistory()));
+
+      expect(find.text('High Risk'), findsOneWidget); // hero still current
+      expect(find.text('This estimate may be out of date'), findsOneWidget);
+      expect(find.textContaining('Updated'), findsWidgets); // age surfaced
+    });
+
+    testWidgets('a fresh estimate hides the out-of-date notice', (tester) async {
+      final fresh = _est(level: 'High').copyWith(
+        generatedAt: DateTime.now().toUtc(),
+      );
+      await _pump(tester, _screen(estimate: fresh, history: _risingHistory()));
+
+      expect(find.text('This estimate may be out of date'), findsNothing);
+    });
   });
 
   // End-to-end read path: the chart renders from REAL Firestore documents

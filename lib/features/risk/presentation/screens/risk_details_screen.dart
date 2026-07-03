@@ -17,10 +17,12 @@ import 'package:fyp_foreseeme/features/resources/presentation/widgets/emergency_
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_driver_service.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
 
 /// Premium Risk Details analytics screen (matches `docs/ui sprint 3/Risk
@@ -113,6 +115,10 @@ class _Content extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
       children: [
         _HeroCard(estimate: estimate),
+        // Honest staleness label right beside the "current risk" headline —
+        // shared, self-guarding widget (renders only when out of date, so a
+        // fresh estimate leaves the layout unchanged).
+        RiskStalenessNotice(generatedAt: estimate.generatedAt, topGap: 18),
         // High risk → surface one-tap emergency help immediately (reuses the
         // Sprint 3 emergency contact + dialer).
         if (estimate.riskLevel == RiskLevel.high) ...[
@@ -263,6 +269,16 @@ class _HeroCard extends ConsumerWidget {
                         const RiskTrendBadge(),
                         _ConfidenceBadge(percent: confidencePct),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    // When the estimate was generated — transparent about
+                    // recency so the headline is never read as "right now".
+                    Text(
+                      'Updated ${riskAgeLabel(estimate.generatedAt)}',
+                      style: AppTextStylesV2.caption.copyWith(
+                        color: AppColorsV2.textTertiary,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),

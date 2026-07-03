@@ -5,8 +5,10 @@ import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
 
 /// The dashboard's primary at-a-glance signal: the user's current city risk,
@@ -193,30 +195,23 @@ class _RiskCardData extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '$confidencePct% confidence · updated '
-                    '${_ageLabel(estimate.generatedAt)}',
+                    '${riskAgeLabel(estimate.generatedAt)}',
                     style: AppTextStylesV2.caption,
                   ),
                 ),
               ],
             ),
-            if (_isStale(estimate.generatedAt)) ...[
-              const SizedBox(height: 10),
-              const _StaleHint(),
-            ],
+            // Shared, self-guarding staleness notice (centralised threshold +
+            // visual): renders only when the estimate is out of date. Offline
+            // reads serve the last cached estimate, so a stale one is labelled
+            // honestly rather than silently looking current.
+            RiskStalenessNotice(generatedAt: estimate.generatedAt),
           ],
         ),
       ),
     );
   }
 }
-
-/// An estimate older than this is flagged "possibly out of date" — the weekly
-/// batch cadence plus grace. Offline reads serve the last cached estimate, so a
-/// stale one surfaces this hint rather than silently looking current.
-const Duration kRiskStaleAfter = Duration(days: 9);
-
-bool _isStale(DateTime generatedAt) =>
-    DateTime.now().toUtc().difference(generatedAt.toUtc()) > kRiskStaleAfter;
 
 /// Secondary line under the headline. Low-confidence estimates flag uncertainty
 /// rather than a (derived) driver, since the classification is unreliable.
@@ -236,54 +231,6 @@ String _dominantDriverLabel(RiskEstimateModel e) {
   if (aqiN >= tempN && aqiN >= humN) return 'Air quality';
   if (tempN >= humN) return 'Heat';
   return 'Humidity';
-}
-
-/// Human-friendly age of an estimate ("just now" / "3h ago" / "2 days ago").
-String _ageLabel(DateTime generatedAt) {
-  final diff = DateTime.now().toUtc().difference(generatedAt.toUtc());
-  if (diff.inMinutes < 60) {
-    return diff.inMinutes <= 1 ? 'just now' : '${diff.inMinutes} min ago';
-  }
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  return diff.inDays == 1 ? '1 day ago' : '${diff.inDays} days ago';
-}
-
-/// Amber "may be out of date" treatment shown when the estimate is stale (e.g.
-/// served from cache while offline). Pairs colour with an icon + text.
-class _StaleHint extends StatelessWidget {
-  const _StaleHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColorsV2.riskMedium.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColorsV2.riskMedium.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.history_toggle_off_rounded,
-            size: 14,
-            color: AppColorsV2.riskMedium,
-          ),
-          const SizedBox(width: 7),
-          Expanded(
-            child: Text(
-              'This estimate may be out of date',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.riskMedium,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Empty state ───────────────────────────────────────────────────────────────
