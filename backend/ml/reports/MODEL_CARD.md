@@ -68,6 +68,15 @@
 - **Library versions:** python 3.13.7, scikit-learn 1.7.2, numpy 2.3.5, pandas 2.3.3, scipy 1.16.3, joblib 1.5.2
 - **Reproducibility:** the candidate (training + tuning) is byte-for-byte reproducible — same seed → identical candidate (`reports/training_log.md`). This artifact is promoted from that candidate (`candidate_sha256` above) and loads to an identical model with identical predictions; `metrics.json` is regenerated deterministically from the held-out evaluation.
 
+## Explainability (Sprint 5)
+
+Each served estimate carries an additive `attributions` object — genuine, model-derived top
+contributors (feature, direction, magnitude) plus a confidence rationale (margin/agreement
+from the class distribution), method `tree_path_contributions`. These are computed in the
+backend and stored on the `riskEstimate`; the app renders them via a **deterministic
+templater** (no generated text). This extends the model card's transparency story into the
+product surface — see `docs/SPRINT_5_EVALUATION.md` §4 and `docs/e2e.md`.
+
 ## Linked documents
 
 - `reports/label_methodology.md` — labels, determinants, citations (Prompt 9)
