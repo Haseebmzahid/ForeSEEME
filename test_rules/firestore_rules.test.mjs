@@ -50,7 +50,7 @@ const bob = testEnv.authenticatedContext('bob').firestore();
 const admin = testEnv.authenticatedContext('op', { admin: true }).firestore();
 const anon = testEnv.unauthenticatedContext().firestore();
 
-// Seed as the engine would (Admin SDK bypasses rules).
+// Seed as the engine/back-end would (Admin SDK bypasses rules).
 await testEnv.withSecurityRulesDisabled(async (context) => {
   const db = context.firestore();
   await setDoc(doc(db, 'userAlerts/alice/items/a1'), {
@@ -58,6 +58,17 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
     read: false,
   });
   await setDoc(doc(db, 'alertDispatchLog/log1'), { uid: 'alice' });
+  // Back-end service-account writes (never client-writable).
+  await setDoc(doc(db, 'riskEstimates/Lahore_2026-07-08'), {
+    city: 'Lahore',
+    riskLevel: 'High',
+  });
+  await setDoc(doc(db, 'jobHeartbeats/compute_risk'), { ok: true });
+  // A pre-existing user document + owned subtree item.
+  await setDoc(doc(db, 'users/alice'), { fcmToken: 'seed' });
+  await setDoc(doc(db, 'users/alice/medications/m1'), { name: 'Inhaler' });
+  // A document under a collection with NO explicit rule — must be default-denied.
+  await setDoc(doc(db, 'unmatchedCollection/x1'), { any: 'thing' });
 });
 
 // alertDispatchLog — service-only, no client access.
@@ -120,6 +131,54 @@ await check('overrides: non-admin cannot clear (update) an override', () =>
 );
 await check('overrides: unauthenticated read denied', () =>
   assertFails(getDoc(doc(anon, 'overrides/Lahore'))),
+);
+
+// riskEstimates (ADR-001) — authenticated read; clients never write.
+await check('riskEstimates: authenticated user may read', () =>
+  assertSucceeds(getDoc(doc(alice, 'riskEstimates/Lahore_2026-07-08'))),
+);
+await check('riskEstimates: unauthenticated read denied', () =>
+  assertFails(getDoc(doc(anon, 'riskEstimates/Lahore_2026-07-08'))),
+);
+await check('riskEstimates: client write denied', () =>
+  assertFails(setDoc(doc(alice, 'riskEstimates/x'), { riskLevel: 'Low' })),
+);
+
+// jobHeartbeats (Sprint 5 P12) — service-account only; no client access.
+await check('jobHeartbeats: client read denied', () =>
+  assertFails(getDoc(doc(alice, 'jobHeartbeats/compute_risk'))),
+);
+await check('jobHeartbeats: client write denied', () =>
+  assertFails(setDoc(doc(alice, 'jobHeartbeats/y'), { ok: false })),
+);
+
+// users/{uid}[/**] — owner-only, never cross-user (covers the profile,
+// medications, and adherence_logs subtrees via the recursive rule).
+await check('users: owner reads own document', () =>
+  assertSucceeds(getDoc(doc(alice, 'users/alice'))),
+);
+await check('users: owner writes own document', () =>
+  assertSucceeds(setDoc(doc(alice, 'users/alice'), { fcmToken: 'refreshed' })),
+);
+await check('users: cross-user read denied', () =>
+  assertFails(getDoc(doc(bob, 'users/alice'))),
+);
+await check('users: owner reads own medications subtree', () =>
+  assertSucceeds(getDoc(doc(alice, 'users/alice/medications/m1'))),
+);
+await check('users: cross-user medications read denied', () =>
+  assertFails(getDoc(doc(bob, 'users/alice/medications/m1'))),
+);
+
+// PRODUCTION DEFAULT-DENY — a collection with no explicit rule is fully denied.
+await check('default-deny: authed read of unmatched collection denied', () =>
+  assertFails(getDoc(doc(alice, 'unmatchedCollection/x1'))),
+);
+await check('default-deny: authed write of unmatched collection denied', () =>
+  assertFails(setDoc(doc(alice, 'unmatchedCollection/x2'), { any: 'thing' })),
+);
+await check('default-deny: unauthenticated access denied', () =>
+  assertFails(getDoc(doc(anon, 'unmatchedCollection/x1'))),
 );
 
 await testEnv.cleanup();

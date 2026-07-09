@@ -7,12 +7,10 @@ service cloud.firestore {
     // Any AUTHENTICATED client may READ; clients may NEVER write. The collection
     // is written only by the backend service account, whose Admin SDK bypasses
     // these rules. This rule is self-sufficient: `read: if request.auth != null`
-    // denies unauthenticated reads on its own, and does not rely on the
-    // catch-all below (which is intentionally left untouched here — it governs
-    // the frozen Sprint 1/2 collections, e.g. users / health profiles /
-    // medications). NOTE: Firestore ORs `allow` rules across matching blocks, so
-    // `write: if false` only guarantees denial while no other matching block
-    // (the wildcard) itself allows writes to this path.
+    // denies unauthenticated reads on its own. With the production default-deny
+    // catch-all below (`if false`), `write: if false` is now absolute — no other
+    // matching block grants writes to this path (Firestore ORs `allow` rules, and
+    // `false` contributes nothing).
     match /riskEstimates/{docId} {
       allow read: if request.auth != null;
       allow write: if false;
@@ -44,10 +42,46 @@ service cloud.firestore {
     match /userAlerts/{userId}/{document=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow create, delete: if false;
+      // Owner may only flip `read`/`readAt` on an existing alert. Implemented
+      // WITHOUT MapDiff (no `diff()/affectedKeys()`), using only keys()/hasOnly/
+      // get()/== — the most broadly supported rules primitives — to remove the
+      // MapDiff emulator-compatibility question entirely. Security is identical:
+      //   1. the write may contain no key outside the frozen alert schema, so no
+      //      arbitrary field can be smuggled in; and
+      //   2. every content field must equal its stored value, so `read`/`readAt`
+      //      are the only fields that can change (changing OR removing any content
+      //      field makes its value differ and denies).
+      // Frozen schema: backend `dispatch_alerts._alert_body` / `UserAlertModel`.
+      // `resource != null` keeps the get()s safe if ever reached without an
+      // existing document.
       allow update: if request.auth != null
                     && request.auth.uid == userId
-                    && request.resource.data.diff(resource.data)
-                         .affectedKeys().hasOnly(['read', 'readAt']);
+                    && resource != null
+                    && request.resource.data.keys().hasOnly([
+                         'title', 'body', 'category', 'city', 'riskLevel',
+                         'disease', 'recommendation', 'deepLink', 'riskEstimateId',
+                         'createdAt', 'read', 'readAt'
+                       ])
+                    && request.resource.data.get('title', null)
+                         == resource.data.get('title', null)
+                    && request.resource.data.get('body', null)
+                         == resource.data.get('body', null)
+                    && request.resource.data.get('category', null)
+                         == resource.data.get('category', null)
+                    && request.resource.data.get('city', null)
+                         == resource.data.get('city', null)
+                    && request.resource.data.get('riskLevel', null)
+                         == resource.data.get('riskLevel', null)
+                    && request.resource.data.get('disease', null)
+                         == resource.data.get('disease', null)
+                    && request.resource.data.get('recommendation', null)
+                         == resource.data.get('recommendation', null)
+                    && request.resource.data.get('deepLink', null)
+                         == resource.data.get('deepLink', null)
+                    && request.resource.data.get('riskEstimateId', null)
+                         == resource.data.get('riskEstimateId', null)
+                    && request.resource.data.get('createdAt', null)
+                         == resource.data.get('createdAt', null);
     }
 
     // overrides/{city} (Sprint 5 P13): the manual risk-override safety valve.
@@ -58,7 +92,12 @@ service cloud.firestore {
     // live on the document. A normal user is denied all writes here.
     match /overrides/{city} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.admin == true;
+      // Admin-claim required to write. Use `.get('admin', false)` rather than
+      // `request.auth.token.admin`: a non-admin's token has no `admin` key, and
+      // dot-access on the missing key raises "Property admin is undefined" — the
+      // `.get` accessor returns the default and denies cleanly, same security.
+      allow write: if request.auth != null
+                   && request.auth.token.get('admin', false) == true;
     }
 
     // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats written
@@ -69,8 +108,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // PRODUCTION DEFAULT-DENY (replaces the expired temporary dev catch-all,
+    // `request.time < timestamp.date(2026, 6, 1)`). Firestore denies by default,
+    // and this makes that intent explicit and permanent: any path NOT matched by
+    // an allow-rule above is fully denied to all clients. It never weakens the
+    // rules above — Firestore ORs `allow` rules across matching blocks, and
+    // `if false` grants nothing, so every explicit grant above still applies.
+    // Every collection the app/back-end uses is covered above:
+    //   • riskEstimates            — authed read, no client write
+    //   • users/{uid}[/**]         — owner-only (profile, medications,
+    //                                adherence_logs subtrees included)
+    //   • userAlerts/{uid}/**      — owner read + scoped mark-read only
+    //   • alertDispatchLog         — service-account only (Admin SDK bypass)
+    //   • overrides/{city}         — authed read, admin-claim write
+    //   • jobHeartbeats/{job}      — service-account only (Admin SDK bypass)
     match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 6, 1);
+      allow read, write: if false;
     }
   }
 }
