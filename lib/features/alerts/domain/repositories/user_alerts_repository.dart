@@ -20,4 +20,11 @@ abstract class UserAlertsRepository {
   /// The Firestore rule permits the owner to change only `read`/`readAt`, so
   /// this is the sole permitted mutation from the client.
   Future<void> markRead(String uid, String alertId);
+
+  /// Marks every currently-unread alert for [uid] read, in one batch
+  /// (Sprint 6A, S6A-02).
+  ///
+  /// Sets the same `read`/`readAt` fields [markRead] does — no new field, no
+  /// new permission. A no-op (empty batch) when there is nothing unread.
+  Future<void> markAllRead(String uid);
 }

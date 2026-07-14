@@ -43,4 +43,25 @@ class FirestoreUserAlertsRepository implements UserAlertsRepository {
       'readAt': FieldValue.serverTimestamp(),
     });
   }
+
+  @override
+  Future<void> markAllRead(String uid) async {
+    // Same two fields as markRead, applied to every currently-unread doc in
+    // one batch — still within the owner mark-read rule §6 (no new field, no
+    // new permission, one write per doc exactly as a loop of markRead would
+    // produce, just atomic).
+    final unread = await _itemsRef(
+      uid,
+    ).where('read', isEqualTo: false).get();
+    if (unread.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in unread.docs) {
+      batch.update(doc.reference, {
+        'read': true,
+        'readAt': FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
 }

@@ -118,6 +118,22 @@ final markAlertReadProvider = Provider<Future<void> Function(String alertId)>((
   };
 });
 
+/// Marks every currently-unread alert read for the current user
+/// (Sprint 6A, S6A-02).
+///
+/// Exposes a no-arg callback so the presentation layer never touches uid
+/// resolution or the repository directly — mirrors [markAlertReadProvider]'s
+/// existing pattern exactly. No-op when signed out. Repository-only; no UI
+/// consumes this yet (wired in S6A-03).
+final markAllAlertsReadProvider = Provider<Future<void> Function()>((ref) {
+  final uid = ref.watch(authStateProvider).value?.uid;
+  final repository = ref.watch(userAlertsRepositoryProvider);
+  return () async {
+    if (uid == null) return;
+    await repository.markAllRead(uid);
+  };
+});
+
 /// Marks the alert referenced by an inbound push payload read, for the
 /// current user (Sprint 6A, S6A-01).
 ///

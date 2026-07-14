@@ -100,6 +100,35 @@ class RecordingUserAlertsRepository implements UserAlertsRepository {
     _controller.add(_alerts);
   }
 
+  @override
+  Future<void> markAllRead(String uid) async {
+    _alerts = [
+      for (final a in _alerts)
+        if (!a.read)
+          UserAlertModel(
+            id: a.id,
+            title: a.title,
+            body: a.body,
+            category: a.category,
+            city: a.city,
+            riskLevel: a.riskLevel,
+            disease: a.disease,
+            recommendation: a.recommendation,
+            deepLink: a.deepLink,
+            riskEstimateId: a.riskEstimateId,
+            createdAt: a.createdAt,
+            read: true,
+            readAt: DateTime.utc(2026, 6, 30, 12),
+          )
+        else
+          a,
+    ];
+    markedAllRead++;
+    _controller.add(_alerts);
+  }
+
+  int markedAllRead = 0;
+
   void dispose() => _controller.close();
 }
 
@@ -211,6 +240,121 @@ void main() {
       expect(doc.data()!['read'], isTrue);
       expect(doc.data()!['readAt'], isNotNull);
     });
+
+    test(
+      'markAllRead marks every unread doc read and leaves read docs alone '
+      '(S6A-02)',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final items = firestore
+            .collection('userAlerts')
+            .doc('u1')
+            .collection('items');
+        await items
+            .doc('unread1')
+            .set(
+              _alertBody(
+                title: 'Unread 1',
+                createdAt: DateTime.utc(2026, 6, 28),
+                read: false,
+              ),
+            );
+        await items
+            .doc('unread2')
+            .set(
+              _alertBody(
+                title: 'Unread 2',
+                createdAt: DateTime.utc(2026, 6, 29),
+                read: false,
+              ),
+            );
+        await items
+            .doc('alreadyRead')
+            .set(
+              _alertBody(
+                title: 'Already read',
+                createdAt: DateTime.utc(2026, 6, 27),
+                read: true,
+              ),
+            );
+
+        final repo = FirestoreUserAlertsRepository(firestore: firestore);
+        await repo.markAllRead('u1');
+
+        final alerts = await repo.watchAlerts('u1').first;
+        expect(alerts.every((a) => a.read), isTrue);
+        expect(
+          alerts.firstWhere((a) => a.id == 'unread1').readAt,
+          isNotNull,
+        );
+        expect(
+          alerts.firstWhere((a) => a.id == 'unread2').readAt,
+          isNotNull,
+        );
+      },
+    );
+
+    test('markAllRead only touches the calling user\'s own alerts', () async {
+      final firestore = FakeFirebaseFirestore();
+      await firestore
+          .collection('userAlerts')
+          .doc('u1')
+          .collection('items')
+          .doc('mine')
+          .set(
+            _alertBody(
+              title: 'Mine',
+              createdAt: DateTime.utc(2026, 6, 30),
+              read: false,
+            ),
+          );
+      await firestore
+          .collection('userAlerts')
+          .doc('u2')
+          .collection('items')
+          .doc('theirs')
+          .set(
+            _alertBody(
+              title: 'Theirs',
+              createdAt: DateTime.utc(2026, 6, 30),
+              read: false,
+            ),
+          );
+
+      final repo = FirestoreUserAlertsRepository(firestore: firestore);
+      await repo.markAllRead('u1');
+
+      final theirsDoc = await firestore
+          .collection('userAlerts')
+          .doc('u2')
+          .collection('items')
+          .doc('theirs')
+          .get();
+      expect(theirsDoc.data()!['read'], isFalse);
+    });
+
+    test('markAllRead is a no-op when nothing is unread', () async {
+      final firestore = FakeFirebaseFirestore();
+      final items = firestore
+          .collection('userAlerts')
+          .doc('u1')
+          .collection('items');
+      await items
+          .doc('a1')
+          .set(
+            _alertBody(
+              title: 'Already read',
+              createdAt: DateTime.utc(2026, 6, 30),
+              read: true,
+            ),
+          );
+
+      final repo = FirestoreUserAlertsRepository(firestore: firestore);
+      await repo.markAllRead('u1'); // must not throw on an empty batch
+
+      final doc = await items.doc('a1').get();
+      expect(doc.data()!['read'], isTrue);
+    });
   });
 
   group('inbox providers', () {
@@ -304,6 +448,65 @@ void main() {
         await container.read(markAlertReadProvider)('a1');
 
         expect(repo.markedRead, ['a1']);
+      },
+    );
+
+    test(
+      'markAllAlertsReadProvider marks every alert read via the repository '
+      '(S6A-02)',
+      () async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', read: false),
+          _model(id: 'a2', read: false),
+        ]);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.listen(
+          userAlertsStreamProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        await container.read(userAlertsStreamProvider.future);
+        await container.read(markAllAlertsReadProvider)();
+
+        expect(repo.markedAllRead, 1);
+        // Query the repository directly (a fresh subscription) rather than
+        // re-reading userAlertsStreamProvider.future: the provider's cached
+        // future can still reflect the pre-mutation snapshot for a
+        // microtask, since the fake's stream update and Riverpod's rebuild
+        // are both async. The repository itself is the source of truth here.
+        final alerts = await repo.watchAlerts('u1').first;
+        expect(alerts.every((a) => a.read), isTrue);
+      },
+    );
+
+    test(
+      'markAllAlertsReadProvider no-ops when signed out',
+      () async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', read: false),
+        ]);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(markAllAlertsReadProvider)();
+
+        expect(repo.markedAllRead, 0);
       },
     );
 

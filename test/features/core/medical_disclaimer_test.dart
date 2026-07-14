@@ -25,6 +25,9 @@ class _EmptyAlertsRepository implements UserAlertsRepository {
 
   @override
   Future<void> markRead(String uid, String alertId) async {}
+
+  @override
+  Future<void> markAllRead(String uid) async {}
 }
 
 void main() {
