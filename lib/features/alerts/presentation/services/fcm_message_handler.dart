@@ -20,15 +20,22 @@ class FcmMessageHandler {
     required AlertPresenter presenter,
     required void Function(String route) navigate,
     AlertAnalytics? analytics,
+    Future<void> Function(Map<String, String> data)? markRead,
   }) : _messaging = messaging,
        _presenter = presenter,
        _navigate = navigate,
-       _analytics = analytics;
+       _analytics = analytics,
+       _markRead = markRead;
 
   final PushMessagingService _messaging;
   final AlertPresenter _presenter;
   final void Function(String route) _navigate;
   final AlertAnalytics? _analytics;
+
+  /// Marks the tapped push's underlying `userAlerts` doc read (S6A-01), so the
+  /// inbox/badge stay in sync even when the user never opens the inbox itself.
+  /// Optional so existing callers/tests are unaffected when omitted.
+  final Future<void> Function(Map<String, String> data)? _markRead;
 
   StreamSubscription<IncomingAlert>? _foregroundSub;
   StreamSubscription<IncomingAlert>? _openedSub;
@@ -46,16 +53,25 @@ class FcmMessageHandler {
 
     final initial = await _messaging.getInitialMessage();
     if (initial != null) {
-      _route(initial); // app launched from a terminated-state tap
+      await _route(initial); // app launched from a terminated-state tap
     }
   }
 
-  void _route(IncomingAlert alert) {
+  Future<void> _route(IncomingAlert alert) async {
     final route = AlertDeepLinkRouter.resolve(alert.data);
     // Engagement hook (Prompt 9): records the open before navigating; a null
     // sink or an analytics failure must never block the tap.
     _analytics?.logAlertOpened(route: route, source: AlertOpenSource.push);
     _navigate(route);
+    // Read-sync (S6A-01): fires after navigation so a slow/failed write never
+    // delays the tap. Best-effort — the inbox's own tap-to-read remains the
+    // fallback if this write fails (e.g. offline), so a swallowed error here
+    // never leaves the user stuck.
+    try {
+      await _markRead?.call(alert.data);
+    } catch (_) {
+      // Non-fatal: badge/inbox simply catch up next time the alert is opened.
+    }
   }
 
   void dispose() {

@@ -18,6 +18,7 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.da
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_controller.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_preferences_controller.dart';
+import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_id_resolver.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/fcm_message_handler.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 
@@ -56,6 +57,7 @@ final fcmMessageHandlerProvider = Provider<FcmMessageHandler>((ref) {
     presenter: ref.watch(alertPresenterProvider),
     navigate: (route) => ref.read(appRouterProvider).go(route),
     analytics: ref.watch(alertAnalyticsProvider),
+    markRead: ref.watch(markAlertReadFromPushProvider),
   );
   ref.onDispose(handler.dispose);
   return handler;
@@ -115,6 +117,26 @@ final markAlertReadProvider = Provider<Future<void> Function(String alertId)>((
     await repository.markRead(uid, alertId);
   };
 });
+
+/// Marks the alert referenced by an inbound push payload read, for the
+/// current user (Sprint 6A, S6A-01).
+///
+/// Reconstructs the alert's document id via [AlertIdResolver] (no extra
+/// Firestore read) and reuses [UserAlertsRepository.markRead] — the same write
+/// path the inbox already uses on tap. No-op when signed out or the payload
+/// doesn't resolve to a known alert id, so a malformed/foreign payload can
+/// never write to the wrong document or throw.
+final markAlertReadFromPushProvider =
+    Provider<Future<void> Function(Map<String, String> data)>((ref) {
+      final uid = ref.watch(authStateProvider).value?.uid;
+      final repository = ref.watch(userAlertsRepositoryProvider);
+      return (data) async {
+        if (uid == null) return;
+        final alertId = AlertIdResolver.resolve(data, uid: uid);
+        if (alertId == null) return;
+        await repository.markRead(uid, alertId);
+      };
+    });
 
 /// Notification-preferences persistence (Firestore). Overridable in tests.
 final notificationPreferencesRepositoryProvider =

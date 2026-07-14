@@ -306,6 +306,85 @@ void main() {
         expect(repo.markedRead, ['a1']);
       },
     );
+
+    test(
+      'markAlertReadFromPushProvider reconstructs the id and marks it read '
+      '(S6A-01)',
+      () async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'u1__Lahore_2026-06-30__respiratory'),
+        ]);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.listen(
+          userAlertsStreamProvider,
+          (_, _) {},
+          fireImmediately: true,
+        );
+
+        await container.read(userAlertsStreamProvider.future);
+        await container.read(markAlertReadFromPushProvider)({
+          'type': 'risk_alert',
+          'riskEstimateId': 'Lahore_2026-06-30',
+          'category': 'respiratory',
+          'city': 'Lahore',
+        });
+
+        expect(repo.markedRead, ['u1__Lahore_2026-06-30__respiratory']);
+      },
+    );
+
+    test(
+      'markAlertReadFromPushProvider no-ops on an unresolvable payload',
+      () async {
+        final repo = RecordingUserAlertsRepository([_model(id: 'a1')]);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(markAlertReadFromPushProvider)({
+          'type': 'weekly_report',
+        });
+
+        expect(repo.markedRead, isEmpty);
+      },
+    );
+
+    test(
+      'markAlertReadFromPushProvider no-ops when signed out',
+      () async {
+        final repo = RecordingUserAlertsRepository([_model(id: 'a1')]);
+        addTearDown(repo.dispose);
+
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(null)),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(markAlertReadFromPushProvider)({
+          'riskEstimateId': 'Lahore_2026-06-30',
+          'category': 'respiratory',
+        });
+
+        expect(repo.markedRead, isEmpty);
+      },
+    );
   });
 
   group('AlertInboxScreen', () {

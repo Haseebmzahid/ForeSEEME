@@ -57,23 +57,30 @@ void main() {
   late FakeMessaging messaging;
   late RecordingPresenter presenter;
   late List<String> navigated;
+  late List<Map<String, String>> readSyncCalls;
   late FcmMessageHandler handler;
 
-  FcmMessageHandler build() => FcmMessageHandler(
+  FcmMessageHandler build({bool withMarkRead = true}) => FcmMessageHandler(
     messaging: messaging,
     presenter: presenter,
     navigate: navigated.add,
+    markRead: withMarkRead
+        ? (data) async {
+            readSyncCalls.add(data);
+          }
+        : null,
   );
 
   setUp(() {
     messaging = FakeMessaging();
     presenter = RecordingPresenter();
     navigated = <String>[];
+    readSyncCalls = <Map<String, String>>[];
   });
 
   tearDown(() => handler.dispose());
 
-  test('foreground message is displayed, not navigated', () async {
+  test('foreground message is displayed, not navigated, not read-synced', () async {
     handler = build();
     await handler.start();
 
@@ -82,6 +89,7 @@ void main() {
 
     expect(presenter.shown, hasLength(1));
     expect(navigated, isEmpty);
+    expect(readSyncCalls, isEmpty);
   });
 
   test('background tap navigates to the resolved route', () async {
@@ -95,6 +103,17 @@ void main() {
     expect(presenter.shown, isEmpty);
   });
 
+  test('background tap marks the alert read via the injected callback', () async {
+    handler = build();
+    await handler.start();
+
+    messaging.emitOpened(_alert(deepLink: '/nearby-hospitals'));
+    await pumpEventQueue();
+
+    expect(readSyncCalls, hasLength(1));
+    expect(readSyncCalls.single['city'], 'Lahore');
+  });
+
   test('terminated-launch tap routes from the initial message', () async {
     messaging.initialMessage = _alert(deepLink: '/resources');
     handler = build();
@@ -104,10 +123,45 @@ void main() {
     expect(navigated, ['/resources']);
   });
 
-  test('no initial message → no navigation on start', () async {
+  test('terminated-launch tap marks the alert read via the injected callback', () async {
+    messaging.initialMessage = _alert(deepLink: '/resources');
+    handler = build();
+
+    await handler.start();
+
+    expect(readSyncCalls, hasLength(1));
+  });
+
+  test('no initial message → no navigation, no read-sync, on start', () async {
     handler = build();
     await handler.start();
 
     expect(navigated, isEmpty);
+    expect(readSyncCalls, isEmpty);
+  });
+
+  test('a failing markRead never blocks navigation', () async {
+    handler = FcmMessageHandler(
+      messaging: messaging,
+      presenter: presenter,
+      navigate: navigated.add,
+      markRead: (data) async => throw StateError('offline'),
+    );
+    await handler.start();
+
+    messaging.emitOpened(_alert(deepLink: '/resources'));
+    await pumpEventQueue();
+
+    expect(navigated, ['/resources']);
+  });
+
+  test('omitting markRead is safe (backward compatible)', () async {
+    handler = build(withMarkRead: false);
+    await handler.start();
+
+    messaging.emitOpened(_alert(deepLink: '/resources'));
+    await pumpEventQueue();
+
+    expect(navigated, ['/resources']);
   });
 }
