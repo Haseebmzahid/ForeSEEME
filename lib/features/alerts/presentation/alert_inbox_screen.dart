@@ -39,6 +39,12 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
   // codebase's first StateProvider (Sprint 6A, S6A-06).
   AlertFilter _selectedFilter = AlertFilter.all;
 
+  // Latches true the first time the list renders real tiles, so the entrance
+  // stagger plays once per screen open — never again on a filter change or a
+  // new alert streaming in (Sprint 6A, S6A-07). A fresh screen push creates a
+  // fresh State, so re-opening the inbox does get a fresh reveal.
+  bool _hasRevealedOnce = false;
+
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(userAlertsStreamProvider);
@@ -109,6 +115,10 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
                     'here so you can review them anytime.',
               );
             }
+            // Captured before the flip, so only *this* build — the first one
+            // to render real tiles — gets the entrance stagger.
+            final animateEntrance = !_hasRevealedOnce;
+            _hasRevealedOnce = true;
             final filtered = alerts
                 .where(_selectedFilter.matches)
                 .toList(growable: false);
@@ -132,7 +142,10 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
                               'Try a different filter, or choose "All" to '
                               'see everything.',
                         )
-                      : _AlertList(alerts: filtered),
+                      : _AlertList(
+                          alerts: filtered,
+                          animateEntrance: animateEntrance,
+                        ),
                 ),
               ],
             );
@@ -240,7 +253,22 @@ class _FilterChip extends StatelessWidget {
 
 class _AlertList extends ConsumerWidget {
   final List<UserAlertModel> alerts;
-  const _AlertList({required this.alerts});
+
+  /// Whether this build should play the staggered entrance (Sprint 6A,
+  /// S6A-07) — true only for the screen's first real render; the caller
+  /// latches this so it never repeats on a filter change or a new alert
+  /// streaming in.
+  final bool animateEntrance;
+
+  const _AlertList({required this.alerts, required this.animateEntrance});
+
+  /// Wraps [child] in [AppReveal] when [animateEntrance] is set; otherwise
+  /// returns it unwrapped, so a non-first render never re-mounts the reveal
+  /// machinery at all.
+  Widget _reveal(int index, Widget child) {
+    if (!animateEntrance) return child;
+    return AppReveal(delayMs: (index * 30).clamp(0, 300), child: child);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -250,35 +278,41 @@ class _AlertList extends ConsumerWidget {
     // the existing query cap) true sticky-pinned headers are complexity this
     // milestone doesn't need.
     final groups = groupAlertsByDate(alerts, now: DateTime.now());
-    final items = <Widget>[
-      for (final group in groups) ...[
-        _DateHeader(text: group.header),
-        for (final alert in group.alerts)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _AlertTile(
-              alert: alert,
-              onTap: () async {
-                // Mark read first (persists), then follow the deep link if it
-                // is a known in-app route (reuses the Prompt 4 router's
-                // whitelist).
-                await ref.read(markAlertReadProvider)(alert.id);
-                final route = alert.deepLink;
-                if (AlertDeepLinkRouter.knownRoutes.contains(route)) {
-                  // Engagement hook (Prompt 9): record the inbox open.
-                  ref
-                      .read(alertAnalyticsProvider)
-                      .logAlertOpened(
-                        route: route,
-                        source: AlertOpenSource.inbox,
-                      );
-                  if (context.mounted) context.push(route);
-                }
-              },
+    final items = <Widget>[];
+    var index = 0;
+    for (final group in groups) {
+      items.add(_reveal(index++, _DateHeader(text: group.header)));
+      for (final alert in group.alerts) {
+        items.add(
+          _reveal(
+            index++,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _AlertTile(
+                alert: alert,
+                onTap: () async {
+                  // Mark read first (persists), then follow the deep link if
+                  // it is a known in-app route (reuses the Prompt 4 router's
+                  // whitelist).
+                  await ref.read(markAlertReadProvider)(alert.id);
+                  final route = alert.deepLink;
+                  if (AlertDeepLinkRouter.knownRoutes.contains(route)) {
+                    // Engagement hook (Prompt 9): record the inbox open.
+                    ref
+                        .read(alertAnalyticsProvider)
+                        .logAlertOpened(
+                          route: route,
+                          source: AlertOpenSource.inbox,
+                        );
+                    if (context.mounted) context.push(route);
+                  }
+                },
+              ),
             ),
           ),
-      ],
-    ];
+        );
+      }
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_user_alerts_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/user_alerts_repository.dart';
@@ -958,6 +959,115 @@ void main() {
           // must not linger as an empty section.
           expect(find.text('MAR 15, 2020'), findsOneWidget);
           expect(find.text('MAR 10, 2020'), findsNothing);
+        },
+      );
+    });
+
+    group('entrance motion (S6A-07)', () {
+      UserAlertModel alertWith({
+        required String id,
+        String riskLevel = 'High',
+      }) => UserAlertModel(
+        id: id,
+        title: 'Alert $id',
+        body: 'Body $id',
+        category: 'respiratory',
+        city: 'Lahore',
+        riskLevel: riskLevel,
+        disease: 'Smog',
+        recommendation: null,
+        deepLink: '',
+        riskEstimateId: 'r_$id',
+        createdAt: DateTime(2026, 6, 30),
+        read: true,
+        readAt: null,
+      );
+
+      testWidgets(
+        'the first render wraps tiles in AppReveal, a filter change does '
+        'not',
+        (tester) async {
+          final repo = RecordingUserAlertsRepository([
+            alertWith(id: 'highAlert', riskLevel: 'High'),
+            alertWith(id: 'lowAlert', riskLevel: 'Low'),
+          ]);
+          addTearDown(repo.dispose);
+          final container = ProviderContainer(
+            overrides: [
+              authStateProvider.overrideWith((ref) => Stream.value(_user())),
+              userAlertsRepositoryProvider.overrideWithValue(repo),
+            ],
+          );
+          addTearDown(container.dispose);
+
+          await tester.pumpWidget(wrap(container));
+          // A single frame, deliberately not settled — the first render
+          // should already be wrapped in AppReveal (mid-entrance or not).
+          await tester.pump();
+
+          expect(
+            find.ancestor(
+              of: find.text('Alert highAlert'),
+              matching: find.byType(AppReveal),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.pumpAndSettle(); // let the first entrance finish
+
+          await tester.tap(find.text('High'));
+          await tester.pump();
+
+          expect(find.text('Alert highAlert'), findsOneWidget);
+          expect(
+            find.ancestor(
+              of: find.text('Alert highAlert'),
+              matching: find.byType(AppReveal),
+            ),
+            findsNothing,
+          );
+        },
+      );
+
+      testWidgets(
+        'a new alert streaming in after first load does not get re-wrapped '
+        'in AppReveal',
+        (tester) async {
+          final repo = RecordingUserAlertsRepository([
+            alertWith(id: 'existing'),
+          ]);
+          addTearDown(repo.dispose);
+          final container = ProviderContainer(
+            overrides: [
+              authStateProvider.overrideWith((ref) => Stream.value(_user())),
+              userAlertsRepositoryProvider.overrideWithValue(repo),
+            ],
+          );
+          addTearDown(container.dispose);
+
+          await tester.pumpWidget(wrap(container));
+          await tester.pumpAndSettle(); // let the first entrance finish
+
+          // A new alert streams in (e.g. a fresh push while the inbox is
+          // open) — accessing the fake's private fields is legal here since
+          // Dart privacy is per-file, not per-class.
+          repo._alerts = [...repo._alerts, alertWith(id: 'brandNew')];
+          repo._controller.add(repo._alerts);
+          // pumpAndSettle (not a bare pump) so the broadcast stream event has
+          // enough frames to propagate through the StreamProvider into a
+          // rebuild — this only settles animation *progress*, it doesn't
+          // remove AppReveal from the tree if it were ever mounted, so the
+          // assertion below is unaffected either way.
+          await tester.pumpAndSettle();
+
+          expect(find.text('Alert brandNew'), findsOneWidget);
+          expect(
+            find.ancestor(
+              of: find.text('Alert brandNew'),
+              matching: find.byType(AppReveal),
+            ),
+            findsNothing,
+          );
         },
       );
     });
