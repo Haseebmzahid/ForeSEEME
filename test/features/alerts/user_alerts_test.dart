@@ -224,6 +224,45 @@ void main() {
       expect(alerts.map((a) => a.title), ['Mine']);
     });
 
+    test(
+      'watchAlerts caps the window at 50, keeping only the newest '
+      '(S6A-08)',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final items = firestore
+            .collection('userAlerts')
+            .doc('u1')
+            .collection('items');
+
+        // 55 alerts, one per day, oldest first — so doc "day0" is the oldest
+        // and "day54" is the newest.
+        for (var i = 0; i < 55; i++) {
+          await items
+              .doc('day$i')
+              .set(
+                _alertBody(
+                  title: 'Alert $i',
+                  createdAt: DateTime.utc(2026, 1, 1).add(Duration(days: i)),
+                ),
+              );
+        }
+
+        final repo = FirestoreUserAlertsRepository(firestore: firestore);
+        final alerts = await repo.watchAlerts('u1').first;
+
+        expect(alerts, hasLength(50));
+        // Newest-first and capped: the 50 newest are days 5..54, so the
+        // stream's first item is day54 and its last is day5 — the oldest
+        // five (day0..day4) are excluded entirely, not just reordered.
+        final titles = alerts.map((a) => a.title).toList();
+        expect(titles.first, 'Alert 54');
+        expect(titles.last, 'Alert 5');
+        for (final excluded in ['Alert 0', 'Alert 1', 'Alert 4']) {
+          expect(titles, isNot(contains(excluded)));
+        }
+      },
+    );
+
     test('markRead persists read=true and a readAt timestamp', () async {
       final firestore = FakeFirebaseFirestore();
       final items = firestore

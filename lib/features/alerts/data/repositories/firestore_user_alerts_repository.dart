@@ -15,6 +15,14 @@ class FirestoreUserAlertsRepository implements UserAlertsRepository {
   FirestoreUserAlertsRepository({FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  /// Inbox display window (Sprint 6A, S6A-08): a deliberate scale decision,
+  /// not backend pagination. At FYP scale a user accumulates at most a
+  /// handful of risk alerts a week, so 50 is generously beyond what anyone
+  /// will realistically have unread/recent at once. If the inbox ever needs
+  /// to show more, the fix is cursor-based pagination on this same query —
+  /// not raising this constant indefinitely.
+  static const int _inboxWindowSize = 50;
+
   /// Per-user inbox items live at `userAlerts/{uid}/items`.
   CollectionReference<Map<String, dynamic>> _itemsRef(String uid) =>
       _firestore.collection('userAlerts').doc(uid).collection('items');
@@ -23,9 +31,12 @@ class FirestoreUserAlertsRepository implements UserAlertsRepository {
   Stream<List<UserAlertModel>> watchAlerts(String uid) {
     // Newest first: `createdAt` is a server Timestamp set by the engine, so it
     // sorts chronologically. A real-time snapshot keeps the inbox and its unread
-    // badge live without a manual refresh.
+    // badge live without a manual refresh. Capped at `_inboxWindowSize` — see
+    // its doc comment; `markAllRead` below intentionally has no such cap since
+    // it must act on every unread doc, not just the displayed window.
     return _itemsRef(uid)
         .orderBy('createdAt', descending: true)
+        .limit(_inboxWindowSize)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
