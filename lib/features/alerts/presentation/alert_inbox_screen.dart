@@ -9,6 +9,7 @@ import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -156,66 +157,96 @@ class _AlertTile extends StatelessWidget {
     );
     final unread = !alert.read;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: unread ? appearance.fill : AppColorsV2.glassFill,
+    // Condition + disease, e.g. "Respiratory · Smog" (Sprint 6A, S6A-04). Both
+    // fields are already parsed onto the model but were never surfaced; hide
+    // the row entirely if neither resolves, rather than showing a stray "·".
+    final conditionLabel = kNotificationConditionLabels[alert.category];
+    final captionParts = <String>[
+      if (conditionLabel != null && conditionLabel.isNotEmpty) conditionLabel,
+      if (alert.disease.isNotEmpty) alert.disease,
+    ];
+    final caption = captionParts.join(' · ');
+
+    // One structured announcement per tile instead of TalkBack reading each
+    // child Text separately — mirrors the "Loading" pattern in AppSkeleton.
+    final buffer = StringBuffer();
+    if (unread) buffer.write('Unread. ');
+    buffer.write('${appearance.label} risk');
+    if (alert.disease.isNotEmpty) buffer.write(', ${alert.disease}');
+    if (alert.city.isNotEmpty) buffer.write(' in ${alert.city}');
+    buffer.write('. ${alert.title}');
+    final semanticsLabel = buffer.toString();
+
+    return Semantics(
+      button: true,
+      label: semanticsLabel,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: unread ? appearance.border : AppColorsV2.stroke,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+            child: Ink(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: unread ? appearance.fill : AppColorsV2.glassFill,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: unread ? appearance.border : AppColorsV2.stroke,
+                ),
+              ),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(appearance.icon, size: 22, color: appearance.color),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          alert.title,
-                          style: AppTextStylesV2.body.copyWith(
-                            color: AppColorsV2.textPrimary,
-                            fontWeight: unread
-                                ? FontWeight.w700
-                                : FontWeight.w600,
-                            fontSize: 15,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(appearance.icon, size: 22, color: appearance.color),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              alert.title,
+                              style: AppTextStylesV2.body.copyWith(
+                                color: AppColorsV2.textPrimary,
+                                fontWeight: unread
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(alert.body, style: AppTextStylesV2.body),
+                            if (caption.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(caption, style: AppTextStylesV2.caption),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (unread) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 9,
+                          height: 9,
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: appearance.color,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(alert.body, style: AppTextStylesV2.body),
                       ],
-                    ),
+                    ],
                   ),
-                  if (unread) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 9,
-                      height: 9,
-                      margin: const EdgeInsets.only(top: 4),
-                      decoration: BoxDecoration(
-                        color: appearance.color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                  if (alert.recommendation != null) ...[
+                    const SizedBox(height: 12),
+                    _RecommendationRow(recommendation: alert.recommendation!),
                   ],
                 ],
               ),
-              if (alert.recommendation != null) ...[
-                const SizedBox(height: 12),
-                _RecommendationRow(recommendation: alert.recommendation!),
-              ],
-            ],
+            ),
           ),
         ),
       ),

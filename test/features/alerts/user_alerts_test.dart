@@ -635,6 +635,8 @@ void main() {
 
       expect(find.text('Air quality rising in Lahore'), findsOneWidget);
       expect(find.text('Source: WHO'), findsOneWidget);
+      // Condition + disease caption (Sprint 6A, S6A-04).
+      expect(find.text('Respiratory · Smog'), findsOneWidget);
     });
 
     testWidgets('tapping an alert marks it read', (tester) async {
@@ -659,6 +661,64 @@ void main() {
 
       expect(repo.markedRead, ['a1']);
     });
+
+    testWidgets(
+      'unread tile exposes one structured semantics announcement (S6A-04)',
+      (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', title: 'Air quality rising in Lahore', read: false),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.bySemanticsLabel(
+            'Unread. High risk, Smog in Lahore. Air quality rising in Lahore',
+          ),
+          findsOneWidget,
+        );
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'read tile\'s semantics label omits "Unread" (S6A-04)',
+      (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', title: 'Air quality rising in Lahore', read: true),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final handle = tester.ensureSemantics();
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.bySemanticsLabel(
+            'High risk, Smog in Lahore. Air quality rising in Lahore',
+          ),
+          findsOneWidget,
+        );
+        handle.dispose();
+      },
+    );
 
     testWidgets(
       '"Mark all read" is disabled when there are no unread alerts '
