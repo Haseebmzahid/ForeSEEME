@@ -9,8 +9,10 @@ import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/constants/city_coordinates.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_legend.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
@@ -64,28 +66,28 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
         context,
         async.when(
           loading: () => const BrandLoading(message: 'Loading national risk…'),
-        error: (error, _) => isOfflineError(error)
-            ? OfflineState(
-                onRetry: () => ref.invalidate(allCitiesRiskProvider),
-              )
-            : ErrorState(
-                title: "Couldn't load the map",
-                explanation:
-                    'Something went wrong loading the map. Please try again.',
-                onRetry: () => ref.invalidate(allCitiesRiskProvider),
-                detail: '$error',
-              ),
-        data: (estimates) {
-          if (estimates.isEmpty) {
-            return const EmptyState(
-              icon: Icons.map_outlined,
-              title: 'No risk data yet',
-              description:
-                  'We have no city estimates to map this week. Check back soon.',
-            );
-          }
-          return _buildMap(estimates);
-        },
+          error: (error, _) => isOfflineError(error)
+              ? OfflineState(
+                  onRetry: () => ref.invalidate(allCitiesRiskProvider),
+                )
+              : ErrorState(
+                  title: "Couldn't load the map",
+                  explanation:
+                      'Something went wrong loading the map. Please try again.',
+                  onRetry: () => ref.invalidate(allCitiesRiskProvider),
+                  detail: '$error',
+                ),
+          data: (estimates) {
+            if (estimates.isEmpty) {
+              return const EmptyState(
+                icon: Icons.map_outlined,
+                title: 'No risk data yet',
+                description:
+                    'We have no city estimates to map this week. Check back soon.',
+              );
+            }
+            return _buildMap(estimates);
+          },
         ),
       ),
     );
@@ -200,18 +202,22 @@ double riskMarkerHue(RiskAppearance a) {
 // ── Detail sheet ──────────────────────────────────────────────────────────────
 
 /// Bottom sheet showing a tapped city's risk — name + driver + an accessible
-/// risk pill (icon + label + colour). Pure widget, testable without a map.
-class CityDetailSheet extends StatelessWidget {
+/// risk pill (icon + label + colour), how long ago the estimate was
+/// generated, and — only for the user's own profile city, since
+/// `/risk-details` isn't city-parameterised — a "View details" CTA into the
+/// full analytics screen.
+class CityDetailSheet extends ConsumerWidget {
   final RiskEstimateModel estimate;
 
   const CityDetailSheet({super.key, required this.estimate});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final a = RiskVisuals.of(
       estimate.riskLevel,
       lowConfidence: estimate.lowConfidence,
     );
+    final isOwnCity = ref.watch(userCityProvider).value == estimate.city;
 
     return Container(
       width: double.infinity,
@@ -249,6 +255,13 @@ class CityDetailSheet extends StatelessWidget {
                     Text(estimate.city, style: AppTextStylesV2.cardTitle),
                     const SizedBox(height: 2),
                     Text(estimate.disease, style: AppTextStylesV2.caption),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Updated ${riskAgeLabel(estimate.generatedAt)}',
+                      style: AppTextStylesV2.caption.copyWith(
+                        color: AppColorsV2.textFaint,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -283,12 +296,40 @@ class CityDetailSheet extends StatelessWidget {
           // Honest staleness label for this city's estimate (self-guarding —
           // shows only when the cached/last estimate is out of date).
           RiskStalenessNotice(generatedAt: estimate.generatedAt, topGap: 14),
+          // "View details" only for the user's own profile city: the full
+          // Risk Details screen reads `currentCityRiskProvider` (the user's
+          // city), not an arbitrary tapped city, so the CTA never claims to
+          // open detail for a city it can't actually show.
+          if (isOwnCity) ...[
+            const SizedBox(height: 14),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.push('/risk-details'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColorsV2.teal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  minimumSize: const Size(0, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(
+                      color: AppColorsV2.teal.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: const Text('View details'),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
-
 
 // A dark Google Map style so the map matches the v2 deep-space shell.
 const String _kDarkMapStyle = '''

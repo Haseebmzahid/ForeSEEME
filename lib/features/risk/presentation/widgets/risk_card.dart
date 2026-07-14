@@ -10,6 +10,7 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_override.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_meter.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
@@ -79,10 +80,7 @@ class _RiskCardOverride extends StatelessWidget {
       child: _CardShell(
         borderColor: AppColorsV2.violet.withValues(alpha: 0.4),
         gradient: LinearGradient(
-          colors: [
-            AppColorsV2.violet.withValues(alpha: 0.12),
-            a.fill,
-          ],
+          colors: [AppColorsV2.violet.withValues(alpha: 0.12), a.fill],
           begin: const Alignment(-0.6, -1),
           end: const Alignment(0.6, 1),
         ),
@@ -315,6 +313,7 @@ class _RiskCardData extends StatelessWidget {
                     style: AppTextStylesV2.caption,
                   ),
                 ),
+                ConfidenceMeter(confidence: estimate.confidence, width: 56),
               ],
             ),
             // Shared, self-guarding staleness notice (centralised threshold +

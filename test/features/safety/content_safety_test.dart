@@ -237,6 +237,12 @@ void main() {
 
       expect(find.byType(EmergencyCard), findsOneWidget);
 
+      // The card sits inside a scrollable list; ensure it's in the visible
+      // viewport before tapping (further content above it — e.g. the
+      // confidence meter, environment tiles — can push it below the fold).
+      await tester.ensureVisible(find.byType(EmergencyCard));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byType(EmergencyCard));
       await tester.pumpAndSettle();
       expect(launcher.dialled, ['1122']);

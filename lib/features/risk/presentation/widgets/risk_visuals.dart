@@ -43,38 +43,43 @@ class RiskAppearance {
 class RiskVisuals {
   RiskVisuals._();
 
-  static const RiskAppearance low = RiskAppearance(
+  // `fill`/`border` are derived from the single `AppColorsV2.riskX` token via
+  // `.withValues(alpha:)` rather than hand-duplicated hex, so a token change
+  // can never drift out of sync with these tints (each field is `static
+  // final`, not `const`, only because `.withValues` isn't a const function —
+  // the values are still computed exactly once, at load).
+  static final RiskAppearance low = RiskAppearance(
     color: AppColorsV2.riskLow,
-    fill: Color(0x1F35C28A), // ~.12
-    border: Color(0x6635C28A), // ~.40
+    fill: AppColorsV2.riskLow.withValues(alpha: 0.12),
+    border: AppColorsV2.riskLow.withValues(alpha: 0.40),
     icon: Icons.check_circle_outline_rounded,
     label: 'Low',
     headline: 'Low Risk',
   );
 
-  static const RiskAppearance medium = RiskAppearance(
+  static final RiskAppearance medium = RiskAppearance(
     color: AppColorsV2.riskMedium,
-    fill: Color(0x1FF4B740),
-    border: Color(0x66F4B740),
+    fill: AppColorsV2.riskMedium.withValues(alpha: 0.12),
+    border: AppColorsV2.riskMedium.withValues(alpha: 0.40),
     icon: Icons.priority_high_rounded,
     label: 'Medium',
     headline: 'Medium Risk',
   );
 
-  static const RiskAppearance high = RiskAppearance(
+  static final RiskAppearance high = RiskAppearance(
     color: AppColorsV2.riskHigh,
-    fill: Color(0x29F35B6B), // ~.16
-    border: Color(0x57F35B6B), // ~.34
+    fill: AppColorsV2.riskHigh.withValues(alpha: 0.16),
+    border: AppColorsV2.riskHigh.withValues(alpha: 0.34),
     icon: Icons.warning_amber_rounded,
     label: 'High',
     headline: 'High Risk',
   );
 
   /// Low-confidence / unknown — the grey uncertainty treatment.
-  static const RiskAppearance uncertain = RiskAppearance(
+  static final RiskAppearance uncertain = RiskAppearance(
     color: AppColorsV2.riskUncertain,
-    fill: Color(0x1A7C89A6), // ~.10
-    border: Color(0x577C89A6), // ~.34
+    fill: AppColorsV2.riskUncertain.withValues(alpha: 0.10),
+    border: AppColorsV2.riskUncertain.withValues(alpha: 0.34),
     icon: Icons.help_outline_rounded,
     label: 'Uncertain',
     headline: 'Uncertain',
@@ -96,5 +101,5 @@ class RiskVisuals {
   };
 
   /// The three risk levels, low→high, for the legend.
-  static const List<RiskAppearance> levels = [low, medium, high];
+  static final List<RiskAppearance> levels = [low, medium, high];
 }

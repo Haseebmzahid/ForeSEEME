@@ -4,11 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
+
+/// Pumps [CityDetailSheet] with [userCityProvider] overridden so the "View
+/// details" CTA's own-city gate is deterministic in tests (no real Firebase).
+Future<void> pumpSheet(
+  WidgetTester tester,
+  RiskEstimateModel estimate, {
+  String? ownCity,
+}) {
+  return tester.pumpWidget(
+    ProviderScope(
+      overrides: [userCityProvider.overrideWith((ref) async => ownCity)],
+      child: MaterialApp(
+        home: Scaffold(body: CityDetailSheet(estimate: estimate)),
+      ),
+    ),
+  );
+}
 
 RiskEstimateModel est(
   String city,
@@ -83,13 +101,7 @@ void main() {
     testWidgets('shows city, disease and an accessible risk pill', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: CityDetailSheet(estimate: est('Lahore', RiskLevel.high)),
-          ),
-        ),
-      );
+      await pumpSheet(tester, est('Lahore', RiskLevel.high));
 
       expect(find.text('Lahore'), findsOneWidget);
       expect(find.text('Dengue'), findsOneWidget);
@@ -104,14 +116,9 @@ void main() {
     testWidgets('low-confidence shows the grey Uncertain treatment', (
       tester,
     ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: CityDetailSheet(
-              estimate: est('Karachi', RiskLevel.high, lowConfidence: true),
-            ),
-          ),
-        ),
+      await pumpSheet(
+        tester,
+        est('Karachi', RiskLevel.high, lowConfidence: true),
       );
 
       expect(find.text('Uncertain'), findsOneWidget);
@@ -127,9 +134,7 @@ void main() {
         'Lahore',
         RiskLevel.high,
       ).copyWith(generatedAt: DateTime.utc(2000, 1, 1));
-      await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: CityDetailSheet(estimate: stale))),
-      );
+      await pumpSheet(tester, stale);
 
       expect(find.text('Lahore'), findsOneWidget);
       expect(find.text('This estimate may be out of date'), findsOneWidget);
@@ -142,11 +147,40 @@ void main() {
         'Lahore',
         RiskLevel.high,
       ).copyWith(generatedAt: DateTime.now().toUtc());
-      await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: CityDetailSheet(estimate: fresh))),
-      );
+      await pumpSheet(tester, fresh);
 
       expect(find.text('This estimate may be out of date'), findsNothing);
+    });
+
+    testWidgets('shows an "Updated" timestamp for the estimate', (
+      tester,
+    ) async {
+      await pumpSheet(tester, est('Lahore', RiskLevel.high));
+
+      expect(find.textContaining('Updated'), findsOneWidget);
+    });
+
+    testWidgets(
+      '"View details" is hidden when the tapped city is not the user\'s own',
+      (tester) async {
+        await pumpSheet(
+          tester,
+          est('Karachi', RiskLevel.high),
+          ownCity: 'Lahore',
+        );
+        await tester.pump();
+
+        expect(find.text('View details'), findsNothing);
+      },
+    );
+
+    testWidgets('"View details" shows only for the user\'s own profile city', (
+      tester,
+    ) async {
+      await pumpSheet(tester, est('Lahore', RiskLevel.high), ownCity: 'Lahore');
+      await tester.pump();
+
+      expect(find.text('View details'), findsOneWidget);
     });
   });
 }

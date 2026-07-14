@@ -22,6 +22,8 @@ import 'package:fyp_foreseeme/features/risk/domain/services/risk_driver_service.
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_meter.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/environment_tiles.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
@@ -66,43 +68,43 @@ class RiskDetailsScreen extends ConsumerWidget {
                 context,
                 riskAsync.when(
                   loading: () => const _DetailsSkeleton(),
-          error: (error, _) {
-            void retry() {
-              ref.invalidate(userCityProvider);
-              ref.invalidate(currentCityRiskProvider);
-            }
+                  error: (error, _) {
+                    void retry() {
+                      ref.invalidate(userCityProvider);
+                      ref.invalidate(currentCityRiskProvider);
+                    }
 
-            // Connectivity loss and server errors are separate states.
-            return isOfflineError(error)
-                ? OfflineState(onRetry: retry)
-                : ErrorState(
-                    title: "Couldn't load risk details",
-                    explanation:
-                        'Something went wrong loading this. Please try again.',
-                    onRetry: retry,
-                    detail: '$error',
-                  );
-          },
-          data: (estimate) {
-            final body = estimate == null
-                ? const EmptyState(
-                    icon: Icons.monitor_heart_outlined,
-                    title: 'No risk data yet',
-                    description:
-                        "We don't have an environmental risk estimate for your "
-                        'city this week. New estimates arrive weekly — check '
-                        'back soon.',
-                  )
-                : _Content(estimate: estimate);
-            if (override == null) return body;
-            // Operator override active: lead with the transparency banner, keep
-            // the automated model detail (labelled) below it.
-            return _OverriddenBody(
-              riskOverride: override,
-              modelEstimate: estimate,
-              child: body,
-            );
-          },
+                    // Connectivity loss and server errors are separate states.
+                    return isOfflineError(error)
+                        ? OfflineState(onRetry: retry)
+                        : ErrorState(
+                            title: "Couldn't load risk details",
+                            explanation:
+                                'Something went wrong loading this. Please try again.',
+                            onRetry: retry,
+                            detail: '$error',
+                          );
+                  },
+                  data: (estimate) {
+                    final body = estimate == null
+                        ? const EmptyState(
+                            icon: Icons.monitor_heart_outlined,
+                            title: 'No risk data yet',
+                            description:
+                                "We don't have an environmental risk estimate for your "
+                                'city this week. New estimates arrive weekly — check '
+                                'back soon.',
+                          )
+                        : _Content(estimate: estimate);
+                    if (override == null) return body;
+                    // Operator override active: lead with the transparency banner, keep
+                    // the automated model detail (labelled) below it.
+                    return _OverriddenBody(
+                      riskOverride: override,
+                      modelEstimate: estimate,
+                      child: body,
+                    );
+                  },
                 ),
               ),
             ),
@@ -149,6 +151,8 @@ class _Content extends ConsumerWidget {
         const SizedBox(height: 18),
         const _TrendChartCard(),
         const SizedBox(height: 18),
+        EnvironmentTiles(estimate: estimate),
+        const SizedBox(height: 14),
         _AnalyticsRow(estimate: estimate),
         const SizedBox(height: 18),
         const _WhatYouCanDoCard(),
@@ -320,6 +324,8 @@ class _HeroCard extends ConsumerWidget {
                         _ConfidenceBadge(percent: confidencePct),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    ConfidenceMeter(confidence: estimate.confidence),
                     const SizedBox(height: 12),
                     // When the estimate was generated — transparent about
                     // recency so the headline is never read as "right now".
@@ -810,9 +816,7 @@ class _ChartSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSkeleton(
-      child: SkeletonBox(height: height, radius: 14),
-    );
+    return AppSkeleton(child: SkeletonBox(height: height, radius: 14));
   }
 }
 
@@ -835,6 +839,14 @@ class _DetailsSkeleton extends StatelessWidget {
             SizedBox(height: 18),
             Row(
               children: [
+                Expanded(child: SkeletonBox(height: 110)),
+                SizedBox(width: 14),
+                Expanded(child: SkeletonBox(height: 110)),
+              ],
+            ),
+            SizedBox(height: 14),
+            Row(
+              children: [
                 Expanded(child: SkeletonBox(height: 104)),
                 SizedBox(width: 14),
                 Expanded(child: SkeletonBox(height: 104)),
@@ -848,4 +860,3 @@ class _DetailsSkeleton extends StatelessWidget {
     );
   }
 }
-

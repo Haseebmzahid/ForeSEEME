@@ -10,6 +10,7 @@ import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
+import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
@@ -180,12 +181,9 @@ class DashboardScreen extends ConsumerWidget {
 
                         const SizedBox(height: 24),
 
-                        // 3. ADHERENCE SUMMARY CARD
-                        const _AdherenceSummaryCard(),
-
-                        const SizedBox(height: 16),
-
-                        // 3b. SUPPORTIVE ADHERENCE INSIGHTS (real, read-only)
+                        // 3. SUPPORTIVE ADHERENCE INSIGHTS (real, read-only —
+                        // streaks and taken-count computed from actual logs;
+                        // never a fabricated score).
                         const AdherenceInsightsCard(),
 
                         const SizedBox(height: 16),
@@ -474,103 +472,57 @@ class _HealthInsightsEntry extends StatelessWidget {
   }
 }
 
-// ── Adherence Summary Card ───────────────────────────────────────────────────
-
-class _AdherenceSummaryCard extends StatelessWidget {
-  const _AdherenceSummaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return _GlassContainer(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.analytics_outlined,
-                      color: _kCyan,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'ADHERENCE',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Great job keeping up!',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '14 day active streak 🔥',
-                  style: GoogleFonts.manrope(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: _kCyan,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Premium Circular Progress Indicator
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: CircularProgressIndicator(
-                    value: 0.94,
-                    strokeWidth: 8,
-                    backgroundColor: Colors.white.withValues(alpha: 0.05),
-                    valueColor: const AlwaysStoppedAnimation<Color>(_kCyan),
-                    strokeCap: StrokeCap.round,
-                  ),
-                ),
-                Text(
-                  '94%',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Upcoming Medication Card (DYNAMIC) ───────────────────────────────────────
 
-class _UpcomingMedicationCard extends ConsumerWidget {
+class _UpcomingMedicationCard extends ConsumerStatefulWidget {
   const _UpcomingMedicationCard();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UpcomingMedicationCard> createState() =>
+      _UpcomingMedicationCardState();
+}
+
+class _UpcomingMedicationCardState
+    extends ConsumerState<_UpcomingMedicationCard> {
+  // Optimistic "taken" state for the dose currently shown (keyed by the
+  // deterministic log ID so a different next-dose never inherits it).
+  String? _optimisticallyTakenLogId;
+  bool _isSubmitting = false;
+
+  Future<void> _takeNow(_NextDose nextDose) async {
+    if (_isSubmitting) return;
+    final notifier = ref.read(adherenceNotifierProvider.notifier);
+    final logId = notifier.generateLogId(
+      nextDose.medication.id,
+      nextDose.scheduledDateTime,
+      nextDose.timeString,
+    );
+
+    setState(() {
+      _isSubmitting = true;
+      _optimisticallyTakenLogId = logId;
+    });
+
+    try {
+      await notifier.updateStatus(
+        medication: nextDose.medication,
+        date: nextDose.scheduledDateTime,
+        timeString: nextDose.timeString,
+        status: AdherenceStatus.taken,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _optimisticallyTakenLogId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't mark as taken — restored ($e)")),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final medsAsync = ref.watch(medicationsStreamProvider);
 
     return medsAsync.when(
@@ -649,6 +601,10 @@ class _UpcomingMedicationCard extends ConsumerWidget {
     final med = nextDose.medication;
     final timeDisplay = _formatDisplay(nextDose.timeString);
     final relative = _relativeTime(nextDose.scheduledDateTime);
+    final logId = ref
+        .read(adherenceNotifierProvider.notifier)
+        .generateLogId(med.id, nextDose.scheduledDateTime, nextDose.timeString);
+    final isTaken = _optimisticallyTakenLogId == logId;
 
     return _GlassContainer(
       padding: EdgeInsets.zero,
@@ -731,17 +687,21 @@ class _UpcomingMedicationCard extends ConsumerWidget {
                     icon: Icons.close_rounded,
                     color: Colors.white.withValues(alpha: 0.1),
                     textColor: Colors.white,
-                    onTap: () => context.go('/check-in'),
+                    onTap: (isTaken || _isSubmitting)
+                        ? null
+                        : () => context.go('/check-in'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _MedicationActionButton(
-                    label: 'Take Now',
-                    icon: Icons.check_rounded,
+                    label: isTaken ? 'Taken' : 'Take Now',
+                    icon: isTaken
+                        ? Icons.check_circle_rounded
+                        : Icons.check_rounded,
                     color: _kTeal,
                     textColor: Colors.white,
-                    onTap: () => context.go('/check-in'),
+                    onTap: isTaken ? null : () => _takeNow(nextDose),
                     isPrimary: true,
                   ),
                 ),
@@ -759,7 +719,7 @@ class _MedicationActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color textColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isPrimary;
 
   const _MedicationActionButton({
@@ -773,44 +733,48 @@ class _MedicationActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isPrimary ? null : color,
-          borderRadius: BorderRadius.circular(12),
-          gradient: isPrimary
-              ? const LinearGradient(
-                  colors: [_kTeal, _kCyan],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                )
-              : null,
-          boxShadow: isPrimary
-              ? [
-                  BoxShadow(
-                    color: _kCyan.withValues(alpha: 0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: textColor, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: textColor,
+    final disabled = onTap == null;
+    return Opacity(
+      opacity: disabled ? 0.55 : 1,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isPrimary ? null : color,
+            borderRadius: BorderRadius.circular(12),
+            gradient: isPrimary
+                ? const LinearGradient(
+                    colors: [_kTeal, _kCyan],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
+                : null,
+            boxShadow: isPrimary
+                ? [
+                    BoxShadow(
+                      color: _kCyan.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: textColor, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
