@@ -29,6 +29,7 @@ class AlertInboxScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(userAlertsStreamProvider);
+    final unreadCount = ref.watch(unreadAlertCountProvider);
 
     return Scaffold(
       backgroundColor: AppColorsV2.shell,
@@ -42,6 +43,27 @@ class AlertInboxScreen extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
         title: Text('Alerts', style: AppTextStylesV2.cardTitle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all_rounded),
+            tooltip: 'Mark all read',
+            // Disabled (not hidden) at zero unread: a stable, always-present
+            // control is easier to reason about — and to find with a screen
+            // reader — than one that appears/disappears (Sprint 6A, S6A-03).
+            onPressed: unreadCount == 0
+                ? null
+                : () async {
+                    await ref.read(markAllAlertsReadProvider)();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All alerts marked as read'),
+                        backgroundColor: AppColorsV2.teal,
+                      ),
+                    );
+                  },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

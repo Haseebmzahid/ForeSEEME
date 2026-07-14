@@ -659,5 +659,63 @@ void main() {
 
       expect(repo.markedRead, ['a1']);
     });
+
+    testWidgets(
+      '"Mark all read" is disabled when there are no unread alerts '
+      '(S6A-03)',
+      (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', read: true),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        final button = tester.widget<IconButton>(
+          find.widgetWithIcon(IconButton, Icons.done_all_rounded),
+        );
+        expect(button.onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      '"Mark all read" marks every alert read and confirms it (S6A-03)',
+      (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          _model(id: 'a1', read: false),
+          _model(id: 'a2', read: false),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        final enabledButton = tester.widget<IconButton>(
+          find.widgetWithIcon(IconButton, Icons.done_all_rounded),
+        );
+        expect(enabledButton.onPressed, isNotNull);
+
+        await tester.tap(find.widgetWithIcon(IconButton, Icons.done_all_rounded));
+        await tester.pumpAndSettle();
+
+        expect(repo.markedAllRead, 1);
+        expect(find.text('All alerts marked as read'), findsOneWidget);
+      },
+    );
   });
 }
