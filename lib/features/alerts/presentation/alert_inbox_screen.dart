@@ -9,11 +9,13 @@ import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
+import 'package:fyp_foreseeme/features/alerts/domain/models/alert_filter.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_deep_link_router.dart';
+import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_grouping.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 
@@ -24,11 +26,21 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.da
 /// opens its deep link when it points at a known in-app route. Pure
 /// presentation: it only watches Riverpod providers (GOLDEN_RULES rule 1) — no
 /// Firebase, no dispatch logic (that lives in the backend engine).
-class AlertInboxScreen extends ConsumerWidget {
+class AlertInboxScreen extends ConsumerStatefulWidget {
   const AlertInboxScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AlertInboxScreen> createState() => _AlertInboxScreenState();
+}
+
+class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
+  // Filter selection is pure UI state — a plain field on the widget's State,
+  // mirroring DailyCheckInScreen's _selectedDate rather than introducing this
+  // codebase's first StateProvider (Sprint 6A, S6A-06).
+  AlertFilter _selectedFilter = AlertFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(userAlertsStreamProvider);
     final unreadCount = ref.watch(unreadAlertCountProvider);
 
@@ -86,15 +98,45 @@ class AlertInboxScreen extends ConsumerWidget {
                   onRetry: () => ref.invalidate(userAlertsStreamProvider),
                   detail: '$error',
                 ),
-          data: (alerts) => alerts.isEmpty
-              ? const EmptyState(
-                  icon: Icons.notifications_none_rounded,
-                  title: 'No alerts yet',
-                  description:
-                      'When risk rises in your city, your alerts will appear '
-                      'here so you can review them anytime.',
-                )
-              : _AlertList(alerts: alerts),
+          data: (alerts) {
+            if (alerts.isEmpty) {
+              // True empty: nothing to filter, so no chip row either.
+              return const EmptyState(
+                icon: Icons.notifications_none_rounded,
+                title: 'No alerts yet',
+                description:
+                    'When risk rises in your city, your alerts will appear '
+                    'here so you can review them anytime.',
+              );
+            }
+            final filtered = alerts
+                .where(_selectedFilter.matches)
+                .toList(growable: false);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: _FilterChipRow(
+                    selected: _selectedFilter,
+                    onSelected: (filter) =>
+                        setState(() => _selectedFilter = filter),
+                  ),
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.filter_alt_off_rounded,
+                          title: 'No alerts match this filter',
+                          description:
+                              'Try a different filter, or choose "All" to '
+                              'see everything.',
+                        )
+                      : _AlertList(alerts: filtered),
+                ),
+              ],
+            );
+          },
                 ),
               ),
             ),
@@ -111,35 +153,151 @@ class AlertInboxScreen extends ConsumerWidget {
   }
 }
 
+/// Single-select filter row: All / Unread / Low / Medium / High
+/// (Sprint 6A, S6A-06, Decision 1). Client-side over the already-loaded
+/// window — no new query, no new provider.
+class _FilterChipRow extends StatelessWidget {
+  final AlertFilter selected;
+  final ValueChanged<AlertFilter> onSelected;
+
+  const _FilterChipRow({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: AlertFilter.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = AlertFilter.values[index];
+          return _FilterChip(
+            label: filter.label,
+            selected: filter == selected,
+            onTap: () => onSelected(filter),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label filter',
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColorsV2.teal.withValues(alpha: 0.15)
+                    : AppColorsV2.glassFill,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: selected
+                      ? AppColorsV2.teal.withValues(alpha: 0.5)
+                      : AppColorsV2.stroke,
+                ),
+              ),
+              child: Text(
+                label,
+                style: AppTextStylesV2.caption.copyWith(
+                  color: selected
+                      ? AppColorsV2.teal
+                      : AppColorsV2.textSecondary,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AlertList extends ConsumerWidget {
   final List<UserAlertModel> alerts;
   const _AlertList({required this.alerts});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView.separated(
+    // Grouped once per build from the already-loaded, already-newest-first
+    // stream value — no new provider (Sprint 6A, S6A-05). Headers scroll with
+    // the content rather than pinning: at this data scale (≤50 alerts, per
+    // the existing query cap) true sticky-pinned headers are complexity this
+    // milestone doesn't need.
+    final groups = groupAlertsByDate(alerts, now: DateTime.now());
+    final items = <Widget>[
+      for (final group in groups) ...[
+        _DateHeader(text: group.header),
+        for (final alert in group.alerts)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _AlertTile(
+              alert: alert,
+              onTap: () async {
+                // Mark read first (persists), then follow the deep link if it
+                // is a known in-app route (reuses the Prompt 4 router's
+                // whitelist).
+                await ref.read(markAlertReadProvider)(alert.id);
+                final route = alert.deepLink;
+                if (AlertDeepLinkRouter.knownRoutes.contains(route)) {
+                  // Engagement hook (Prompt 9): record the inbox open.
+                  ref
+                      .read(alertAnalyticsProvider)
+                      .logAlertOpened(
+                        route: route,
+                        source: AlertOpenSource.inbox,
+                      );
+                  if (context.mounted) context.push(route);
+                }
+              },
+            ),
+          ),
+      ],
+    ];
+
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      itemCount: alerts.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final alert = alerts[index];
-        return _AlertTile(
-          alert: alert,
-          onTap: () async {
-            // Mark read first (persists), then follow the deep link if it is a
-            // known in-app route (reuses the Prompt 4 router's whitelist).
-            await ref.read(markAlertReadProvider)(alert.id);
-            final route = alert.deepLink;
-            if (AlertDeepLinkRouter.knownRoutes.contains(route)) {
-              // Engagement hook (Prompt 9): record the inbox open.
-              ref
-                  .read(alertAnalyticsProvider)
-                  .logAlertOpened(route: route, source: AlertOpenSource.inbox);
-              if (context.mounted) context.push(route);
-            }
-          },
-        );
-      },
+      itemCount: items.length,
+      itemBuilder: (context, index) => items[index],
+    );
+  }
+}
+
+/// A date-group header ("TODAY", "YESTERDAY", or an absolute date).
+class _DateHeader extends StatelessWidget {
+  final String text;
+  const _DateHeader({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
+      child: Text(text.toUpperCase(), style: AppTextStylesV2.microLabel),
     );
   }
 }

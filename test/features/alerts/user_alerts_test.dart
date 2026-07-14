@@ -721,6 +721,248 @@ void main() {
     );
 
     testWidgets(
+      'groups alerts under date headers, newest group first (S6A-05)',
+      (tester) async {
+        // Fixed, safely-in-the-past dates (2020) so the rendered headers are
+        // deterministic absolute dates regardless of the real clock at test
+        // time — "Today"/"Yesterday" boundary logic is covered directly by
+        // alert_grouping_test.dart's injectable-clock unit tests.
+        UserAlertModel alertOn(String id, DateTime day) => UserAlertModel(
+          id: id,
+          title: 'Alert $id',
+          body: 'Body $id',
+          category: 'respiratory',
+          city: 'Lahore',
+          riskLevel: 'High',
+          disease: 'Smog',
+          recommendation: null,
+          deepLink: '',
+          riskEstimateId: 'r_$id',
+          createdAt: day,
+          read: true,
+          readAt: null,
+        );
+
+        final repo = RecordingUserAlertsRepository([
+          alertOn('newer1', DateTime(2020, 3, 15, 9)),
+          alertOn('newer2', DateTime(2020, 3, 15, 8)),
+          alertOn('older1', DateTime(2020, 3, 10)),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        expect(find.text('MAR 15, 2020'), findsOneWidget);
+        expect(find.text('MAR 10, 2020'), findsOneWidget);
+
+        // Both headers render, in newest-first order (the March 15 group
+        // above the March 10 group), and each alert appears under the right
+        // one — verified via vertical position rather than tree structure,
+        // since the list is a flat ListView.builder by design.
+        final newerHeaderY = tester
+            .getTopLeft(find.text('MAR 15, 2020'))
+            .dy;
+        final olderHeaderY = tester
+            .getTopLeft(find.text('MAR 10, 2020'))
+            .dy;
+        final newerTileY = tester.getTopLeft(find.text('Alert newer1')).dy;
+        final olderTileY = tester.getTopLeft(find.text('Alert older1')).dy;
+
+        expect(newerHeaderY, lessThan(olderHeaderY));
+        expect(newerHeaderY, lessThan(newerTileY));
+        expect(newerTileY, lessThan(olderHeaderY));
+        expect(olderHeaderY, lessThan(olderTileY));
+      },
+    );
+
+    group('filter chips (S6A-06)', () {
+      UserAlertModel alertWith({
+        required String id,
+        required String riskLevel,
+        bool read = false,
+      }) => UserAlertModel(
+        id: id,
+        title: 'Alert $id',
+        body: 'Body $id',
+        category: 'respiratory',
+        city: 'Lahore',
+        riskLevel: riskLevel,
+        disease: 'Smog',
+        recommendation: null,
+        deepLink: '',
+        riskEstimateId: 'r_$id',
+        createdAt: DateTime(2026, 6, 30),
+        read: read,
+        readAt: null,
+      );
+
+      testWidgets('all five filter chips render', (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          alertWith(id: 'a1', riskLevel: 'High'),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        for (final label in ['All', 'Unread', 'Low', 'Medium', 'High']) {
+          expect(find.text(label), findsOneWidget);
+        }
+      });
+
+      testWidgets('selecting "High" shows only High-risk tiles', (
+        tester,
+      ) async {
+        final repo = RecordingUserAlertsRepository([
+          alertWith(id: 'lowAlert', riskLevel: 'Low'),
+          alertWith(id: 'medAlert', riskLevel: 'Medium'),
+          alertWith(id: 'highAlert', riskLevel: 'High'),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Alert lowAlert'), findsOneWidget);
+        expect(find.text('Alert medAlert'), findsOneWidget);
+        expect(find.text('Alert highAlert'), findsOneWidget);
+
+        await tester.tap(find.text('High'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Alert lowAlert'), findsNothing);
+        expect(find.text('Alert medAlert'), findsNothing);
+        expect(find.text('Alert highAlert'), findsOneWidget);
+      });
+
+      testWidgets('selecting "Unread" hides read tiles', (tester) async {
+        final repo = RecordingUserAlertsRepository([
+          alertWith(id: 'readAlert', riskLevel: 'High', read: true),
+          alertWith(id: 'unreadAlert', riskLevel: 'High', read: false),
+        ]);
+        addTearDown(repo.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            authStateProvider.overrideWith((ref) => Stream.value(_user())),
+            userAlertsRepositoryProvider.overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(wrap(container));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Unread'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Alert readAlert'), findsNothing);
+        expect(find.text('Alert unreadAlert'), findsOneWidget);
+      });
+
+      testWidgets(
+        'a filter with no matches shows filtered-empty copy, distinct '
+        'from true-empty',
+        (tester) async {
+          final repo = RecordingUserAlertsRepository([
+            alertWith(id: 'highAlert', riskLevel: 'High'),
+          ]);
+          addTearDown(repo.dispose);
+          final container = ProviderContainer(
+            overrides: [
+              authStateProvider.overrideWith((ref) => Stream.value(_user())),
+              userAlertsRepositoryProvider.overrideWithValue(repo),
+            ],
+          );
+          addTearDown(container.dispose);
+
+          await tester.pumpWidget(wrap(container));
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.text('Low'));
+          await tester.pumpAndSettle();
+
+          expect(find.text('No alerts match this filter'), findsOneWidget);
+          expect(find.text('No alerts yet'), findsNothing);
+          // The chip row (and thus the ability to switch back to "All")
+          // stays visible even when the filtered result is empty.
+          expect(find.text('All'), findsOneWidget);
+        },
+      );
+
+      testWidgets(
+        'filtering composes with date grouping — a date with no matches '
+        'drops its header entirely',
+        (tester) async {
+          UserAlertModel alertOn(String id, DateTime day, String riskLevel) =>
+              UserAlertModel(
+                id: id,
+                title: 'Alert $id',
+                body: 'Body $id',
+                category: 'respiratory',
+                city: 'Lahore',
+                riskLevel: riskLevel,
+                disease: 'Smog',
+                recommendation: null,
+                deepLink: '',
+                riskEstimateId: 'r_$id',
+                createdAt: day,
+                read: true,
+                readAt: null,
+              );
+
+          final repo = RecordingUserAlertsRepository([
+            alertOn('newerHigh', DateTime(2020, 3, 15), 'High'),
+            alertOn('olderLow', DateTime(2020, 3, 10), 'Low'),
+          ]);
+          addTearDown(repo.dispose);
+          final container = ProviderContainer(
+            overrides: [
+              authStateProvider.overrideWith((ref) => Stream.value(_user())),
+              userAlertsRepositoryProvider.overrideWithValue(repo),
+            ],
+          );
+          addTearDown(container.dispose);
+
+          await tester.pumpWidget(wrap(container));
+          await tester.pumpAndSettle();
+
+          expect(find.text('MAR 15, 2020'), findsOneWidget);
+          expect(find.text('MAR 10, 2020'), findsOneWidget);
+
+          await tester.tap(find.text('High'));
+          await tester.pumpAndSettle();
+
+          // The March 10 (Low) group is fully filtered out — its header
+          // must not linger as an empty section.
+          expect(find.text('MAR 15, 2020'), findsOneWidget);
+          expect(find.text('MAR 10, 2020'), findsNothing);
+        },
+      );
+    });
+
+    testWidgets(
       '"Mark all read" is disabled when there are no unread alerts '
       '(S6A-03)',
       (tester) async {
