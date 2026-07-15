@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/health_profile/data/repositories/firestore_health_profile_repository.dart';
+import 'package:fyp_foreseeme/features/health_profile/domain/models/health_profile_model.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health_profile_repository.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_notifier.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_state.dart';
@@ -45,6 +46,28 @@ final profileExistsProvider = FutureProvider<bool>((ref) async {
       return profile != null;
     },
   );
+});
+
+/// The signed-in user's full health profile, or `null`.
+///
+/// Resolves to `null` when there is no authenticated user or no profile on
+/// file yet (an honest empty state). Deliberately **does not** collapse a
+/// read failure to `null` the way [userCityProvider] does: this provider
+/// backs the edit-mode form's prefill (S6C-01), where silently opening blank
+/// on a transient error risks the user re-saving with their real conditions
+/// wiped out. A read failure surfaces as `AsyncError` so the screen can show
+/// a retry instead of a deceptively-empty form.
+final currentHealthProfileProvider = FutureProvider<HealthProfileModel?>((
+  ref,
+) async {
+  final user = await ref.watch(authStateProvider.future);
+  if (user == null) return null;
+
+  final result = await ref
+      .read(healthProfileRepositoryProvider)
+      .getProfile(user.uid);
+
+  return result.fold((error) => throw error, (profile) => profile);
 });
 
 /// The signed-in user's city from their health profile, or `null`.
