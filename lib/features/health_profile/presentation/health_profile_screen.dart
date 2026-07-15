@@ -198,6 +198,18 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.pop();
           });
+        } else {
+          // Non-edit mode only ever runs once per account (the router only
+          // routes here, un-edited, while the profile doesn't exist yet) —
+          // so this is exactly first-run. Show the existing value-explaining
+          // notification pre-prompt (S6C-02) before the router's redirect
+          // takes over and lands the user on /home; push (not go) so
+          // declining or allowing both simply return here, and the
+          // now-satisfied "has profile" redirect carries them the rest of
+          // the way — no new navigation logic needed either way.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) context.push('/notifications/permission');
+          });
         }
       } else if (next is HealthProfileStateError) {
         if (mounted) {

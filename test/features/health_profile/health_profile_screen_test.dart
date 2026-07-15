@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/utils/either.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -14,12 +15,15 @@ import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_screen.dart';
 
-/// Configurable test double — only [getProfile] is exercised by this screen's
-/// prefill path; the write methods aren't called by any test here.
+/// Configurable test double — only [getProfile] is exercised by the S6C-01
+/// prefill tests; [saveProfile] is additionally exercised by the S6C-02
+/// navigation tests (both default to failing loudly so a test that doesn't
+/// expect a call is proof the call never happened).
 class _FakeHealthProfileRepository implements HealthProfileRepository {
-  _FakeHealthProfileRepository(this._result, {this.delay});
+  _FakeHealthProfileRepository(this._result, {this.delay, this.saveResult});
   final Either<HealthProfileException, HealthProfileModel?> _result;
   final Duration? delay;
+  final Either<HealthProfileException, void>? saveResult;
 
   @override
   Future<Either<HealthProfileException, HealthProfileModel?>> getProfile(
@@ -32,14 +36,20 @@ class _FakeHealthProfileRepository implements HealthProfileRepository {
   @override
   Future<Either<HealthProfileException, void>> saveProfile(
     HealthProfileModel profile,
-  ) => throw UnimplementedError();
+  ) async {
+    if (saveResult == null) throw UnimplementedError();
+    return saveResult!;
+  }
 
   @override
   Future<Either<HealthProfileException, void>> updateProfile(
     String uid, {
     String? city,
     List<String>? conditions,
-  }) => throw UnimplementedError();
+  }) async {
+    if (saveResult == null) throw UnimplementedError();
+    return saveResult!;
+  }
 }
 
 UserModel _user() => UserModel(
@@ -111,6 +121,100 @@ Future<void> _pump(
 Future<void> _settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 700));
+}
+
+/// Pumps up to [maxPumps] times (100ms apart), returning as soon as [finder]
+/// finds a match. The post-save navigation is scheduled via
+/// `WidgetsBinding.instance.addPostFrameCallback`, which fires within a
+/// pump or two under normal conditions — but a *fixed* pump count is a race
+/// under heavy concurrent test-suite load (verified: this suite is 100%
+/// reliable in isolation, but flaked once under the full ~430-test run with
+/// no exception/hang, only "not found yet"). Polling with a generous cap
+/// proves the navigation happens within a real bound instead of gambling on
+/// exactly how many pumps "usually" suffice.
+Future<void> _pumpUntilFound(
+  WidgetTester tester,
+  Finder finder, {
+  int maxPumps = 20,
+}) async {
+  for (var i = 0; i < maxPumps; i++) {
+    if (finder.evaluate().isNotEmpty) return;
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  // Final pump/check so the eventual `expect` reports a clean, standard
+  // failure (with the usual matcher diff) rather than this helper's own.
+  await tester.pump();
+}
+
+/// Pumps [HealthProfileScreen] behind a real (minimal) [GoRouter] so
+/// `context.push`/`context.pop` calls resolve against real routes, rather
+/// than a bare `MaterialApp` Navigator. `/notifications/permission` is a
+/// lightweight stub — this suite verifies *navigation*, not the (existing,
+/// unmodified) permission screen's own behaviour.
+Future<GoRouter> _pumpWithRouter(
+  WidgetTester tester, {
+  required bool isEditMode,
+  required Either<HealthProfileException, void> saveResult,
+}) async {
+  final authController = StreamController<UserModel?>();
+  addTearDown(authController.close);
+
+  final container = ProviderContainer(
+    retry: (retryCount, error) => null,
+    overrides: [
+      authStateProvider.overrideWith((ref) => authController.stream),
+      healthProfileRepositoryProvider.overrideWithValue(
+        _FakeHealthProfileRepository(const Right(null), saveResult: saveResult),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  container.listen(authStateProvider, (_, _) {}, fireImmediately: true);
+  authController.add(_user());
+
+  final router = GoRouter(
+    // Starts one level back and pushes on top, so edit mode's existing
+    // `context.pop()` on save has a real route underneath to return to
+    // (exactly how it's reached in the app: pushed from /profile).
+    initialLocation: '/profile',
+    routes: [
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const Scaffold(body: Text('PROFILE_STUB')),
+      ),
+      GoRoute(
+        path: '/health-profile',
+        builder: (context, state) => HealthProfileScreen(isEditMode: isEditMode),
+      ),
+      GoRoute(
+        path: '/notifications/permission',
+        builder: (context, state) =>
+            const Scaffold(body: Text('PERMISSION_SCREEN_STUB')),
+      ),
+    ],
+  );
+
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  router.push('/health-profile');
+  await tester.pump();
+  return router;
+}
+
+/// Selects a city + a condition. 'None' sits below the fold on the test
+/// surface, so it's scrolled into view before tapping (a plain `tap` would
+/// silently miss and leave the form invalid).
+Future<void> _fillMinimalForm(WidgetTester tester) async {
+  await tester.tap(find.text('Lahore'));
+  await tester.pump();
+  await tester.ensureVisible(find.text('None'));
+  await tester.pump();
+  await tester.tap(find.text('None'));
+  await tester.pump();
 }
 
 void main() {
@@ -229,6 +333,66 @@ void main() {
       expect(find.byType(ErrorState), findsNothing);
       expect(find.text('Continue'), findsOneWidget);
       expect(find.text('Complete Profile'), findsOneWidget);
+    });
+  });
+
+  group('HealthProfileScreen first-run notification pre-prompt (S6C-02)', () {
+    testWidgets(
+      'a successful first-time save pushes the permission pre-prompt',
+      (tester) async {
+        await _pumpWithRouter(
+          tester,
+          isEditMode: false,
+          saveResult: const Right(null),
+        );
+        await _settle(tester);
+
+        await _fillMinimalForm(tester);
+
+        await tester.tap(find.text('Continue'));
+        await _pumpUntilFound(tester, find.text('PERMISSION_SCREEN_STUB'));
+
+        expect(find.text('PERMISSION_SCREEN_STUB'), findsOneWidget);
+      },
+    );
+
+    testWidgets('an edit-mode save does not push the permission pre-prompt', (
+      tester,
+    ) async {
+      await _pumpWithRouter(
+        tester,
+        isEditMode: true,
+        saveResult: const Right(null),
+      );
+      await _settle(tester);
+
+      await _fillMinimalForm(tester);
+
+      await tester.tap(find.text('Update Profile'));
+      await _pumpUntilFound(tester, find.text('PROFILE_STUB'));
+
+      expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
+      // Edit mode's existing behaviour (unchanged): pop back to the caller.
+      expect(find.text('PROFILE_STUB'), findsOneWidget);
+    });
+
+    testWidgets('a failed first-time save stays put — no premature navigation', (
+      tester,
+    ) async {
+      await _pumpWithRouter(
+        tester,
+        isEditMode: false,
+        saveResult: const Left(HealthProfileException('boom', 'unavailable')),
+      );
+      await _settle(tester);
+
+      await _fillMinimalForm(tester);
+
+      await tester.tap(find.text('Continue'));
+      await _settle(tester);
+
+      expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
+      expect(find.text('Continue'), findsOneWidget);
     });
   });
 }
