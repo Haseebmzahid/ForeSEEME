@@ -11,6 +11,7 @@ import 'package:fyp_foreseeme/features/auth/presentation/forgot_password_screen.
 
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_screen.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/profile_ready_screen.dart';
 
 import 'package:fyp_foreseeme/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:fyp_foreseeme/core/routes/splash_screen.dart';
@@ -163,6 +164,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra;
           final isEditMode = extra is Map && extra['isEditMode'] == true;
           return HealthProfileScreen(isEditMode: isEditMode);
+        },
+      ),
+      GoRoute(
+        path: '/profile-ready',
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          final city = extra is Map ? extra['city'] as String? : null;
+          final conditions = extra is Map
+              ? (extra['conditions'] as List?)?.cast<String>()
+              : null;
+          return _motionPage(
+            state,
+            ProfileReadyScreen(
+              city: city ?? '',
+              conditions: conditions ?? const [],
+            ),
+          );
         },
       ),
       GoRoute(

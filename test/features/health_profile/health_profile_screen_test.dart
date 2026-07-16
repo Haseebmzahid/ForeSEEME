@@ -14,6 +14,7 @@ import 'package:fyp_foreseeme/features/health_profile/domain/models/health_profi
 import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health_profile_repository.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_screen.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/profile_ready_screen.dart';
 
 /// Configurable test double — only [getProfile] is exercised by the S6C-01
 /// prefill tests; [saveProfile] is additionally exercised by the S6C-02
@@ -184,7 +185,25 @@ Future<GoRouter> _pumpWithRouter(
       ),
       GoRoute(
         path: '/health-profile',
-        builder: (context, state) => HealthProfileScreen(isEditMode: isEditMode),
+        builder: (context, state) =>
+            HealthProfileScreen(isEditMode: isEditMode),
+      ),
+      GoRoute(
+        // The real screen (not a stub) — S6C-04 tests assert on its actual
+        // content (the real city/conditions just saved), and its own
+        // "Continue" button drives the hop to the permission stub below.
+        path: '/profile-ready',
+        builder: (context, state) {
+          final extra = state.extra;
+          final city = extra is Map ? extra['city'] as String? : null;
+          final conditions = extra is Map
+              ? (extra['conditions'] as List?)?.cast<String>()
+              : null;
+          return ProfileReadyScreen(
+            city: city ?? '',
+            conditions: conditions ?? const [],
+          );
+        },
       ),
       GoRoute(
         path: '/notifications/permission',
@@ -205,12 +224,15 @@ Future<GoRouter> _pumpWithRouter(
   return router;
 }
 
-/// Selects a city + a condition. 'None' sits below the fold on the test
-/// surface, so it's scrolled into view before tapping (a plain `tap` would
-/// silently miss and leave the form invalid).
+/// Drives the full 2-step flow (S6C-03): selects a city on step 1, advances
+/// to step 2, then selects a condition. 'None' sits below the fold on the
+/// test surface, so it's scrolled into view before tapping (a plain `tap`
+/// would silently miss and leave the form invalid).
 Future<void> _fillMinimalForm(WidgetTester tester) async {
   await tester.tap(find.text('Lahore'));
   await tester.pump();
+  await tester.tap(find.text('Next'));
+  await _pumpUntilFound(tester, find.text('Underlying Conditions'));
   await tester.ensureVisible(find.text('None'));
   await tester.pump();
   await tester.tap(find.text('None'));
@@ -219,9 +241,7 @@ Future<void> _fillMinimalForm(WidgetTester tester) async {
 
 void main() {
   group('HealthProfileScreen edit-mode prefill (S6C-01)', () {
-    testWidgets('prefills the real saved city and conditions', (
-      tester,
-    ) async {
+    testWidgets('prefills the real saved city and conditions', (tester) async {
       await _pump(
         tester,
         isEditMode: true,
@@ -231,6 +251,8 @@ void main() {
       );
       await _settle(tester);
 
+      // Step 1 (city) is shown first — the prefilled city is already
+      // selected here, before the user has interacted at all.
       final cityChip = tester.widget<ChoiceChip>(
         find.ancestor(
           of: find.text('Karachi'),
@@ -238,6 +260,9 @@ void main() {
         ),
       );
       expect(cityChip.selected, isTrue);
+
+      await tester.tap(find.text('Next'));
+      await _pumpUntilFound(tester, find.text('Underlying Conditions'));
 
       final asthmaChip = tester.widget<FilterChip>(
         find.ancestor(
@@ -263,24 +288,29 @@ void main() {
       expect(find.text('Update Profile'), findsOneWidget);
     });
 
-    testWidgets('shows a mirrored skeleton while the profile loads, no button', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        isEditMode: true,
-        profileResult: Right(_profile(city: 'Lahore', conditions: const [])),
-        delay: const Duration(milliseconds: 200),
-      );
-      await tester.pump();
+    testWidgets(
+      'shows a mirrored skeleton while the profile loads, no button',
+      (tester) async {
+        await _pump(
+          tester,
+          isEditMode: true,
+          profileResult: Right(_profile(city: 'Lahore', conditions: const [])),
+          delay: const Duration(milliseconds: 200),
+        );
+        await tester.pump();
 
-      expect(find.text('Update Profile'), findsNothing);
-      expect(find.text('Lahore'), findsNothing);
+        expect(find.text('Update Profile'), findsNothing);
+        expect(find.text('Lahore'), findsNothing);
 
-      await tester.pump(const Duration(milliseconds: 250));
-      await _settle(tester);
-      expect(find.text('Update Profile'), findsOneWidget);
-    });
+        await tester.pump(const Duration(milliseconds: 250));
+        await _settle(tester);
+        // Step 1 (city) is shown first; its button is "Next", not the final
+        // "Update Profile" (that only appears on step 2).
+        expect(find.text('Lahore'), findsOneWidget);
+        expect(find.text('Next'), findsOneWidget);
+        expect(find.text('Update Profile'), findsNothing);
+      },
+    );
 
     testWidgets('a fetch failure shows ErrorState with retry, not a crash', (
       tester,
@@ -296,6 +326,7 @@ void main() {
 
       expect(find.byType(ErrorState), findsOneWidget);
       expect(find.text('Update Profile'), findsNothing);
+      expect(find.text('Next'), findsNothing);
     });
 
     testWidgets('no profile on file degrades to a blank, honest form', (
@@ -312,7 +343,7 @@ void main() {
         ),
       );
       expect(cityChip.selected, isFalse);
-      expect(find.text('Update Profile'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
     });
 
     testWidgets('non-edit mode never touches the profile fetch', (
@@ -331,30 +362,47 @@ void main() {
       await _settle(tester);
 
       expect(find.byType(ErrorState), findsNothing);
-      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
       expect(find.text('Complete Profile'), findsOneWidget);
     });
   });
 
   group('HealthProfileScreen first-run notification pre-prompt (S6C-02)', () {
-    testWidgets(
-      'a successful first-time save pushes the permission pre-prompt',
-      (tester) async {
-        await _pumpWithRouter(
-          tester,
-          isEditMode: false,
-          saveResult: const Right(null),
-        );
-        await _settle(tester);
+    testWidgets('a successful first-time save shows the ready screen, then the '
+        'permission pre-prompt', (tester) async {
+      await _pumpWithRouter(
+        tester,
+        isEditMode: false,
+        saveResult: const Right(null),
+      );
+      await _settle(tester);
 
-        await _fillMinimalForm(tester);
+      await _fillMinimalForm(tester); // selects Lahore + None
 
-        await tester.tap(find.text('Continue'));
-        await _pumpUntilFound(tester, find.text('PERMISSION_SCREEN_STUB'));
+      await tester.tap(find.text('Continue')); // submits step 2
+      await _pumpUntilFound(tester, find.text("You're all set!"));
 
-        expect(find.text('PERMISSION_SCREEN_STUB'), findsOneWidget);
-      },
-    );
+      // S6C-04: the ready screen shows the real just-saved data, honestly
+      // phrased (never the literal "None").
+      expect(find.textContaining('Lahore'), findsWidgets);
+      expect(
+        find.textContaining("You didn't note any chronic conditions"),
+        findsOneWidget,
+      );
+
+      // Its own "Continue" hands off to the permission pre-prompt.
+      // Disambiguated from HealthProfileScreen's identically-labelled
+      // submit button, which may still be mounted underneath.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ProfileReadyScreen),
+          matching: find.text('Continue'),
+        ),
+      );
+      await _pumpUntilFound(tester, find.text('PERMISSION_SCREEN_STUB'));
+
+      expect(find.text('PERMISSION_SCREEN_STUB'), findsOneWidget);
+    });
 
     testWidgets('an edit-mode save does not push the permission pre-prompt', (
       tester,
@@ -376,23 +424,170 @@ void main() {
       expect(find.text('PROFILE_STUB'), findsOneWidget);
     });
 
-    testWidgets('a failed first-time save stays put — no premature navigation', (
+    testWidgets(
+      'a failed first-time save stays put — no premature navigation',
+      (tester) async {
+        await _pumpWithRouter(
+          tester,
+          isEditMode: false,
+          saveResult: const Left(HealthProfileException('boom', 'unavailable')),
+        );
+        await _settle(tester);
+
+        await _fillMinimalForm(tester);
+
+        await tester.tap(find.text('Continue'));
+        await _settle(tester);
+
+        expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
+        expect(find.text('Continue'), findsOneWidget);
+      },
+    );
+  });
+
+  group('HealthProfileScreen 2-step guided flow (S6C-03)', () {
+    testWidgets('progress advances from "Step 1 of 2" to "Step 2 of 2"', (
       tester,
     ) async {
-      await _pumpWithRouter(
-        tester,
-        isEditMode: false,
-        saveResult: const Left(HealthProfileException('boom', 'unavailable')),
-      );
+      await _pump(tester, isEditMode: false);
       await _settle(tester);
 
-      await _fillMinimalForm(tester);
+      expect(find.text('Step 1 of 2'), findsOneWidget);
+      expect(find.text('Step 2 of 2'), findsNothing);
 
-      await tester.tap(find.text('Continue'));
-      await _settle(tester);
+      await tester.tap(find.text('Lahore'));
+      await tester.pump();
+      await tester.tap(find.text('Next'));
+      await _pumpUntilFound(tester, find.text('Step 2 of 2'));
 
-      expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
-      expect(find.text('Continue'), findsOneWidget);
+      expect(find.text('Step 1 of 2'), findsNothing);
+      expect(find.text('Step 2 of 2'), findsOneWidget);
     });
+
+    testWidgets(
+      '"Next" without a city shows the validation error and stays put',
+      (tester) async {
+        await _pump(tester, isEditMode: false);
+        await _settle(tester);
+
+        await tester.tap(find.text('Next'));
+        await tester.pump();
+
+        expect(find.text('Please select your city.'), findsOneWidget);
+        // Still on step 1 — the conditions heading never appears.
+        expect(find.text('Underlying Conditions'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '"Back" from step 2 returns to step 1 with the city still selected',
+      (tester) async {
+        await _pump(tester, isEditMode: false);
+        await _settle(tester);
+
+        await tester.tap(find.text('Lahore'));
+        await tester.pump();
+        await tester.tap(find.text('Next'));
+        await _pumpUntilFound(tester, find.text('Underlying Conditions'));
+
+        await tester.tap(find.text('Back'));
+        await _pumpUntilFound(tester, find.text('Select Your City'));
+
+        final cityChip = tester.widget<ChoiceChip>(
+          find.ancestor(
+            of: find.text('Lahore'),
+            matching: find.byType(ChoiceChip),
+          ),
+        );
+        expect(cityChip.selected, isTrue);
+      },
+    );
+
+    testWidgets(
+      'a condition selected, then Back, then Next again is still selected',
+      (tester) async {
+        await _pump(tester, isEditMode: false);
+        await _settle(tester);
+
+        await tester.tap(find.text('Lahore'));
+        await tester.pump();
+        await tester.tap(find.text('Next'));
+        await _pumpUntilFound(tester, find.text('Underlying Conditions'));
+
+        await tester.ensureVisible(find.text('None'));
+        await tester.pump();
+        await tester.tap(find.text('None'));
+        await tester.pump();
+
+        await tester.tap(find.text('Back'));
+        // Poll for the exact element about to be tapped next ('Next'), not a
+        // proxy ('Select Your City') that can resolve on a different frame —
+        // AnimatedSwitcher briefly renders outgoing + incoming children
+        // together, so a proxy can appear to "arrive" before every part of
+        // the new step (including the bottom nav button) has settled.
+        await _pumpUntilFound(tester, find.text('Next'));
+        await tester.tap(find.text('Next'));
+        await _pumpUntilFound(tester, find.text('Underlying Conditions'));
+
+        final noneChip = tester.widget<FilterChip>(
+          find.ancestor(
+            of: find.text('None'),
+            matching: find.byType(FilterChip),
+          ),
+        );
+        expect(noneChip.selected, isTrue);
+      },
+    );
+
+    testWidgets('system back on step 2 returns to step 1 (does not exit)', (
+      tester,
+    ) async {
+      await _pump(tester, isEditMode: false);
+      await _settle(tester);
+
+      await tester.tap(find.text('Lahore'));
+      await tester.pump();
+      await tester.tap(find.text('Next'));
+      await _pumpUntilFound(tester, find.text('Underlying Conditions'));
+
+      // Simulate the platform back gesture/button (not an in-app widget tap).
+      await tester.binding.handlePopRoute();
+      await _pumpUntilFound(tester, find.text('Select Your City'));
+
+      expect(find.text('Select Your City'), findsOneWidget);
+      expect(find.text('Complete Profile'), findsOneWidget);
+    });
+
+    testWidgets(
+      'rapid Next -> Back -> Next (faster than the 240ms transition) does not crash',
+      (tester) async {
+        // Regression test: AnimatedSwitcher keeps the outgoing child mounted
+        // for the whole fade-out. Keying the step subtree on the step index
+        // itself meant a fast Next -> Back -> Next re-inserted a child with
+        // the same key while the previous one was still leaving, and Flutter
+        // threw "Duplicate keys found." Fixed by keying on a monotonically
+        // increasing transition counter instead.
+        await _pump(tester, isEditMode: false);
+        await _settle(tester);
+
+        await tester.tap(find.text('Lahore'));
+        await tester.pump();
+
+        await tester.tap(find.text('Next'));
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.tap(find.text('Back'));
+        await tester.pump(const Duration(milliseconds: 20));
+        await tester.tap(find.text('Next'));
+        // Deliberately pumped in short slices, well under the 240ms
+        // transition, so every step lands mid-flight of the previous one.
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+
+        expect(tester.takeException(), isNull);
+        await _pumpUntilFound(tester, find.text('Underlying Conditions'));
+        expect(find.text('Underlying Conditions'), findsOneWidget);
+      },
+    );
   });
 }
