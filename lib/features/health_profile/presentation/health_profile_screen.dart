@@ -387,9 +387,12 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppReveal(
-            child: Text(
-              widget.isEditMode ? 'Edit Health Profile' : 'Complete Profile',
-              style: AppTextStyles.heading1,
+            child: Semantics(
+              header: true,
+              child: Text(
+                widget.isEditMode ? 'Edit Health Profile' : 'Complete Profile',
+                style: AppTextStyles.heading1,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -469,7 +472,13 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppReveal(
-            child: Text('Underlying Conditions', style: AppTextStyles.heading2),
+            child: Semantics(
+              header: true,
+              child: Text(
+                'Underlying Conditions',
+                style: AppTextStyles.heading2,
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.xs),
           AppReveal(

@@ -30,10 +30,13 @@ class NotificationPermissionScreen extends ConsumerWidget {
                   const Spacer(flex: 2),
                   _BellIcon(),
                   const SizedBox(height: 28),
-                  Text(
-                    'Stay ahead of risk',
-                    textAlign: TextAlign.center,
-                    style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'Stay ahead of risk',
+                      textAlign: TextAlign.center,
+                      style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(

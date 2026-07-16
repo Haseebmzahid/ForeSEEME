@@ -297,8 +297,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                       },
                     ),
                     AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
+                      duration: AppMotion.medium,
+                      curve: AppMotion.curve,
                       alignment: Alignment.topCenter,
                       child: _errorMessage == null
                           ? const SizedBox(width: double.infinity)
@@ -939,7 +939,7 @@ class _GradientButton extends StatelessWidget {
       ),
       child: Center(
         child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 180),
           transitionBuilder: (child, anim) =>
               FadeTransition(opacity: anim, child: child),
           child: isLoading

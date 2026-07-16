@@ -40,10 +40,13 @@ class ProfileReadyScreen extends StatelessWidget {
                   const Spacer(flex: 2),
                   _ReadyIcon(),
                   const SizedBox(height: 28),
-                  Text(
-                    "You're all set!",
-                    textAlign: TextAlign.center,
-                    style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      "You're all set!",
+                      textAlign: TextAlign.center,
+                      style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(

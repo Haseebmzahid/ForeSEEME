@@ -199,6 +199,7 @@ class AppTextFieldState extends State<AppTextField> {
                 ),
                 suffixIcon: widget.isPassword
                     ? IconButton(
+                        tooltip: _obscureText ? 'Show password' : 'Hide password',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(

@@ -240,6 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           const Color(0xFF28DDE8),
                                       tapTargetSize:
                                           MaterialTapTargetSize.shrinkWrap,
+                                      minimumSize: const Size(0, 48),
                                     ),
                                     child: Text(
                                       'Forgot password?',
@@ -285,9 +286,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.4,
+                                    // WCAG AA (4.5:1): matches the "Don't have
+                                    // an account?" secondary-text treatment
+                                    // below rather than the fainter tertiary
+                                    // tone, which fell to ~3.2:1 here.
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.35)
-                                        : AppColors.textTertiary,
+                                        ? Colors.white.withValues(alpha: 0.55)
+                                        : AppColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -368,13 +373,17 @@ class _HeroHeader extends StatelessWidget {
       children: [
         // ── ForeSeeMe brand identity (logo · name · tagline) ──
         // Matches BrandLoading: same theme-aware SVG mark at the same 72px size.
-        SvgPicture.asset(
-          isDark
-              ? 'assets/branding/logo/foreseeme-icon-white.svg'
-              : 'assets/branding/logo/foreseeme-icon-black.svg',
-          width: 72,
-          height: 72,
-          fit: BoxFit.contain,
+        // Decorative — the "ForeSeeMe" text right below already conveys the
+        // brand to screen readers.
+        ExcludeSemantics(
+          child: SvgPicture.asset(
+            isDark
+                ? 'assets/branding/logo/foreseeme-icon-white.svg'
+                : 'assets/branding/logo/foreseeme-icon-black.svg',
+            width: 72,
+            height: 72,
+            fit: BoxFit.contain,
+          ),
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
@@ -394,14 +403,17 @@ class _HeroHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text(
-          'Welcome back,',
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 34,
-            fontWeight: FontWeight.w700,
-            height: 1.10,
-            letterSpacing: -0.5,
-            color: isDark ? Colors.white : AppColors.textPrimary,
+        Semantics(
+          header: true,
+          child: Text(
+            'Welcome back,',
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
+              height: 1.10,
+              letterSpacing: -0.5,
+              color: isDark ? Colors.white : AppColors.textPrimary,
+            ),
           ),
         ),
         const SizedBox(height: 8),

@@ -69,10 +69,14 @@ class GoogleAuthButton extends StatelessWidget {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SvgPicture.network(
-                        'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                        height: 20,
-                        width: 20,
+                      // Decorative — the "Continue with Google" text already
+                      // conveys the meaning to screen readers.
+                      ExcludeSemantics(
+                        child: SvgPicture.network(
+                          'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                          height: 20,
+                          width: 20,
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Text(
