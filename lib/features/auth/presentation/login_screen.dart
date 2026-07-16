@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:fyp_foreseeme/core/theme/app_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
@@ -22,8 +23,7 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -31,25 +31,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isEmailLoading = false;
   bool _isGoogleLoading = false;
 
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
-
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
-  }
-
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    _fadeCtrl.dispose();
     super.dispose();
   }
 
@@ -181,8 +166,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
           // ── Main content ─────────────────────────────────────────────
           SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnim,
+            child: AppReveal(
               child: CustomScrollView(
                 physics: const ClampingScrollPhysics(),
                 slivers: [
@@ -496,7 +480,7 @@ class _GlassFormCard extends StatelessWidget {
 // Gradient "Sign In" primary button with teal → cyan glow
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _GradientSignInButton extends StatefulWidget {
+class _GradientSignInButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onPressed;
 
@@ -506,94 +490,69 @@ class _GradientSignInButton extends StatefulWidget {
   });
 
   @override
-  State<_GradientSignInButton> createState() => _GradientSignInButtonState();
-}
-
-class _GradientSignInButtonState extends State<_GradientSignInButton> {
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final isDisabled = widget.onPressed == null || widget.isLoading;
+    final isDisabled = onPressed == null || isLoading;
 
-    return GestureDetector(
-      onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
-      onTapUp: isDisabled ? null : (_) => setState(() => _isPressed = false),
-      onTapCancel: isDisabled ? null : () => setState(() => _isPressed = false),
-      onTap: isDisabled ? null : widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          height: AppDimensions.buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-            gradient: isDisabled
-                ? null
-                : LinearGradient(
-                    colors: [
-                      const Color(0xFF006D77),
-                      const Color(0xFF28DDE8),
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-            color: isDisabled ? AppColors.surfaceHigh : null,
-            border: Border.all(
-              color: isDisabled
-                  ? Colors.transparent
-                  : Colors.white.withValues(alpha: 0.18),
-              width: 0.8,
-            ),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF28DDE8).withValues(
-                        alpha: _isPressed ? 0.20 : 0.38,
-                      ),
-                      blurRadius: _isPressed ? 18 : 32,
-                      spreadRadius: -6,
-                      offset: Offset(0, _isPressed ? 4 : 10),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFF006D77).withValues(
-                        alpha: _isPressed ? 0.12 : 0.22,
-                      ),
-                      blurRadius: _isPressed ? 14 : 24,
-                      spreadRadius: -8,
-                      offset: Offset(0, _isPressed ? 2 : 6),
-                    ),
-                  ],
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      strokeCap: StrokeCap.round,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    'Sign In',
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                      color: isDisabled
-                          ? AppColors.textTertiary
-                          : Colors.white,
-                    ),
-                  ),
-          ),
+    final button = AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.curve,
+      height: AppDimensions.buttonHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+        gradient: isDisabled
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+        color: isDisabled ? AppColors.surfaceHigh : null,
+        border: Border.all(
+          color: isDisabled
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.18),
+          width: 0.8,
         ),
+        boxShadow: isDisabled
+            ? []
+            : [
+                BoxShadow(
+                  color: const Color(0xFF28DDE8).withValues(alpha: 0.38),
+                  blurRadius: 32,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF006D77).withValues(alpha: 0.22),
+                  blurRadius: 24,
+                  spreadRadius: -8,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: Center(
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  strokeCap: StrokeCap.round,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                'Sign In',
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                  color: isDisabled ? AppColors.textTertiary : Colors.white,
+                ),
+              ),
       ),
     );
+
+    return isDisabled ? button : PressableScale(onTap: onPressed, child: button);
   }
 }

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/password_reset_controller.dart';
 
@@ -31,7 +32,7 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
 enum _View { form, success }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _emailFocus = FocusNode();
@@ -44,19 +45,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
   String? _errorMessage;
   AutovalidateMode _autovalidate = AutovalidateMode.disabled;
 
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
   late final AnimationController _shakeCtrl;
 
   @override
   void initState() {
     super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 700),
-    )..forward();
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
-
     _shakeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 480),
@@ -67,7 +60,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
   void dispose() {
     _emailCtrl.dispose();
     _emailFocus.dispose();
-    _fadeCtrl.dispose();
     _shakeCtrl.dispose();
     super.dispose();
   }
@@ -99,7 +91,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
       setState(() => _view = _View.success);
     } else if (state is PasswordResetFailure) {
       setState(() => _errorMessage = state.message);
-      _shakeCtrl.forward(from: 0);
+      if (!AppMotion.reduceMotion(context)) _shakeCtrl.forward(from: 0);
     }
   }
 
@@ -197,8 +189,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
           _AmbientBackground(isDark: isDark),
 
           SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnim,
+            child: AppReveal(
               child: Stack(
                 children: [
                   LayoutBuilder(
@@ -221,22 +212,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                                   AppDimensions.paddingHorizontal,
                                   AppSpacing.lg,
                                 ),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 420),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeInCubic,
-                                  transitionBuilder: (child, animation) =>
-                                      FadeTransition(
-                                        opacity: animation,
-                                        child: SlideTransition(
-                                          position: Tween<Offset>(
-                                            begin: const Offset(0, 0.04),
-                                            end: Offset.zero,
-                                          ).animate(animation),
-                                          child: child,
-                                        ),
-                                      ),
-                                  child: _view == _View.success
+                                child: AppMotion.stateSwitcher(
+                                  context,
+                                  _view == _View.success
                                       ? _buildSuccess(isDark)
                                       : _buildForm(isDark),
                                 ),
@@ -791,7 +769,8 @@ class _GlassBackButton extends StatelessWidget {
   }
 }
 
-/// Animated success mark — scales + fades in for a satisfying confirmation.
+/// Success mark — fades + drifts in for a confirmation (shared AppReveal
+/// entrance, consistent with the rest of the onboarding/auth flow).
 class _AnimatedSuccessMark extends StatelessWidget {
   const _AnimatedSuccessMark();
 
@@ -799,17 +778,7 @@ class _AnimatedSuccessMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: Center(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 620),
-          curve: Curves.easeOutBack,
-          builder: (context, t, child) {
-            final scale = 0.6 + 0.4 * t.clamp(0.0, 1.0);
-            return Opacity(
-              opacity: t.clamp(0.0, 1.0),
-              child: Transform.scale(scale: scale, child: child),
-            );
-          },
+        child: AppReveal(
           child: Container(
             width: 96,
             height: 96,
@@ -915,7 +884,7 @@ class _ResendButton extends StatelessWidget {
 // Gradient CTA — mirrors the Login screen's primary button (press + loading)
 // ═════════════════════════════════════════════════════════════════════════════
 
-class _GradientButton extends StatefulWidget {
+class _GradientButton extends StatelessWidget {
   final String label;
   final bool isLoading;
   // VoidCallback accepts sync handlers and `Future<void> Function()`s alike.
@@ -928,107 +897,81 @@ class _GradientButton extends StatefulWidget {
   });
 
   @override
-  State<_GradientButton> createState() => _GradientButtonState();
-}
-
-class _GradientButtonState extends State<_GradientButton> {
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final isDisabled = widget.onPressed == null || widget.isLoading;
+    final isDisabled = onPressed == null || isLoading;
+
+    final button = AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.curve,
+      height: AppDimensions.buttonHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+        gradient: isDisabled
+            ? null
+            : const LinearGradient(
+                colors: [_kTeal, _kCyan],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+        color: isDisabled ? AppColors.surfaceHigh : null,
+        border: Border.all(
+          color: isDisabled
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.18),
+          width: 0.8,
+        ),
+        boxShadow: isDisabled
+            ? []
+            : [
+                BoxShadow(
+                  color: _kCyan.withValues(alpha: 0.38),
+                  blurRadius: 32,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: _kTeal.withValues(alpha: 0.22),
+                  blurRadius: 24,
+                  spreadRadius: -8,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+      ),
+      child: Center(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: isLoading
+              ? const SizedBox(
+                  key: ValueKey('loading'),
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    strokeCap: StrokeCap.round,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  label,
+                  key: const ValueKey('label'),
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                    color: isDisabled ? AppColors.textTertiary : Colors.white,
+                  ),
+                ),
+        ),
+      ),
+    );
 
     return Semantics(
       button: true,
       enabled: !isDisabled,
-      label: widget.isLoading ? 'Sending, please wait' : widget.label,
-      child: GestureDetector(
-        onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
-        onTapUp: isDisabled ? null : (_) => setState(() => _isPressed = false),
-        onTapCancel: isDisabled
-            ? null
-            : () => setState(() => _isPressed = false),
-        onTap: isDisabled ? null : widget.onPressed,
-        child: AnimatedScale(
-          scale: _isPressed ? 0.975 : 1.0,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            height: AppDimensions.buttonHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-              gradient: isDisabled
-                  ? null
-                  : const LinearGradient(
-                      colors: [_kTeal, _kCyan],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-              color: isDisabled ? AppColors.surfaceHigh : null,
-              border: Border.all(
-                color: isDisabled
-                    ? Colors.transparent
-                    : Colors.white.withValues(alpha: 0.18),
-                width: 0.8,
-              ),
-              boxShadow: isDisabled
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: _kCyan.withValues(
-                          alpha: _isPressed ? 0.20 : 0.38,
-                        ),
-                        blurRadius: _isPressed ? 18 : 32,
-                        spreadRadius: -6,
-                        offset: Offset(0, _isPressed ? 4 : 10),
-                      ),
-                      BoxShadow(
-                        color: _kTeal.withValues(
-                          alpha: _isPressed ? 0.12 : 0.22,
-                        ),
-                        blurRadius: _isPressed ? 14 : 24,
-                        spreadRadius: -8,
-                        offset: Offset(0, _isPressed ? 2 : 6),
-                      ),
-                    ],
-            ),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                transitionBuilder: (child, anim) =>
-                    FadeTransition(opacity: anim, child: child),
-                child: widget.isLoading
-                    ? const SizedBox(
-                        key: ValueKey('loading'),
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          strokeCap: StrokeCap.round,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : Text(
-                        widget.label,
-                        key: const ValueKey('label'),
-                        style: GoogleFonts.manrope(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.2,
-                          color: isDisabled
-                              ? AppColors.textTertiary
-                              : Colors.white,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
+      label: isLoading ? 'Sending, please wait' : label,
+      child: isDisabled ? button : PressableScale(onTap: onPressed, child: button),
     );
   }
 }

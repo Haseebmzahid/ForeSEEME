@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:fyp_foreseeme/core/theme/app_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
@@ -22,8 +23,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen>
-    with SingleTickerProviderStateMixin {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
@@ -33,26 +33,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
   bool _isEmailLoading = false;
   bool _isGoogleLoading = false;
 
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    )..forward();
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
-  }
-
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
-    _fadeCtrl.dispose();
     super.dispose();
   }
 
@@ -163,8 +149,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
           ),
           // Main content
           SafeArea(
-            child: FadeTransition(
-              opacity: _fadeAnim,
+            child: AppReveal(
               child: CustomScrollView(
                 physics: const ClampingScrollPhysics(),
                 slivers: [
@@ -441,85 +426,69 @@ class _RegisterHeroHeader extends StatelessWidget {
 
 // ── Gradient Create Account button ───────────────────────────────────────────
 
-class _GradientCreateButton extends StatefulWidget {
+class _GradientCreateButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onPressed;
   const _GradientCreateButton({required this.isLoading, required this.onPressed});
 
   @override
-  State<_GradientCreateButton> createState() => _GradientCreateButtonState();
-}
-
-class _GradientCreateButtonState extends State<_GradientCreateButton> {
-  bool _isPressed = false;
-
-  @override
   Widget build(BuildContext context) {
-    final isDisabled = widget.onPressed == null || widget.isLoading;
-    return GestureDetector(
-      onTapDown: isDisabled ? null : (_) => setState(() => _isPressed = true),
-      onTapUp: isDisabled ? null : (_) => setState(() => _isPressed = false),
-      onTapCancel: isDisabled ? null : () => setState(() => _isPressed = false),
-      onTap: isDisabled ? null : widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          height: AppDimensions.buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-            gradient: isDisabled
-                ? null
-                : const LinearGradient(
-                    colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-            color: isDisabled ? AppColors.surfaceHigh : null,
-            border: Border.all(
-              color: isDisabled
-                  ? Colors.transparent
-                  : Colors.white.withValues(alpha: 0.18),
-              width: 0.8,
-            ),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF28DDE8)
-                          .withValues(alpha: _isPressed ? 0.20 : 0.38),
-                      blurRadius: _isPressed ? 18 : 32,
-                      spreadRadius: -6,
-                      offset: Offset(0, _isPressed ? 4 : 10),
-                    ),
-                  ],
-          ),
-          child: Center(
-            child: widget.isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      strokeCap: StrokeCap.round,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Text(
-                    'Create Account',
-                    style: GoogleFonts.manrope(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.2,
-                      color: isDisabled ? AppColors.textTertiary : Colors.white,
-                    ),
-                  ),
-          ),
+    final isDisabled = onPressed == null || isLoading;
+
+    final button = AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.curve,
+      height: AppDimensions.buttonHeight,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+        gradient: isDisabled
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+        color: isDisabled ? AppColors.surfaceHigh : null,
+        border: Border.all(
+          color: isDisabled
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.18),
+          width: 0.8,
         ),
+        boxShadow: isDisabled
+            ? []
+            : [
+                BoxShadow(
+                  color: const Color(0xFF28DDE8).withValues(alpha: 0.38),
+                  blurRadius: 32,
+                  spreadRadius: -6,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+      ),
+      child: Center(
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  strokeCap: StrokeCap.round,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                'Create Account',
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                  color: isDisabled ? AppColors.textTertiary : Colors.white,
+                ),
+              ),
       ),
     );
+
+    return isDisabled ? button : PressableScale(onTap: onPressed, child: button);
   }
 }

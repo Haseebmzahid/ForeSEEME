@@ -25,8 +25,7 @@ class HealthProfileScreen extends ConsumerStatefulWidget {
       _HealthProfileScreenState();
 }
 
-class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen>
-    with SingleTickerProviderStateMixin {
+class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
   final List<String> _cities = [
     'Lahore',
     'Islamabad',
@@ -57,19 +56,6 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen>
   // the loading skeleton forever if the fetch resolves to no profile).
   bool _prefilled = false;
 
-  late final AnimationController _fadeCtrl;
-  late final Animation<double> _fadeAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _fadeCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    )..forward();
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOutCubic);
-  }
-
   /// Applies the fetched profile's real, already-saved selections to the form
   /// once (S6C-01) — restricted to the fixed option lists so stale/unknown
   /// stored values never select a chip the UI doesn't offer.
@@ -83,12 +69,6 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen>
         ..clear()
         ..addAll(profile.chronicConditions.where(_conditionsOptions.contains));
     });
-  }
-
-  @override
-  void dispose() {
-    _fadeCtrl.dispose();
-    super.dispose();
   }
 
   void _onConditionToggle(String condition) {
@@ -323,8 +303,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen>
             )
           : showPrefillSkeleton
           ? const _HealthProfileSkeleton()
-          : FadeTransition(
-              opacity: _fadeAnim,
+          : AppReveal(
               child: Column(
                 children: [
                   SizedBox(
