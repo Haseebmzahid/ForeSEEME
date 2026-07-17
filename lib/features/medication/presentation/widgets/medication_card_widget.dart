@@ -1,19 +1,16 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/dose_state_engine.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../adherence_notifier.dart';
-
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
 
 class MedicationCardWidget extends ConsumerStatefulWidget {
   final MedicationModel medication;
@@ -159,30 +156,32 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
     }
   }
 
-  Color _statusColor(DoseAvailabilityState state) {
+  /// Dose state → the design system's semantic tone (never a bespoke hue).
+  Color _statusColor(BuildContext context, DoseAvailabilityState state) {
+    final colors = context.fsmColors;
     return switch (state) {
-      DoseAvailabilityState.completed => AppColors.success,
-      DoseAvailabilityState.skipped => AppColors.error,
-      DoseAvailabilityState.missed => AppColors.error,
-      DoseAvailabilityState.actionable => _kCyan,
-      DoseAvailabilityState.upcoming => AppColors.warning,
-      DoseAvailabilityState.futureDate => AppColors.info,
-      DoseAvailabilityState.readOnly => AppColors.error,
+      DoseAvailabilityState.completed => colors.success,
+      DoseAvailabilityState.skipped => context.fsmPalette.error,
+      DoseAvailabilityState.missed => context.fsmPalette.error,
+      DoseAvailabilityState.actionable => context.fsmPalette.primary,
+      DoseAvailabilityState.upcoming => colors.warning,
+      DoseAvailabilityState.futureDate => colors.info,
+      DoseAvailabilityState.readOnly => context.fsmPalette.error,
     };
   }
 
-  Widget _statusBadge(DoseStateResult doseState) {
-    final color = _statusColor(doseState.state);
+  Widget _statusBadge(BuildContext context, DoseStateResult doseState) {
+    final color = _statusColor(context, doseState.state);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20.0),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
         border: Border.all(color: color.withValues(alpha: 0.34)),
       ),
       child: Text(
         doseState.label.toUpperCase(),
-        style: GoogleFonts.manrope(
+        style: context.fsmText.labelSmall?.copyWith(
           fontSize: 10,
           color: color,
           fontWeight: FontWeight.w800,
@@ -193,96 +192,89 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
   }
 
   Widget _actionButton(
+    BuildContext context,
     String label,
     IconData icon,
     Color activeColor,
+    Color onActiveColor,
     AdherenceStatus actionStatus,
     DoseStateResult doseState,
-    bool isDark,
   ) {
+    final palette = context.fsmPalette;
     final isSelected = _visibleStatus == actionStatus;
     final canPerformAction = actionStatus == AdherenceStatus.taken
         ? doseState.canMarkTaken
         : doseState.canMarkSkipped;
 
+    // Selected → solid gradient; available → tinted; disabled → muted surface.
+    final Color contentColor = isSelected
+        ? onActiveColor
+        : (canPerformAction ? activeColor : palette.textDisabled);
+
     return Expanded(
-      child: GestureDetector(
-        onTap: canPerformAction && !_isUpdating
-            ? () => _markDose(actionStatus)
-            : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            gradient: isSelected
-                ? LinearGradient(
-                    colors: [activeColor, activeColor.withValues(alpha: 0.75)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : null,
-            color: !isSelected
-                ? (canPerformAction
-                    ? (isDark
-                        ? activeColor.withValues(alpha: 0.10)
-                        : activeColor.withValues(alpha: 0.08))
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.03)
-                        : Colors.black.withValues(alpha: 0.03)))
-                : null,
-            border: Border.all(
-              color: isSelected
-                  ? Colors.transparent
-                  : (canPerformAction
-                      ? activeColor.withValues(alpha: 0.25)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.black.withValues(alpha: 0.05))),
-              width: 1,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: activeColor.withValues(alpha: 0.30),
-                      blurRadius: 12,
-                      spreadRadius: -2,
-                      offset: const Offset(0, 4),
+      child: Semantics(
+        button: true,
+        enabled: canPerformAction && !_isUpdating,
+        selected: isSelected,
+        label: label,
+        child: GestureDetector(
+          onTap: canPerformAction && !_isUpdating
+              ? () => _markDose(actionStatus)
+              : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+              gradient: isSelected
+                  ? LinearGradient(
+                      colors: [
+                        activeColor,
+                        activeColor.withValues(alpha: 0.75),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     )
-                  ]
-                : [],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 18,
+                  : null,
+              color: !isSelected
+                  ? (canPerformAction
+                        ? activeColor.withValues(alpha: 0.10)
+                        : palette.surfaceContainerHighest)
+                  : null,
+              border: Border.all(
                 color: isSelected
-                    ? Colors.white
+                    ? Colors.transparent
                     : (canPerformAction
-                        ? activeColor
-                        : (isDark
-                            ? Colors.white.withValues(alpha: 0.30)
-                            : Colors.black.withValues(alpha: 0.30))),
+                          ? activeColor.withValues(alpha: 0.25)
+                          : palette.outlineVariant),
+                width: ForeSeeMeBorderWidth.thin,
               ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.manrope(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected
-                      ? Colors.white
-                      : (canPerformAction
-                          ? activeColor
-                          : (isDark
-                              ? Colors.white.withValues(alpha: 0.30)
-                              : Colors.black.withValues(alpha: 0.30))),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.30),
+                        blurRadius: 12,
+                        spreadRadius: -2,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: contentColor),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: context.fsmText.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: contentColor,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -292,8 +284,8 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
   @override
   Widget build(BuildContext context) {
     final doseState = _doseState;
-    final isDark = AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     if (doseState.shouldAutoMarkMissed &&
         _visibleStatus == AdherenceStatus.pending) {
@@ -306,52 +298,35 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.paddingHorizontal,
+        horizontal: ForeSeeMeSpacing.gutter,
         vertical: 8.0,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 240),
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: isDark
-                  ? const Color(0xFF0D1F38).withValues(alpha: 0.68)
-                  : Colors.white.withValues(alpha: 0.80),
-              border: Border.all(
-                color: isCurrentDose
-                    ? _kCyan.withValues(alpha: 0.35)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.09)
-                        : _kTeal.withValues(alpha: 0.13)),
-                width: 1.0,
-              ),
-              boxShadow: [
-                if (isCurrentDose)
-                  BoxShadow(
-                    color: _kCyan.withValues(alpha: isDark ? 0.16 : 0.08),
-                    blurRadius: 24,
-                    spreadRadius: -6,
-                    offset: const Offset(0, 8),
-                  )
-                else ...[
-                  BoxShadow(
-                    color: _kTeal.withValues(alpha: isDark ? 0.14 : 0.06),
-                    blurRadius: 24,
-                    spreadRadius: -6,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.05),
-                    blurRadius: 16,
-                    spreadRadius: -8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              ],
+            // The current dose is highlighted with the brand border + glow;
+            // every other card uses the shared surface recipe.
+            decoration: ForeSeeMeSurface.card(
+              context,
+              borderColor: isCurrentDose
+                  ? palette.primary.withValues(alpha: 0.35)
+                  : null,
+              shadow: isCurrentDose
+                  ? [
+                      BoxShadow(
+                        color: palette.primary.withValues(
+                          alpha: palette.isDark ? 0.16 : 0.08,
+                        ),
+                        blurRadius: 24,
+                        spreadRadius: -6,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : null,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,15 +337,10 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
                     Expanded(
                       child: Text(
                         widget.medication.name,
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : AppColors.textPrimary,
-                          height: 1.2,
-                        ),
+                        style: text.titleLarge?.copyWith(height: 1.2),
                       ),
                     ),
-                    _statusBadge(doseState),
+                    _statusBadge(context, doseState),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -379,15 +349,14 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
                     Icon(
                       Icons.medication_rounded,
                       size: 16,
-                      color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+                      color: palette.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${widget.medication.dosage} - ${widget.medication.type.name}',
-                      style: GoogleFonts.manrope(
+                      style: text.bodyMedium?.copyWith(
                         fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+                        color: palette.textSecondary,
                       ),
                     ),
                     const Spacer(),
@@ -395,18 +364,17 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
                       Icons.access_time_rounded,
                       size: 16,
                       color: isCurrentDose
-                          ? (isDark ? _kCyan : _kTeal)
-                          : (isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary),
+                          ? palette.primary
+                          : palette.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       _formatTime(),
-                      style: GoogleFonts.manrope(
-                        fontSize: 14,
+                      style: text.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                         color: isCurrentDose
-                            ? (isDark ? _kCyan : _kTeal)
-                            : (isDark ? Colors.white : AppColors.textPrimary),
+                            ? palette.primary
+                            : palette.textPrimary,
                       ),
                     ),
                   ],
@@ -415,21 +383,23 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
                 Row(
                   children: [
                     _actionButton(
+                      context,
                       'Taken',
                       Icons.check_circle_outline_rounded,
-                      AppColors.success,
+                      context.fsmColors.success,
+                      context.fsmColors.onSuccess,
                       AdherenceStatus.taken,
                       doseState,
-                      isDark,
                     ),
                     const SizedBox(width: 12),
                     _actionButton(
+                      context,
                       'Skipped',
                       Icons.cancel_outlined,
-                      AppColors.error,
+                      palette.error,
+                      palette.onError,
                       AdherenceStatus.missed,
                       doseState,
-                      isDark,
                     ),
                   ],
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/daily_status.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_history_data.dart';
@@ -43,10 +44,7 @@ class _CalendarStripWidgetState extends State<CalendarStripWidget> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 420),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      decoration: BoxDecoration(
-        color: AppColors.adherenceSurface,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: SizedBox(
         height: 48,
         child: ListView.separated(
@@ -97,8 +95,20 @@ class _DayCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final today = DateTime.now();
     final isToday = sameDay(today, day.date);
+    final fill = statusFill(context, day.status);
+
+    // Filled states carry a solid semantic tone → use its on-colour; neutral
+    // (no-schedule / pending) days sit on a surface tint → use a text tier.
+    final Color textColor = switch (day.status) {
+      DailyAdherenceStatus.taken => context.fsmColors.onSuccess,
+      DailyAdherenceStatus.skipped => palette.onError,
+      DailyAdherenceStatus.noSchedule => palette.textTertiary,
+      DailyAdherenceStatus.pending => palette.textSecondary,
+    };
+
     return Container(
       width: 42,
       height: 42,
@@ -106,7 +116,7 @@ class _DayCircle extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: isToday
-            ? Border.all(color: AppColors.adherenceTextPrimary, width: 2)
+            ? Border.all(color: palette.textPrimary, width: 2)
             : null,
       ),
       child: Container(
@@ -115,34 +125,19 @@ class _DayCircle extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: _fill,
-          border: _border,
+          color: fill,
+          border: day.status == DailyAdherenceStatus.pending
+              ? Border.all(color: palette.outlineVariant)
+              : null,
         ),
         child: Text(
           day.date.day.toString(),
-          style: GoogleFonts.dmSans(
-            color: _textColor,
-            fontSize: 11,
+          style: context.fsmText.labelSmall?.copyWith(
+            color: textColor,
             fontWeight: FontWeight.w700,
           ),
         ),
       ),
     );
   }
-
-  Color get _fill => statusFill(day.status);
-
-  BoxBorder? get _border {
-    return switch (day.status) {
-      DailyAdherenceStatus.pending => Border.all(
-        color: AppColors.adherenceOutline,
-      ),
-      DailyAdherenceStatus.noSchedule => null,
-      _ => null,
-    };
-  }
-
-  Color get _textColor => day.status == DailyAdherenceStatus.noSchedule
-      ? AppColors.adherenceTextMuted
-      : AppColors.adherenceTextPrimary;
 }

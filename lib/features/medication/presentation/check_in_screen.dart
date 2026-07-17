@@ -2,10 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state_widget.dart';
 import 'package:fyp_foreseeme/core/widgets/section_header.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_log_model.dart';
@@ -13,11 +12,9 @@ import 'package:fyp_foreseeme/features/medication/domain/models/medication_model
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
 
 import 'adherence_notifier.dart';
+import 'widgets/med_primitives.dart';
 import 'widgets/medication_card_widget.dart';
 import 'widgets/date_navigation_bar.dart';
-
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
 
 class DoseItem {
   final MedicationModel medication;
@@ -170,8 +167,8 @@ class DailyCheckInEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     return Center(
       child: Padding(
@@ -179,138 +176,29 @@ class DailyCheckInEmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppColors.success.withValues(alpha: 0.18),
-                    AppColors.success.withValues(alpha: 0.06),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: LinearGradient(
-                      colors: [AppColors.success, AppColors.success.withValues(alpha: 0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.success.withValues(alpha: 0.30),
-                        blurRadius: 18,
-                        spreadRadius: -4,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.event_available_rounded,
-                      color: Colors.white, size: 28),
-                ),
-              ),
+            // "All clear" is a success moment — the success tone, not the brand.
+            MedEmptyGlyph(
+              icon: Icons.event_available_rounded,
+              accent: context.fsmColors.success,
             ),
             const SizedBox(height: 24),
-            Text(
-              "You're all clear today",
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
+            Text("You're all clear today", style: text.headlineSmall),
             const SizedBox(height: 8),
             Text(
               'No medications scheduled for this day.\nEnjoy your time.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
+              style: text.bodyMedium?.copyWith(
                 height: 1.6,
-                color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+                color: palette.textSecondary,
               ),
             ),
             const SizedBox(height: 28),
-            _GradientAddButton(onPressed: () => context.go('/medications/add')),
+            MedGradientButton(
+              icon: Icons.add_rounded,
+              label: 'Add Medication',
+              onPressed: () => context.go('/medications/add'),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Gradient Add button ──────────────────────────────────────────────────────
-
-class _GradientAddButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  const _GradientAddButton({required this.onPressed});
-
-  @override
-  State<_GradientAddButton> createState() => _GradientAddButtonState();
-}
-
-class _GradientAddButtonState extends State<_GradientAddButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: AppDimensions.buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-            gradient: const LinearGradient(
-              colors: [_kTeal, _kCyan],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 0.8,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kCyan.withValues(alpha: _isPressed ? 0.20 : 0.36),
-                blurRadius: _isPressed ? 18 : 30,
-                spreadRadius: -6,
-                offset: Offset(0, _isPressed ? 4 : 10),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Medication',
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -364,12 +252,10 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
     final trueToday = _dateOnly(DateTime.now());
     final medicationsAsync = ref.watch(medicationsStreamProvider);
     final logsAsync = ref.watch(adherenceLogsStreamProvider(_selectedDate));
-    
-    final isDark = AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight + 85.0),
@@ -379,17 +265,13 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: AppBar(
-                  backgroundColor: isDark
-                      ? const Color(0xFF0A1628).withValues(alpha: 0.75)
-                      : Colors.white.withValues(alpha: 0.72),
+                  backgroundColor: ForeSeeMeSurface.chromeFill(context),
                   elevation: 0,
                   scrolledUnderElevation: 0,
                   title: Text(
                     'Daily Check-In',
-                    style: GoogleFonts.spaceGrotesk(
+                    style: context.fsmText.titleLarge?.copyWith(
                       fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : AppColors.textPrimary,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -408,18 +290,11 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
       ),
       body: Stack(
         children: [
-          // Ambient gradient background
+          // Ambient design-system background gradient
           Positioned.fill(
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? const [Color(0xFF0A1628), Color(0xFF0D1F38), Color(0xFF081220)]
-                      : const [Color(0xFFF0F7FF), Color(0xFFE6F5F5), Color(0xFFF5F0FF)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.55, 1.0],
-                ),
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -434,7 +309,9 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _kCyan.withValues(alpha: isDark ? 0.16 : 0.08),
+                    palette.primary.withValues(
+                      alpha: palette.isDark ? 0.16 : 0.08,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -443,10 +320,7 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
           ),
           medicationsAsync.when(
             loading: () => const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(_kCyan),
-                strokeCap: StrokeCap.round,
-              ),
+              child: CircularProgressIndicator(strokeCap: StrokeCap.round),
             ),
             error: (err, _) => EmptyStateWidget(
               title: 'Error',
@@ -456,10 +330,7 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
             data: (medications) {
               return logsAsync.when(
                 loading: () => const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(_kCyan),
-                    strokeCap: StrokeCap.round,
-                  ),
+                  child: CircularProgressIndicator(strokeCap: StrokeCap.round),
                 ),
                 error: (err, _) => EmptyStateWidget(
                   title: 'Error',

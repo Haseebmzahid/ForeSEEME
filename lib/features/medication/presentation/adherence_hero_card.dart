@@ -1,9 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 
+/// Weekly adherence hero: a donut of the real weekly rate plus streak chips.
+/// All colour is resolved from the ForeSeeMe design system for the ambient
+/// brightness.
 class AdherenceHeroCard extends StatelessWidget {
   const AdherenceHeroCard({super.key, required this.stats});
 
@@ -11,6 +15,9 @@ class AdherenceHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     final overall = stats.firstWhere(
       (stat) => stat.medicationId == 'overall',
       orElse: () => stats.first,
@@ -25,123 +32,122 @@ class AdherenceHeroCard extends StatelessWidget {
     final rate = overall.weeklyRate.clamp(0.0, 1.0);
     final percent = (rate * 100).round();
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 420),
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: AppColors.adherenceSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.adherencePrimary.withValues(alpha: .42),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.adherencePrimary.withValues(alpha: .20),
-            blurRadius: 38,
-            spreadRadius: -18,
-            offset: const Offset(0, 18),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              _statChip('🔥 $streak Day Streak'),
-              const Spacer(),
-              _statChip('📅 Best: $best Days'),
+    return Semantics(
+      container: true,
+      label: "This week's adherence: $percent percent. "
+          'Current streak $streak days, best $best days.',
+      child: ExcludeSemantics(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 420),
+          padding: const EdgeInsets.all(22),
+          decoration: ForeSeeMeSurface.card(
+            context,
+            radius: ForeSeeMeRadius.md,
+            borderColor: palette.primary.withValues(alpha: 0.42),
+            shadow: [
+              BoxShadow(
+                color: palette.primary.withValues(alpha: 0.20),
+                blurRadius: 38,
+                spreadRadius: -18,
+                offset: const Offset(0, 18),
+              ),
             ],
           ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 190,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 168,
-                  height: 168,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        AppColors.adherencePrimary.withValues(alpha: .34),
-                        AppColors.adherencePrimary.withValues(alpha: 0),
-                      ],
-                    ),
-                  ),
-                ),
-                PieChart(
-                  PieChartData(
-                    startDegreeOffset: -90,
-                    sectionsSpace: 3,
-                    centerSpaceRadius: 58,
-                    centerSpaceColor: AppColors.adherenceSurface,
-                    sections: [
-                      PieChartSectionData(
-                        value: rate == 0 ? .001 : rate,
-                        radius: 20,
-                        showTitle: false,
-                        gradient: LinearGradient(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _statChip(context, '🔥 $streak Day Streak'),
+                  const Spacer(),
+                  _statChip(context, '📅 Best: $best Days'),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 190,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 168,
+                      height: 168,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(
                           colors: [
-                            AppColors.adherencePrimary,
-                            AppColors.adherenceCyan,
+                            palette.primary.withValues(alpha: 0.34),
+                            palette.primary.withValues(alpha: 0),
                           ],
                         ),
-                        cornerRadius: 18,
-                      ),
-                      PieChartSectionData(
-                        value: 1 - rate,
-                        radius: 20,
-                        showTitle: false,
-                        color: AppColors.adherenceOutline,
-                      ),
-                    ],
-                  ),
-                  duration: const Duration(milliseconds: 900),
-                  curve: Curves.easeOutCubic,
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$percent%',
-                      style: GoogleFonts.sora(
-                        color: AppColors.adherenceTextPrimary,
-                        fontSize: 36,
-                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                    Text(
-                      "This Week's Adherence",
-                      style: GoogleFonts.dmSans(
-                        color: AppColors.adherenceTextMuted,
-                        fontSize: 14,
+                    PieChart(
+                      PieChartData(
+                        startDegreeOffset: -90,
+                        sectionsSpace: 3,
+                        centerSpaceRadius: 58,
+                        centerSpaceColor: Colors.transparent,
+                        sections: [
+                          PieChartSectionData(
+                            value: rate == 0 ? .001 : rate,
+                            radius: 20,
+                            showTitle: false,
+                            gradient: LinearGradient(
+                              colors: [palette.primary, palette.secondary],
+                            ),
+                            cornerRadius: 18,
+                          ),
+                          PieChartSectionData(
+                            value: 1 - rate,
+                            radius: 20,
+                            showTitle: false,
+                            color: palette.surfaceContainerHighest,
+                          ),
+                        ],
                       ),
+                      duration: const Duration(milliseconds: 900),
+                      curve: Curves.easeOutCubic,
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$percent%',
+                          style: text.displayLarge?.copyWith(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          "This Week's Adherence",
+                          style: text.bodyMedium?.copyWith(
+                            color: palette.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
-}
 
-Widget _statChip(String text) => Container(
-  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-  decoration: BoxDecoration(
-    color: AppColors.adherenceSurfaceHighlight.withValues(alpha: .72),
-    borderRadius: BorderRadius.circular(999),
-  ),
-  child: Text(
-    text,
-    style: GoogleFonts.dmSans(
-      color: AppColors.adherenceTextPrimary,
-      fontSize: 12,
-      fontWeight: FontWeight.w700,
+  Widget _statChip(BuildContext context, String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: context.fsmPalette.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
     ),
-  ),
-);
+    child: Text(
+      label,
+      style: context.fsmText.labelMedium?.copyWith(
+        color: context.fsmPalette.textPrimary,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
+}

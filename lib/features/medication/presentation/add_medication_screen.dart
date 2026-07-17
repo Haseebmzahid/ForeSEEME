@@ -1,16 +1,14 @@
-import 'dart:ui';
-
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primitives.dart';
 import 'medication_notifier.dart';
-
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
 
 class AddMedicationScreen extends ConsumerStatefulWidget {
   const AddMedicationScreen({super.key});
@@ -55,22 +53,11 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
   }
 
   Future<void> _pickTime(int index) async {
+    // No Theme override: the picker inherits the app's ForeSeeMeTheme, so it is
+    // correct in light and dark (it previously forced a dark ColorScheme).
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: _reminderTimes[index] ?? TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: _kCyan,
-              onPrimary: Colors.black,
-              surface: Color(0xFF0A1628),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (pickedTime != null) {
       setState(() {
@@ -86,7 +73,9 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
   }
 
   String _formatTimeForDisplay(TimeOfDay time) {
-    final hour = time.hour == 0 ? 12 : (time.hour > 12 ? time.hour - 12 : time.hour);
+    final hour = time.hour == 0
+        ? 12
+        : (time.hour > 12 ? time.hour - 12 : time.hour);
     final minute = time.minute.toString().padLeft(2, '0');
     final suffix = time.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $suffix';
@@ -98,12 +87,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_reminderToggle && _reminderTimes.any((t) => t == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select all required reminder times',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+        const SnackBar(content: Text('Please select all required reminder times')),
       );
       return;
     }
@@ -111,10 +95,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
     if (user == null || user.uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'You must be signed in to save medication.',
-            style: TextStyle(color: Colors.white),
-          ),
+          content: Text('You must be signed in to save medication.'),
         ),
       );
       return;
@@ -140,12 +121,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
           .addMedication(medication);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Medication saved successfully',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+        const SnackBar(content: Text('Medication saved successfully')),
       );
       Navigator.of(context).pop();
     } catch (e) {
@@ -158,9 +134,11 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final isLoading = ref.watch(medicationNotifierProvider).isLoading;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -169,26 +147,20 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
         centerTitle: false,
         title: Text(
           'Add Medication',
-          style: GoogleFonts.spaceGrotesk(
+          style: context.fsmText.titleLarge?.copyWith(
             fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
             letterSpacing: -0.2,
           ),
         ),
-        iconTheme: const IconThemeData(color: _kCyan),
+        iconTheme: IconThemeData(color: palette.primary),
       ),
       body: Stack(
         children: [
-          // Ambient background gradient
+          // Ambient design-system background gradient
           Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF06111D), Color(0xFF081220), Color(0xFF040A12)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -203,12 +175,12 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                   children: [
                     // Main Search / Name Input
                     _buildNameInput(),
-                    
+
                     const SizedBox(height: 12),
-                    
-                    // Quick Suggestions (Static UI element to match reference)
+
+                    // Quick Suggestions
                     _buildSuggestionChips(),
-                    
+
                     const SizedBox(height: 24),
 
                     // Medication Form Card
@@ -216,21 +188,21 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'MEDICATION FORM',
-                            style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                              color: _kTeal,
-                            ),
-                          ),
+                          _sectionLabel('MEDICATION FORM'),
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              _buildTypeCard(MedicationType.pill, Icons.medication_rounded, 'Pill'),
+                              _buildTypeCard(
+                                MedicationType.pill,
+                                Icons.medication_rounded,
+                                'Pill',
+                              ),
                               const SizedBox(width: 12),
-                              _buildTypeCard(MedicationType.syrup, Icons.water_drop_rounded, 'Syrup'),
+                              _buildTypeCard(
+                                MedicationType.syrup,
+                                Icons.water_drop_rounded,
+                                'Syrup',
+                              ),
                             ],
                           ),
                         ],
@@ -244,25 +216,11 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Dosage',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.8),
-                            ),
-                          ),
+                          _fieldLabel('Dosage'),
                           const SizedBox(height: 8),
                           _buildDosageInput(),
                           const SizedBox(height: 24),
-                          Text(
-                            'Frequency',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.8),
-                            ),
-                          ),
+                          _fieldLabel('Frequency'),
                           const SizedBox(height: 8),
                           _buildFrequencyDropdown(),
                         ],
@@ -276,14 +234,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Schedule Time',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.8),
-                            ),
-                          ),
+                          _fieldLabel('Schedule Time'),
                           const SizedBox(height: 8),
                           ...List.generate(_reminderTimes.length, (index) {
                             return Padding(
@@ -295,35 +246,31 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Reminder',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Reminder',
+                                      style: context.fsmText.titleMedium
+                                          ?.copyWith(fontSize: 15),
                                     ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Get notified 15 mins before',
-                                    style: GoogleFonts.manrope(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white.withValues(alpha: 0.5),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Get notified 15 mins before',
+                                      style: context.fsmText.bodySmall?.copyWith(
+                                        color: palette.textTertiary,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
+                              // Inherits the design system's primary via the
+                              // active ColorScheme — no hand-set switch colours.
                               Switch(
                                 value: _reminderToggle,
-                                onChanged: (val) => setState(() => _reminderToggle = val),
-                                activeThumbColor: Colors.white,
-                                activeTrackColor: _kCyan,
-                                inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
-                                inactiveThumbColor: Colors.white.withValues(alpha: 0.4),
+                                onChanged: (val) =>
+                                    setState(() => _reminderToggle = val),
                               ),
                             ],
                           ),
@@ -333,7 +280,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
 
                     const SizedBox(height: 16),
 
-                    // AI Interaction Check Card (Static to match reference)
+                    // AI Interaction Check Card
                     _GlassContainer(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,16 +288,18 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0D1F38),
-                              borderRadius: BorderRadius.circular(16),
+                              color: palette.secondary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(
+                                ForeSeeMeRadius.md,
+                              ),
                               border: Border.all(
-                                color: _kTeal.withValues(alpha: 0.3),
-                                width: 1,
+                                color: palette.secondary.withValues(alpha: 0.3),
+                                width: ForeSeeMeBorderWidth.thin,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.health_and_safety_rounded,
-                              color: _kCyan,
+                              color: palette.secondary,
                               size: 28,
                             ),
                           ),
@@ -361,19 +310,14 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                               children: [
                                 Text(
                                   'AI Interaction Check',
-                                  style: GoogleFonts.spaceGrotesk(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
+                                  style: context.fsmText.titleLarge,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'ForeSeeMe AI is analyzing potential interactions with your existing health data.',
-                                  style: GoogleFonts.manrope(
+                                  style: context.fsmText.bodyMedium?.copyWith(
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: palette.textSecondary,
                                     height: 1.5,
                                   ),
                                 ),
@@ -388,13 +332,15 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
               ),
             ),
           ),
-          
+
           // Floating Bottom Button
           Positioned(
             left: 16,
             right: 16,
             bottom: 24,
-            child: _GradientSaveButton(
+            child: MedGradientButton(
+              icon: Icons.save_outlined,
+              label: 'Save Medication',
               isLoading: isLoading,
               onPressed: _saveMedication,
             ),
@@ -404,38 +350,62 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
     );
   }
 
+  /// Uppercase tracked section label.
+  Widget _sectionLabel(String text) => Text(
+    text,
+    style: context.fsmText.labelSmall?.copyWith(
+      fontSize: 12,
+      letterSpacing: 1.2,
+      fontWeight: FontWeight.w700,
+      color: context.fsmPalette.secondary,
+    ),
+  );
+
+  /// Sentence-case field label above an input.
+  Widget _fieldLabel(String text) => Text(
+    text,
+    style: context.fsmText.bodyMedium?.copyWith(
+      fontSize: 13,
+      color: context.fsmPalette.textSecondary,
+    ),
+  );
+
+  /// Shared premium form-field decoration, resolved from the design system.
+  InputDecoration _fieldDecoration({String? hintText}) {
+    final palette = context.fsmPalette;
+    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+      borderSide: BorderSide(color: color, width: width),
+    );
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: context.fsmText.bodyLarge?.copyWith(
+        color: palette.textTertiary,
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: palette.surfaceContainerLowest,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: border(palette.outline, ForeSeeMeBorderWidth.hairline),
+      enabledBorder: border(palette.outline, ForeSeeMeBorderWidth.hairline),
+      focusedBorder: border(palette.primary, ForeSeeMeBorderWidth.thick),
+      errorBorder: border(palette.error, ForeSeeMeBorderWidth.thin),
+      focusedErrorBorder: border(palette.error, ForeSeeMeBorderWidth.thick),
+      errorStyle: context.fsmText.labelMedium?.copyWith(color: palette.error),
+    );
+  }
+
   Widget _buildNameInput() {
     return TextFormField(
       controller: _nameController,
-      style: GoogleFonts.manrope(
-        color: const Color(0xFF0A1628),
+      style: context.fsmText.bodyLarge?.copyWith(
+        color: context.fsmPalette.textPrimary,
         fontWeight: FontWeight.w600,
-        fontSize: 16,
       ),
-      validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter a name' : null,
-      decoration: InputDecoration(
-        hintText: 'Search medication name...',
-        hintStyle: GoogleFonts.manrope(
-          color: const Color(0xFF0A1628).withValues(alpha: 0.3),
-          fontWeight: FontWeight.w500,
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        errorStyle: GoogleFonts.manrope(color: AppColors.error),
-      ),
+      cursorColor: context.fsmPalette.primary,
+      validator: (val) =>
+          (val == null || val.trim().isEmpty) ? 'Enter a name' : null,
+      decoration: _fieldDecoration(hintText: 'Search medication name...'),
     );
   }
 
@@ -444,49 +414,68 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _SuggestionChip(label: 'Paracetamol', onPressed: () => _nameController.text = 'Paracetamol'),
+          _SuggestionChip(
+            label: 'Paracetamol',
+            onPressed: () => _nameController.text = 'Paracetamol',
+          ),
           const SizedBox(width: 10),
-          _SuggestionChip(label: 'Amoxicillin', onPressed: () => _nameController.text = 'Amoxicillin'),
+          _SuggestionChip(
+            label: 'Amoxicillin',
+            onPressed: () => _nameController.text = 'Amoxicillin',
+          ),
           const SizedBox(width: 10),
-          _SuggestionChip(label: 'Lisinopril', onPressed: () => _nameController.text = 'Lisinopril'),
+          _SuggestionChip(
+            label: 'Lisinopril',
+            onPressed: () => _nameController.text = 'Lisinopril',
+          ),
         ],
       ),
     );
   }
 
   Widget _buildTypeCard(MedicationType type, IconData icon, String label) {
+    final palette = context.fsmPalette;
     final isSelected = _selectedType == type;
     return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedType = type),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: isSelected ? _kTeal.withValues(alpha: 0.15) : const Color(0xFF0D1F38),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? _kTeal : Colors.white.withValues(alpha: 0.05),
-              width: 1,
+      child: Semantics(
+        button: true,
+        selected: isSelected,
+        label: label,
+        child: GestureDetector(
+          onTap: () => setState(() => _selectedType = type),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? palette.primary.withValues(alpha: 0.14)
+                  : palette.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+              border: Border.all(
+                color: isSelected ? palette.primary : palette.outlineVariant,
+                width: ForeSeeMeBorderWidth.thin,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? _kCyan : Colors.white.withValues(alpha: 0.7),
-                size: 24,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
+            child: Column(
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? palette.primary : palette.textSecondary,
+                  size: 24,
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: context.fsmText.bodySmall?.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? palette.textPrimary
+                        : palette.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -496,48 +485,45 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
   Widget _buildDosageInput() {
     return TextFormField(
       controller: _dosageController,
-      style: GoogleFonts.manrope(
-        color: const Color(0xFF0A1628),
+      style: context.fsmText.bodyLarge?.copyWith(
+        color: context.fsmPalette.textPrimary,
         fontWeight: FontWeight.w600,
-        fontSize: 16,
       ),
-      validator: (val) => (val == null || val.trim().isEmpty) ? 'Enter a dosage' : null,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      cursorColor: context.fsmPalette.primary,
+      validator: (val) =>
+          (val == null || val.trim().isEmpty) ? 'Enter a dosage' : null,
+      decoration: _fieldDecoration(),
     );
   }
 
   Widget _buildFrequencyDropdown() {
+    final palette = context.fsmPalette;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1F38),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: palette.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        border: Border.all(
+          color: palette.outline,
+          width: ForeSeeMeBorderWidth.hairline,
+        ),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<MedicationFrequency>(
           value: _selectedFrequency,
           isExpanded: true,
-          dropdownColor: const Color(0xFF0D1F38),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white),
-          style: GoogleFonts.manrope(
-            color: Colors.white,
+          dropdownColor: palette.surface,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: palette.textSecondary,
+          ),
+          style: context.fsmText.bodyLarge?.copyWith(
             fontSize: 15,
-            fontWeight: FontWeight.w500,
+            color: palette.textPrimary,
           ),
           items: MedicationFrequency.values.map((freq) {
-            return DropdownMenuItem(
-              value: freq,
-              child: Text(freq.label),
-            );
+            return DropdownMenuItem(value: freq, child: Text(freq.label));
           }).toList(),
           onChanged: _onFrequencyChanged,
         ),
@@ -546,23 +532,48 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
   }
 
   Widget _buildTimeInput(int index) {
+    final palette = context.fsmPalette;
     final time = _reminderTimes[index];
-    final displayTime = time != null ? _formatTimeForDisplay(time) : 'Select Time';
-    return GestureDetector(
-      onTap: () => _pickTime(index),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          displayTime,
-          style: GoogleFonts.manrope(
-            color: time != null ? const Color(0xFF0A1628) : const Color(0xFF0A1628).withValues(alpha: 0.4),
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
+    final displayTime = time != null
+        ? _formatTimeForDisplay(time)
+        : 'Select Time';
+    return Semantics(
+      button: true,
+      label: 'Reminder time: $displayTime',
+      child: GestureDetector(
+        onTap: () => _pickTime(index),
+        child: Container(
+          width: double.infinity,
+          // Matches the form fields' 56dp minimum tap height.
+          constraints: const BoxConstraints(minHeight: 56),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: palette.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+            border: Border.all(
+              color: palette.outline,
+              width: ForeSeeMeBorderWidth.hairline,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.schedule_rounded,
+                size: 18,
+                color: palette.textSecondary,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                displayTime,
+                style: context.fsmText.bodyLarge?.copyWith(
+                  color: time != null
+                      ? palette.textPrimary
+                      : palette.textTertiary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -579,23 +590,10 @@ class _GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
-              width: 1.0,
-            ),
-          ),
-          child: child,
-        ),
-      ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: ForeSeeMeSurface.card(context),
+      child: child,
     );
   }
 }
@@ -610,104 +608,29 @@ class _SuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D1F38).withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: _kTeal.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.manrope(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: _kCyan,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Gradient Save Button ──────────────────────────────────────────────────────
-
-class _GradientSaveButton extends StatefulWidget {
-  final bool isLoading;
-  final VoidCallback onPressed;
-
-  const _GradientSaveButton({
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  @override
-  State<_GradientSaveButton> createState() => _GradientSaveButtonState();
-}
-
-class _GradientSaveButtonState extends State<_GradientSaveButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: 56,
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
-              colors: [_kTeal, _kCyan],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
+            color: palette.secondary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+            border: Border.all(
+              color: palette.secondary.withValues(alpha: 0.3),
+              width: ForeSeeMeBorderWidth.thin,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: _kCyan.withValues(alpha: _isPressed ? 0.20 : 0.40),
-                blurRadius: _isPressed ? 18 : 32,
-                spreadRadius: -6,
-                offset: Offset(0, _isPressed ? 4 : 10),
-              ),
-            ],
           ),
-          child: Center(
-            child: widget.isLoading
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.save_outlined, color: Colors.white, size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Save Medication',
-                        style: GoogleFonts.manrope(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Text(
+            label,
+            style: context.fsmText.bodySmall?.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.secondary,
+            ),
           ),
         ),
       ),

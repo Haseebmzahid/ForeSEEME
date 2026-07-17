@@ -3,17 +3,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state_widget.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
-
-// ── Liquid Glass teal constants ───────────────────────────────────────────────
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primitives.dart';
 
 class MedicationScreen extends ConsumerWidget {
   const MedicationScreen({super.key});
@@ -29,9 +26,8 @@ class MedicationScreen extends ConsumerWidget {
   }
 
   Widget _buildMedicationTile(BuildContext context, MedicationModel medication) {
-    final isDark =
-        AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     final reminderText = medication.reminderTimes.isEmpty
         ? 'No reminders set'
@@ -41,41 +37,16 @@ class MedicationScreen extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.paddingHorizontal,
+        horizontal: ForeSeeMeSpacing.gutter,
         vertical: 6.0,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: isDark
-                  ? const Color(0xFF0D1F38).withValues(alpha: 0.68)
-                  : Colors.white.withValues(alpha: 0.80),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.09)
-                    : _kTeal.withValues(alpha: 0.13),
-                width: 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: _kTeal.withValues(alpha: isDark ? 0.14 : 0.06),
-                  blurRadius: 24,
-                  spreadRadius: -6,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.05),
-                  blurRadius: 16,
-                  spreadRadius: -8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            decoration: ForeSeeMeSurface.card(context),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -84,23 +55,19 @@ class MedicationScreen extends ConsumerWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                     gradient: isActive
-                        ? const LinearGradient(
-                            colors: [_kTeal, _kCyan],
+                        ? LinearGradient(
+                            colors: [palette.primary, palette.secondary],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: isActive
-                        ? null
-                        : (isDark
-                            ? Colors.white.withValues(alpha: 0.07)
-                            : AppColors.surfaceHigh),
+                    color: isActive ? null : palette.surfaceContainerHighest,
                     boxShadow: isActive
                         ? [
                             BoxShadow(
-                              color: _kCyan.withValues(alpha: 0.30),
+                              color: palette.primary.withValues(alpha: 0.30),
                               blurRadius: 14,
                               spreadRadius: -4,
                               offset: const Offset(0, 4),
@@ -110,9 +77,7 @@ class MedicationScreen extends ConsumerWidget {
                   ),
                   child: Icon(
                     Icons.medication_rounded,
-                    color: isActive
-                        ? Colors.white
-                        : (isDark ? AppColors.textTertiary : AppColors.textTertiary),
+                    color: isActive ? palette.onPrimary : palette.textTertiary,
                     size: 22,
                   ),
                 ),
@@ -127,10 +92,8 @@ class MedicationScreen extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               medication.name,
-                              style: GoogleFonts.spaceGrotesk(
-                                fontSize: 16,
+                              style: text.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
                                 height: 1.2,
                               ),
                               maxLines: 1,
@@ -141,21 +104,24 @@ class MedicationScreen extends ConsumerWidget {
                           // Dosage pill
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: _kTeal.withValues(alpha: isDark ? 0.18 : 0.10),
-                              borderRadius: BorderRadius.circular(999),
+                              color: palette.secondary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(
+                                ForeSeeMeRadius.full,
+                              ),
                               border: Border.all(
-                                color: _kCyan.withValues(alpha: isDark ? 0.28 : 0.18),
-                                width: 0.8,
+                                color: palette.secondary.withValues(alpha: 0.24),
+                                width: ForeSeeMeBorderWidth.hairline,
                               ),
                             ),
                             child: Text(
                               medication.dosage,
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
+                              style: text.labelSmall?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? _kCyan : _kTeal,
+                                color: palette.secondary,
                               ),
                             ),
                           ),
@@ -164,12 +130,9 @@ class MedicationScreen extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         medication.frequency.label,
-                        style: GoogleFonts.manrope(
+                        style: text.bodyMedium?.copyWith(
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDark
-                              ? const Color(0xFF8EA6BD)
-                              : AppColors.textSecondary,
+                          color: palette.textSecondary,
                         ),
                       ),
                       if (reminderText.isNotEmpty) ...[
@@ -179,20 +142,14 @@ class MedicationScreen extends ConsumerWidget {
                             Icon(
                               Icons.access_time_rounded,
                               size: 13,
-                              color: isDark
-                                  ? _kCyan.withValues(alpha: 0.70)
-                                  : _kTeal.withValues(alpha: 0.70),
+                              color: palette.secondary.withValues(alpha: 0.75),
                             ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 reminderText,
-                                style: GoogleFonts.manrope(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark
-                                      ? _kCyan.withValues(alpha: 0.80)
-                                      : _kTeal.withValues(alpha: 0.80),
+                                style: text.bodySmall?.copyWith(
+                                  color: palette.secondary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -205,17 +162,17 @@ class MedicationScreen extends ConsumerWidget {
                         const SizedBox(height: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.error.withValues(alpha: 0.10),
+                            color: palette.error.withValues(alpha: 0.10),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'Inactive',
-                            style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.error,
+                            style: text.labelSmall?.copyWith(
+                              color: palette.error,
                             ),
                           ),
                         ),
@@ -233,29 +190,20 @@ class MedicationScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final medicationsAsync = ref.watch(medicationsStreamProvider);
-    final isDark =
-        AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
-      appBar: _GlassAppBar(isDark: isDark, context: context),
+      appBar: const _GlassAppBar(),
       body: Stack(
         children: [
-          // Ambient gradient background
+          // Ambient design-system background gradient
           Positioned.fill(
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? const [Color(0xFF0A1628), Color(0xFF0D1F38), Color(0xFF081220)]
-                      : const [Color(0xFFF0F7FF), Color(0xFFE6F5F5), Color(0xFFF5F0FF)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.55, 1.0],
-                ),
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -270,7 +218,9 @@ class MedicationScreen extends ConsumerWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _kTeal.withValues(alpha: isDark ? 0.22 : 0.10),
+                    palette.primary.withValues(
+                      alpha: palette.isDark ? 0.20 : 0.10,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -280,10 +230,7 @@ class MedicationScreen extends ConsumerWidget {
           // List content
           medicationsAsync.when(
             loading: () => const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(_kCyan),
-                strokeCap: StrokeCap.round,
-              ),
+              child: CircularProgressIndicator(strokeCap: StrokeCap.round),
             ),
             error: (err, _) => EmptyStateWidget(
               title: 'Unable to load medications',
@@ -292,7 +239,7 @@ class MedicationScreen extends ConsumerWidget {
             ),
             data: (medications) {
               if (medications.isEmpty) {
-                return _EmptyMedicationState(isDark: isDark, context: context);
+                return const _EmptyMedicationState();
               }
               return ListView.builder(
                 padding: EdgeInsets.only(
@@ -304,12 +251,14 @@ class MedicationScreen extends ConsumerWidget {
                   if (index == medications.length) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        AppDimensions.paddingHorizontal,
+                        ForeSeeMeSpacing.gutter,
                         16.0,
-                        AppDimensions.paddingHorizontal,
+                        ForeSeeMeSpacing.gutter,
                         0.0,
                       ),
-                      child: _GradientCheckInButton(
+                      child: MedGradientButton(
+                        icon: Icons.check_circle_outline_rounded,
+                        label: 'Check-In Now',
                         onPressed: () => context.go('/check-in'),
                       ),
                     );
@@ -328,47 +277,40 @@ class MedicationScreen extends ConsumerWidget {
 // ── Glass AppBar ──────────────────────────────────────────────────────────────
 
 class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final bool isDark;
-  final BuildContext context;
-
-  const _GlassAppBar({required this.isDark, required this.context});
+  const _GlassAppBar();
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
-  Widget build(BuildContext buildContext) {
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: AppBar(
-          backgroundColor: isDark
-              ? const Color(0xFF0A1628).withValues(alpha: 0.75)
-              : Colors.white.withValues(alpha: 0.72),
+          backgroundColor: ForeSeeMeSurface.chromeFill(context),
           elevation: 0,
           scrolledUnderElevation: 0,
+          centerTitle: false,
           title: Text(
             'Medications',
-            style: GoogleFonts.spaceGrotesk(
+            style: context.fsmText.titleLarge?.copyWith(
               fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textPrimary,
               letterSpacing: -0.2,
             ),
           ),
           actions: [
             IconButton(
-              icon: Icon(
-                Icons.bar_chart_rounded,
-                color: isDark ? _kCyan.withValues(alpha: 0.90) : _kTeal,
-              ),
+              icon: Icon(Icons.bar_chart_rounded, color: palette.secondary),
+              tooltip: 'Adherence history',
               onPressed: () => context.go('/adherence-history'),
             ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _GlassIconButton(
-                isDark: isDark,
                 icon: Icons.add_rounded,
+                tooltip: 'Add medication',
                 onPressed: () => context.go('/medications/add'),
               ),
             ),
@@ -377,9 +319,7 @@ class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
             preferredSize: const Size.fromHeight(1),
             child: Container(
               height: 1,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : _kTeal.withValues(alpha: 0.10),
+              color: ForeSeeMeSurface.stroke(context),
             ),
           ),
         ),
@@ -389,40 +329,51 @@ class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _GlassIconButton extends StatelessWidget {
-  final bool isDark;
   final IconData icon;
+  final String tooltip;
   final VoidCallback onPressed;
 
   const _GlassIconButton({
-    required this.isDark,
     required this.icon,
+    required this.tooltip,
     required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(11),
-          gradient: const LinearGradient(
-            colors: [_kTeal, _kCyan],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: _kCyan.withValues(alpha: 0.30),
-              blurRadius: 12,
-              spreadRadius: -3,
-              offset: const Offset(0, 4),
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: GestureDetector(
+          onTap: onPressed,
+          // Keeps the visual badge at 36dp while preserving a 48dp tap target.
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(11),
+                  gradient: context.fsmColors.gradients.primary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.primary.withValues(alpha: 0.30),
+                      blurRadius: 12,
+                      spreadRadius: -3,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: palette.onPrimary, size: 20),
+              ),
             ),
-          ],
+          ),
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
@@ -431,152 +382,38 @@ class _GlassIconButton extends StatelessWidget {
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 class _EmptyMedicationState extends StatelessWidget {
-  final bool isDark;
-  final BuildContext context;
-
-  const _EmptyMedicationState({required this.isDark, required this.context});
+  const _EmptyMedicationState();
 
   @override
-  Widget build(BuildContext buildContext) {
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    _kCyan.withValues(alpha: 0.18),
-                    _kTeal.withValues(alpha: 0.06),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    gradient: const LinearGradient(
-                      colors: [_kTeal, _kCyan],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _kCyan.withValues(alpha: 0.30),
-                        blurRadius: 18,
-                        spreadRadius: -4,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.medication_rounded,
-                      color: Colors.white, size: 28),
-                ),
-              ),
-            ),
+            const MedEmptyGlyph(icon: Icons.medication_rounded),
             const SizedBox(height: 24),
             Text(
               'No medications yet',
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppColors.textPrimary,
-              ),
+              style: context.fsmText.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
               'Your medications will appear here.\nAdd one to get started.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.manrope(
-                fontSize: 14,
+              style: context.fsmText.bodyMedium?.copyWith(
                 height: 1.6,
-                color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
+                color: context.fsmPalette.textSecondary,
               ),
             ),
             const SizedBox(height: 28),
-            _GradientCheckInButton(onPressed: () => context.go('/check-in')),
+            MedGradientButton(
+              icon: Icons.check_circle_outline_rounded,
+              label: 'Check-In Now',
+              onPressed: () => context.go('/check-in'),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Gradient Check-In button ──────────────────────────────────────────────────
-
-class _GradientCheckInButton extends StatefulWidget {
-  final VoidCallback onPressed;
-  const _GradientCheckInButton({required this.onPressed});
-
-  @override
-  State<_GradientCheckInButton> createState() => _GradientCheckInButtonState();
-}
-
-class _GradientCheckInButtonState extends State<_GradientCheckInButton> {
-  bool _isPressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.975 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          height: AppDimensions.buttonHeight,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-            gradient: const LinearGradient(
-              colors: [_kTeal, _kCyan],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 0.8,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kCyan.withValues(alpha: _isPressed ? 0.20 : 0.36),
-                blurRadius: _isPressed ? 18 : 30,
-                spreadRadius: -6,
-                offset: Offset(0, _isPressed ? 4 : 10),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle_outline_rounded,
-                    color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Check-In Now',
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

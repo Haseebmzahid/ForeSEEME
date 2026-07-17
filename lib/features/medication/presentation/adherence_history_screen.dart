@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_analytics_provider.dart';
@@ -20,12 +19,14 @@ class AdherenceHistoryScreen extends ConsumerWidget {
     final uid = ref.watch(authStateProvider).value?.uid ?? '';
     final analyticsAsync = ref.watch(adherenceAnalyticsProvider(uid));
 
+    final palette = context.fsmPalette;
+
     return Scaffold(
-      backgroundColor: AppColors.adherenceBackground,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColors.adherenceBackground,
-        foregroundColor: AppColors.adherenceTextPrimary,
-        title: Text('Adherence History', style: GoogleFonts.sora()),
+        backgroundColor: palette.background,
+        foregroundColor: palette.textPrimary,
+        title: Text('Adherence History', style: context.fsmText.titleLarge),
       ),
       body: analyticsAsync.when(
         loading: () => const DashboardLoading(),

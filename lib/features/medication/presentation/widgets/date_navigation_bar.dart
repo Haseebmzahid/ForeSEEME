@@ -1,11 +1,15 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
 
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
+/// Horizontal date strip for the Daily Check-In schedule.
+///
+/// All colour comes from the ForeSeeMe design system for the ambient
+/// brightness: the selected day uses the primary gradient, today is marked with
+/// a tinted surface + dot, and the rest use the palette's text tiers.
 class DateNavigationBar extends StatelessWidget {
   final DateTime trueToday;
   final DateTime selectedDate;
@@ -24,8 +28,8 @@ class DateNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     return ClipRect(
       child: BackdropFilter(
@@ -33,15 +37,9 @@ class DateNavigationBar extends StatelessWidget {
         child: Container(
           height: 85,
           decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0xFF0A1628).withValues(alpha: 0.75)
-                : Colors.white.withValues(alpha: 0.72),
+            color: ForeSeeMeSurface.chromeFill(context),
             border: Border(
-              bottom: BorderSide(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.07)
-                    : _kTeal.withValues(alpha: 0.10),
-              ),
+              bottom: BorderSide(color: ForeSeeMeSurface.stroke(context)),
             ),
           ),
           child: ListView.builder(
@@ -54,89 +52,82 @@ class DateNavigationBar extends StatelessWidget {
               final isSelected = date.isAtSameMomentAs(selectedDate);
               final isToday = date.isAtSameMomentAs(trueToday);
 
-              return GestureDetector(
-                onTap: () => onDateSelected(date),
-                child: Container(
-                  width: 62,
-                  margin: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 10.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16.0),
-                    gradient: isSelected
-                        ? const LinearGradient(
-                            colors: [_kTeal, _kCyan],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: !isSelected
-                        ? (isToday
-                            ? (isDark
-                                ? Colors.white.withValues(alpha: 0.10)
-                                : _kTeal.withValues(alpha: 0.06))
-                            : Colors.transparent)
-                        : null,
-                    border: Border.all(
-                      color: isSelected
-                          ? Colors.transparent
-                          : (isToday
-                              ? _kTeal.withValues(alpha: 0.20)
-                              : Colors.transparent),
+              final Color weekdayColor = isSelected
+                  ? palette.onPrimary
+                  : (isToday ? palette.primary : palette.textTertiary);
+              final Color dayColor = isSelected
+                  ? palette.onPrimary
+                  : (isToday ? palette.textPrimary : palette.textSecondary);
+
+              return Semantics(
+                button: true,
+                selected: isSelected,
+                label: '${date.day}/${date.month}${isToday ? ', today' : ''}',
+                child: GestureDetector(
+                  onTap: () => onDateSelected(date),
+                  child: Container(
+                    width: 62,
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 5.0,
+                      vertical: 10.0,
                     ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: _kCyan.withValues(alpha: 0.35),
-                              blurRadius: 14,
-                              spreadRadius: -2,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _getWeekdayAbbr(date.weekday),
-                        style: GoogleFonts.manrope(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: isSelected
-                              ? Colors.white
-                              : (isToday
-                                  ? (isDark ? _kCyan : _kTeal)
-                                  : (isDark
-                                      ? Colors.white.withValues(alpha: 0.45)
-                                      : AppColors.textTertiary)),
-                        ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+                      gradient: isSelected
+                          ? context.fsmColors.gradients.primary
+                          : null,
+                      color: !isSelected
+                          ? (isToday
+                                ? palette.primary.withValues(alpha: 0.08)
+                                : Colors.transparent)
+                          : null,
+                      border: Border.all(
+                        color: !isSelected && isToday
+                            ? palette.primary.withValues(alpha: 0.20)
+                            : Colors.transparent,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${date.day}',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected
-                              ? Colors.white
-                              : (isToday
-                                  ? (isDark ? Colors.white : AppColors.textPrimary)
-                                  : (isDark
-                                      ? Colors.white.withValues(alpha: 0.75)
-                                      : AppColors.textSecondary)),
-                        ),
-                      ),
-                      if (isToday && !isSelected)
-                        Container(
-                          margin: const EdgeInsets.only(top: 2),
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: isDark ? _kCyan : _kTeal,
-                            shape: BoxShape.circle,
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: palette.primary.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                spreadRadius: -2,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _getWeekdayAbbr(date.weekday),
+                          style: text.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: weekdayColor,
                           ),
                         ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          '${date.day}',
+                          style: text.titleLarge?.copyWith(
+                            fontSize: 20,
+                            color: dayColor,
+                          ),
+                        ),
+                        if (isToday && !isSelected)
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            width: 4,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: palette.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               );

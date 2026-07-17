@@ -1,11 +1,15 @@
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_history_data.dart';
 
+/// 7-day taken/skipped overview. Bars use the design system's semantic tones
+/// (taken → primary gradient, skipped → error), resolved for the ambient
+/// brightness.
 class WeeklyBarChartWidget extends StatelessWidget {
   const WeeklyBarChartWidget({super.key, required this.stats});
 
@@ -13,6 +17,8 @@ class WeeklyBarChartWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final days = last7Days();
     final counts = weeklyCounts(stats);
     final maxCount = counts.fold<int>(
@@ -23,10 +29,7 @@ class WeeklyBarChartWidget extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 420),
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.adherenceSurface,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -34,17 +37,10 @@ class WeeklyBarChartWidget extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12),
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(color: AppColors.adherencePrimary, width: 4),
+                left: BorderSide(color: palette.primary, width: 4),
               ),
             ),
-            child: Text(
-              '7-Day Overview',
-              style: GoogleFonts.sora(
-                color: AppColors.adherenceTextPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: Text('7-Day Overview', style: text.titleLarge),
           ),
           const SizedBox(height: 22),
           SizedBox(
@@ -57,7 +53,7 @@ class WeeklyBarChartWidget extends StatelessWidget {
                 gridData: FlGridData(
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (_) => FlLine(
-                    color: AppColors.adherenceOutline.withValues(alpha: .45),
+                    color: palette.outlineVariant,
                     strokeWidth: .8,
                   ),
                 ),
@@ -77,9 +73,9 @@ class WeeklyBarChartWidget extends StatelessWidget {
                           meta: meta,
                           child: Text(
                             value.toInt().toString(),
-                            style: GoogleFonts.dmSans(
-                              color: AppColors.adherenceTextMuted,
+                            style: text.labelSmall?.copyWith(
                               fontSize: 10,
+                              color: palette.textSecondary,
                             ),
                           ),
                         );
@@ -99,9 +95,8 @@ class WeeklyBarChartWidget extends StatelessWidget {
                           meta: meta,
                           child: Text(
                             weekdayLabel(days[index]),
-                            style: GoogleFonts.dmSans(
-                              color: AppColors.adherenceTextMuted,
-                              fontSize: 11,
+                            style: text.labelSmall?.copyWith(
+                              color: palette.textSecondary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -116,8 +111,8 @@ class WeeklyBarChartWidget extends StatelessWidget {
                       x: i,
                       barsSpace: 5,
                       barRods: [
-                        _rod(counts[i].taken.toDouble(), true),
-                        _rod(counts[i].skipped.toDouble(), false),
+                        _rod(context, counts[i].taken.toDouble(), true),
+                        _rod(context, counts[i].skipped.toDouble(), false),
                       ],
                     ),
                 ],
@@ -131,15 +126,16 @@ class WeeklyBarChartWidget extends StatelessWidget {
     );
   }
 
-  BarChartRodData _rod(double value, bool taken) {
+  BarChartRodData _rod(BuildContext context, double value, bool taken) {
+    final palette = context.fsmPalette;
     return BarChartRodData(
       toY: value,
       width: 9,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-      color: taken ? null : AppColors.adherenceCoral,
+      color: taken ? null : palette.error,
       gradient: taken
           ? LinearGradient(
-              colors: [AppColors.adherencePrimary, AppColors.adherenceCyan],
+              colors: [palette.primary, palette.secondary],
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
             )
