@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
@@ -240,5 +241,82 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets(
+      "tapping Learn More navigates to the Resources tab without a "
+      'Navigator key-collision (regression: bug report — Health Insights '
+      'Learn More crash)',
+      (tester) async {
+        // Mirrors the shape of the real app_router.dart: `/resources` is a
+        // branch of a StatefulShellRoute (a persistent bottom-nav tab, with
+        // its own reserved GlobalKey<NavigatorState>), reached from a
+        // separately-pushed `/health-insights` route — exactly the topology
+        // that exposed the bug (a plain top-level `/resources` GoRoute, as
+        // used elsewhere in the test suite, does not reproduce it).
+        final router = GoRouter(
+          initialLocation: '/home',
+          routes: [
+            GoRoute(
+              path: '/health-insights',
+              builder: (context, state) => Scaffold(
+                body: Center(
+                  child: ProviderScope(
+                    overrides: [
+                      currentRecommendationProvider.overrideWith(
+                        (ref) => _resolve(['Asthma'], 'Smog'),
+                      ),
+                    ],
+                    child: const RecommendationsCard(),
+                  ),
+                ),
+              ),
+            ),
+            StatefulShellRoute.indexedStack(
+              builder: (context, state, shell) => shell,
+              branches: [
+                StatefulShellBranch(
+                  routes: [
+                    GoRoute(
+                      path: '/home',
+                      builder: (context, state) => Scaffold(
+                        body: TextButton(
+                          onPressed: () => context.push('/health-insights'),
+                          child: const Text('Open Health Insights'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                StatefulShellBranch(
+                  routes: [
+                    GoRoute(
+                      path: '/resources',
+                      builder: (context, state) =>
+                          const Scaffold(body: Text('Resources')),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open Health Insights'));
+        await tester.pumpAndSettle();
+        expect(find.text('Learn more'), findsOneWidget);
+
+        // Before the fix this threw a Navigator assertion
+        // (!keyReservation.contains(key)) because the button called push()
+        // on a route already reserved by the shell's IndexedStack branch.
+        await tester.tap(find.text('Learn more'));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Resources'), findsOneWidget);
+      },
+    );
   });
 }

@@ -153,7 +153,16 @@ class _LearnMoreButton extends StatelessWidget {
     }
     final toHospitals = deepLink == '/nearby-hospitals';
     return TextButton.icon(
-      onPressed: () => context.push(deepLink),
+      onPressed: () {
+        // Bottom-nav tabs (e.g. Resources) are branches of the root
+        // StatefulShellRoute and must be reached with go(), not push() — see
+        // AlertDeepLinkRouter.shellBranchRoutes.
+        if (AlertDeepLinkRouter.shellBranchRoutes.contains(deepLink)) {
+          context.go(deepLink);
+        } else {
+          context.push(deepLink);
+        }
+      },
       icon: Icon(
         toHospitals ? Icons.local_hospital_outlined : Icons.menu_book_outlined,
         size: 16,

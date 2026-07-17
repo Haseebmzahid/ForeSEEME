@@ -22,6 +22,19 @@ class AlertDeepLinkRouter {
     '/weekly-report',
   };
 
+  /// The subset of [knownRoutes] that are bottom-nav tabs — branches of the
+  /// root `StatefulShellRoute.indexedStack` (see `app_router.dart`), each
+  /// pinned to its own `GlobalKey<NavigatorState>` for the lifetime of the
+  /// IndexedStack.
+  ///
+  /// GoRouter's `push()` builds a *new* route for the target location; for a
+  /// shell-branch location that collides with the branch's already-reserved
+  /// `GlobalKey<NavigatorState>` and Flutter's Navigator throws
+  /// `!keyReservation.contains(key)`. Callers must `go()` to a route in this
+  /// set (which correctly hands off to the shell's IndexedStack) and reserve
+  /// `push()` for the other, ordinarily-stacked routes in [knownRoutes].
+  static const Set<String> shellBranchRoutes = {'/home', '/resources'};
+
   /// Resolves the destination route for a tapped alert [data] payload.
   static String resolve(Map<String, dynamic> data) {
     final deepLink = (data['deepLink'] as String?)?.trim();

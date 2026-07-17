@@ -306,7 +306,17 @@ class _AlertList extends ConsumerWidget {
                           route: route,
                           source: AlertOpenSource.inbox,
                         );
-                    if (context.mounted) context.push(route);
+                    if (context.mounted) {
+                      // Bottom-nav tabs (e.g. Resources) are branches of the
+                      // root StatefulShellRoute and must be reached with
+                      // go(), not push() — see
+                      // AlertDeepLinkRouter.shellBranchRoutes.
+                      if (AlertDeepLinkRouter.shellBranchRoutes.contains(route)) {
+                        context.go(route);
+                      } else {
+                        context.push(route);
+                      }
+                    }
                   }
                 },
               ),
