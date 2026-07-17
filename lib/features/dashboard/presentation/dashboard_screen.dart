@@ -2,8 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -15,8 +16,27 @@ import 'package:fyp_foreseeme/features/medication/domain/models/medication_model
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
 
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
+// ── Shared frosted-surface decoration ────────────────────────────────────────
+
+/// One "glass card" recipe for the whole dashboard, sourced entirely from the
+/// active ForeSeeMe theme so it renders correctly in light and dark and keeps a
+/// single, consistent card elevation/hierarchy. Translucent [surface] over the
+/// ambient gradient, a hairline border, and the design-system medium shadow.
+BoxDecoration _glassDecoration(
+  BuildContext context, {
+  double radius = ForeSeeMeRadius.lg,
+}) {
+  final p = context.fsmPalette;
+  return BoxDecoration(
+    borderRadius: BorderRadius.circular(radius),
+    color: p.surface.withValues(alpha: p.isDark ? 0.55 : 0.80),
+    border: Border.all(
+      color: p.isDark ? p.onSurface.withValues(alpha: 0.06) : p.outlineVariant,
+      width: ForeSeeMeBorderWidth.thin,
+    ),
+    boxShadow: context.fsmColors.shadows.medium,
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,31 +122,24 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authStateProvider).value;
     final displayName = user?.displayName ?? 'Patient';
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Premium Ambient Background
+          // Premium ambient background — the design-system surface gradient.
           Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF06111D),
-                    Color(0xFF0A1628),
-                    Color(0xFF040A12),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.0, 0.5, 1.0],
-                ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
 
-          // Top ambient glow
+          // Top ambient glow (brand primary, subtle).
           Positioned(
             top: -100,
             left: -50,
@@ -136,7 +149,10 @@ class DashboardScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [_kCyan.withValues(alpha: 0.15), Colors.transparent],
+                  colors: [
+                    palette.primary.withValues(alpha: palette.isDark ? 0.15 : 0.10),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
@@ -149,7 +165,9 @@ class DashboardScreen extends ConsumerWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: ForeSeeMeSpacing.xxl,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -196,10 +214,8 @@ class DashboardScreen extends ConsumerWidget {
                         // 4. TODAY'S MEDICATION CARD (dynamic)
                         Text(
                           'Upcoming Schedule',
-                          style: GoogleFonts.spaceGrotesk(
+                          style: text.titleLarge?.copyWith(
                             fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -211,10 +227,8 @@ class DashboardScreen extends ConsumerWidget {
                         // 5. QUICK ACTIONS SECTION
                         Text(
                           'Quick Actions',
-                          style: GoogleFonts.spaceGrotesk(
+                          style: text.titleLarge?.copyWith(
                             fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
                             letterSpacing: -0.5,
                           ),
                         ),
@@ -252,6 +266,10 @@ class _HeroOverviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final colors = context.fsmColors;
+    final text = context.fsmText;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -261,21 +279,15 @@ class _HeroOverviewSection extends StatelessWidget {
             children: [
               Text(
                 _getGreeting(),
-                style: GoogleFonts.manrope(
-                  fontSize: 14,
+                style: text.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: palette.textSecondary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 displayName,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
+                style: text.displayMedium,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
@@ -285,9 +297,11 @@ class _HeroOverviewSection extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _kTeal.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _kTeal.withValues(alpha: 0.3)),
+                  color: colors.success.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
+                  border: Border.all(
+                    color: colors.success.withValues(alpha: 0.30),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -295,12 +309,12 @@ class _HeroOverviewSection extends StatelessWidget {
                     Container(
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(
-                        color: _kCyan,
+                      decoration: BoxDecoration(
+                        color: colors.success,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: _kCyan,
+                            color: colors.success,
                             blurRadius: 4,
                             spreadRadius: 1,
                           ),
@@ -310,10 +324,9 @@ class _HeroOverviewSection extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'System Optimal',
-                      style: GoogleFonts.manrope(
-                        fontSize: 10,
+                      style: text.labelSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: _kCyan,
+                        color: colors.success,
                       ),
                     ),
                   ],
@@ -329,14 +342,14 @@ class _HeroOverviewSection extends StatelessWidget {
           height: 56,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              colors: [_kCyan, _kTeal],
+            gradient: LinearGradient(
+              colors: [palette.primary, palette.secondary],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: _kCyan.withValues(alpha: 0.25),
+                color: palette.primary.withValues(alpha: 0.25),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -344,13 +357,13 @@ class _HeroOverviewSection extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(2),
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF0D1F38),
+              color: palette.surface,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.person_outline_rounded,
-              color: Colors.white,
+              color: palette.primary,
               size: 24,
             ),
           ),
@@ -370,6 +383,7 @@ class _InboxBellButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final unread = ref.watch(unreadAlertCountProvider);
+    final palette = context.fsmPalette;
 
     return Semantics(
       button: true,
@@ -377,19 +391,23 @@ class _InboxBellButton extends ConsumerWidget {
       child: Badge.count(
         count: unread,
         isLabelVisible: unread > 0,
-        backgroundColor: const Color(0xFFF35B6B),
+        backgroundColor: palette.error,
         child: Container(
           width: 44,
           height: 44,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            color: palette.surface.withValues(alpha: palette.isDark ? 0.45 : 0.80),
+            border: Border.all(
+              color: palette.isDark
+                  ? palette.onSurface.withValues(alpha: 0.05)
+                  : palette.outlineVariant,
+            ),
           ),
           child: IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.notifications_none_rounded,
-              color: Colors.white,
+              color: palette.onSurfaceVariant,
               size: 22,
             ),
             tooltip: 'Alerts',
@@ -409,29 +427,28 @@ class _HealthInsightsEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => context.push('/health-insights'),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
         child: Ink(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-          ),
+          decoration: _glassDecoration(context, radius: ForeSeeMeRadius.md),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _kTeal.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
+                  color: palette.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.insights_rounded,
-                  color: _kCyan,
+                  color: palette.secondary,
                   size: 22,
                 ),
               ),
@@ -442,19 +459,15 @@ class _HealthInsightsEntry extends StatelessWidget {
                   children: [
                     Text(
                       'Health Insights',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 16,
+                      style: text.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Risk, tips & your routine in one view',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.6),
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textSecondary,
                       ),
                     ),
                   ],
@@ -462,7 +475,7 @@ class _HealthInsightsEntry extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: palette.textTertiary,
               ),
             ],
           ),
@@ -567,28 +580,29 @@ class _UpcomingMedicationCardState
   }
 
   Widget _buildEmpty(BuildContext context, String message) {
+    final palette = context.fsmPalette;
     return _GlassContainer(
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _kTeal.withValues(alpha: 0.1),
+              color: palette.secondary.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.medication_rounded,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: palette.textTertiary,
             ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.manrope(
+              style: context.fsmText.bodyLarge?.copyWith(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: palette.textTertiary,
               ),
             ),
           ),
@@ -598,6 +612,8 @@ class _UpcomingMedicationCardState
   }
 
   Widget _buildCard(BuildContext context, _NextDose nextDose) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final med = nextDose.medication;
     final timeDisplay = _formatDisplay(nextDose.timeString);
     final relative = _relativeTime(nextDose.scheduledDateTime);
@@ -617,10 +633,13 @@ class _UpcomingMedicationCardState
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _kTeal.withValues(alpha: 0.15),
+                    color: palette.secondary.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.medication_rounded, color: _kCyan),
+                  child: Icon(
+                    Icons.medication_rounded,
+                    color: palette.secondary,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -629,11 +648,7 @@ class _UpcomingMedicationCardState
                     children: [
                       Text(
                         med.name,
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        style: text.titleLarge,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
@@ -641,10 +656,9 @@ class _UpcomingMedicationCardState
                         med.dosage.isNotEmpty
                             ? med.dosage
                             : med.frequency.label,
-                        style: GoogleFonts.manrope(
+                        style: text.bodyMedium?.copyWith(
                           fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: palette.textSecondary,
                         ),
                       ),
                     ],
@@ -656,19 +670,15 @@ class _UpcomingMedicationCardState
                   children: [
                     Text(
                       timeDisplay,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 16,
+                      style: text.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       relative,
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _kCyan,
+                      style: text.labelMedium?.copyWith(
+                        color: palette.primary,
                       ),
                     ),
                   ],
@@ -676,7 +686,7 @@ class _UpcomingMedicationCardState
               ],
             ),
           ),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.05)),
+          Container(height: 1, color: palette.outlineVariant),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -685,8 +695,8 @@ class _UpcomingMedicationCardState
                   child: _MedicationActionButton(
                     label: 'Skip',
                     icon: Icons.close_rounded,
-                    color: Colors.white.withValues(alpha: 0.1),
-                    textColor: Colors.white,
+                    color: palette.surfaceContainerHighest,
+                    textColor: palette.textPrimary,
                     onTap: (isTaken || _isSubmitting)
                         ? null
                         : () => context.go('/check-in'),
@@ -699,8 +709,8 @@ class _UpcomingMedicationCardState
                     icon: isTaken
                         ? Icons.check_circle_rounded
                         : Icons.check_rounded,
-                    color: _kTeal,
-                    textColor: Colors.white,
+                    color: palette.primary,
+                    textColor: palette.onPrimary,
                     onTap: isTaken ? null : () => _takeNow(nextDose),
                     isPrimary: true,
                   ),
@@ -742,18 +752,12 @@ class _MedicationActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isPrimary ? null : color,
-            borderRadius: BorderRadius.circular(12),
-            gradient: isPrimary
-                ? const LinearGradient(
-                    colors: [_kTeal, _kCyan],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  )
-                : null,
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+            gradient: isPrimary ? context.fsmColors.gradients.primary : null,
             boxShadow: isPrimary
                 ? [
                     BoxShadow(
-                      color: _kCyan.withValues(alpha: 0.2),
+                      color: context.fsmPalette.primary.withValues(alpha: 0.2),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -767,8 +771,7 @@ class _MedicationActionButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.manrope(
-                  fontSize: 14,
+                style: context.fsmText.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: textColor,
                 ),
@@ -833,25 +836,20 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-        ),
+        decoration: _glassDecoration(context, radius: ForeSeeMeRadius.md),
         child: Column(
           children: [
-            Icon(icon, color: _kCyan, size: 24),
+            Icon(icon, color: palette.primary, size: 24),
             const SizedBox(height: 8),
             Text(
               label,
-              style: GoogleFonts.manrope(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+              style: context.fsmText.labelMedium?.copyWith(
+                color: palette.textPrimary,
               ),
             ),
           ],
@@ -875,26 +873,12 @@ class _GlassContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFF0D1F38).withValues(alpha: 0.45),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
+          decoration: _glassDecoration(context),
           child: child,
         ),
       ),
