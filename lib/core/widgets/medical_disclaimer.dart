@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
-/// Shared, reusable **non-diagnostic medical disclaimer** (Sprint 5, Prompt 3).
+/// Shared, reusable **non-diagnostic medical disclaimer**.
 ///
 /// ForeSeeMe surfaces *environmental* risk estimates — never a clinical
 /// diagnosis. This component states that, in one consistent voice, wherever
 /// risk, insights, recommendations, or alerts are shown, so no screen can imply
-/// medical advice. It replaces the per-screen bespoke disclaimer that previously
-/// lived only on Health Insights.
+/// medical advice.
 ///
-/// Pure presentation (Design System v2): no providers, repositories, or I/O.
-/// **Accessible** — an information icon paired with text (never colour alone),
-/// merged into a single "Disclaimer: …" group for screen readers. The text tone
-/// is [AppColorsV2.textTertiary] (not the faintest tier) so the safety framing
-/// stays legible on the dark shell.
+/// Pure presentation. Colour and type come from the ForeSeeMe design system,
+/// resolved for the ambient brightness. **Accessible** — an information icon
+/// paired with text (never colour alone), merged into a single "Disclaimer: …"
+/// group for screen readers. The body copy uses the palette's *secondary* text
+/// tone (not a faint tier) so the safety framing stays legible in light and dark.
 ///
 /// Two variants:
 /// * [MedicalDisclaimer.banner] — a full panel for screen footers (risk details,
@@ -58,51 +58,66 @@ class MedicalDisclaimer extends StatelessWidget {
       label: 'Disclaimer: $text',
       excludeSemantics: true,
       child: _variant == _DisclaimerVariant.banner
-          ? _banner(text)
-          : _inline(text),
+          ? _banner(context, text)
+          : _inline(context, text),
     );
   }
 
-  Widget _banner(String text) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: AppColorsV2.shellRaised.withValues(alpha: 0.6),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColorsV2.strokeSoft),
-    ),
-    child: Row(
+  Widget _banner(BuildContext context, String text) {
+    final palette = context.fsmPalette;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        border: Border.all(color: palette.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: palette.textTertiary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: context.fsmText.bodySmall?.copyWith(
+                color: palette.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _inline(BuildContext context, String text) {
+    final palette = context.fsmPalette;
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
+        Icon(
           Icons.info_outline_rounded,
-          size: 16,
-          color: AppColorsV2.textTertiary,
+          size: 14,
+          color: palette.textTertiary,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: AppTextStylesV2.caption.copyWith(height: 1.5)),
+          child: Text(
+            text,
+            style: context.fsmText.bodySmall?.copyWith(
+              color: palette.textSecondary,
+              height: 1.45,
+            ),
+          ),
         ),
       ],
-    ),
-  );
-
-  Widget _inline(String text) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Icon(
-        Icons.info_outline_rounded,
-        size: 14,
-        color: AppColorsV2.textTertiary,
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          text,
-          style: AppTextStylesV2.caption.copyWith(height: 1.45),
-        ),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 enum _DisclaimerVariant { banner, inline }

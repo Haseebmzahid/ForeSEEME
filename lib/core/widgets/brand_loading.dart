@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
 /// Branded indeterminate loading indicator built on the ForeSeeMe mark.
 ///
@@ -72,7 +72,8 @@ class _BrandLoadingState extends State<BrandLoading>
   Widget build(BuildContext context) {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final isDark = palette.isDark;
 
     final logo = SvgPicture.asset(
       isDark
@@ -105,11 +106,13 @@ class _BrandLoadingState extends State<BrandLoading>
       children: [
         pulsing,
         if (widget.message != null) ...[
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           Text(
             widget.message!,
             textAlign: TextAlign.center,
-            style: AppTextStylesV2.body,
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: palette.textSecondary,
+            ),
           ),
         ],
       ],

@@ -1,32 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
-/// Shared loading-skeleton primitive for Design System v2 (Sprint 3) surfaces.
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+
+/// Shared loading-skeleton primitive.
 ///
-/// This is the single source of the shimmer treatment described in the design
-/// system (§12 "Skeleton · Empty · Error"): opaque placeholder shapes toned by a
-/// left-to-right shimmer from `white @ .05` to `white @ .13`, on a 1.5 s loop.
+/// The single source of the shimmer treatment: opaque placeholder shapes toned
+/// by a left-to-right shimmer sweep on a 1.5 s loop. The base/highlight tones
+/// are resolved from the ForeSeeMe design system for the **ambient brightness**,
+/// so the skeleton reads correctly on both the light and dark surfaces (the old
+/// fixed white-on-dark tokens were invisible on a light background).
 ///
 /// Wrap a tree of [SkeletonBar] / [SkeletonBox] shapes in a single [AppSkeleton]
 /// so the shimmer runs once for the whole placeholder. The shapes are painted at
 /// full opacity; [AppSkeleton] recolours them via the shimmer gradient, so the
 /// individual shapes never need to know about colours.
 ///
-/// Accessibility (§14): honours `prefers-reduced-motion`. When the platform
-/// requests reduced motion the animation is dropped and the shapes render as a
-/// static placeholder fill. The subtree is announced to screen readers as
-/// "Loading" and its decorative shapes are excluded from semantics.
+/// Accessibility: honours `prefers-reduced-motion`. When the platform requests
+/// reduced motion the animation is dropped and the shapes render as a static
+/// placeholder fill. The subtree is announced to screen readers as "Loading" and
+/// its decorative shapes are excluded from semantics.
 class AppSkeleton extends StatelessWidget {
   /// A tree of skeleton shapes ([SkeletonBar], [SkeletonBox]) to shimmer.
   final Widget child;
 
   const AppSkeleton({super.key, required this.child});
-
-  /// Shimmer base — white @ ~.05 (design token).
-  static const Color base = Color(0x0DFFFFFF);
-
-  /// Shimmer highlight — white @ ~.13 (design token).
-  static const Color highlight = Color(0x21FFFFFF);
 
   /// Shimmer sweep period.
   static const Duration period = Duration(milliseconds: 1500);
@@ -34,6 +32,12 @@ class AppSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final palette = context.fsmPalette;
+
+    // Placeholder tones from the design system: a low container tint as the
+    // base, a brighter surface as the moving highlight.
+    final base = palette.surfaceContainerHigh;
+    final highlight = palette.surfaceBright;
 
     final content = Semantics(
       label: 'Loading',
@@ -45,7 +49,7 @@ class AppSkeleton extends StatelessWidget {
     // shapes so they read as a calm, static placeholder (a frozen shimmer frame).
     if (reduceMotion) {
       return ColorFiltered(
-        colorFilter: const ColorFilter.mode(base, BlendMode.srcATop),
+        colorFilter: ColorFilter.mode(base, BlendMode.srcATop),
         child: content,
       );
     }
@@ -80,7 +84,8 @@ class SkeletonBar extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Opaque fill (recoloured by the enclosing [AppSkeleton]'s shimmer).
+        color: context.fsmPalette.surfaceBright,
         borderRadius: BorderRadius.circular(radius),
       ),
     );
@@ -110,7 +115,7 @@ class SkeletonBox extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.fsmPalette.surfaceBright,
         borderRadius: BorderRadius.circular(radius),
       ),
     );

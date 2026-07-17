@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
 /// Is [error] a genuine **connectivity loss** — as opposed to a server error, a
 /// permission denial, or empty data?
@@ -30,15 +31,14 @@ bool isOfflineError(Object error) {
 
 /// Shared "No Internet Connection" surface for network-dependent screens.
 ///
-/// One offline language across the app (Design System v2): a calm, branded panel
-/// with an offline glyph, a fixed headline, a helpful explanation, and a Retry
-/// button wired to the caller's existing provider refresh — replacing the
-/// per-screen bespoke offline layouts.
+/// One offline language across the app: a calm, branded panel with an offline
+/// glyph, a fixed headline, a helpful explanation, and a Retry button wired to
+/// the caller's existing provider refresh — replacing the per-screen bespoke
+/// offline layouts.
 ///
 /// * **Branding** — the ForeSeeMe mark sits above the offline glyph.
-/// * **Theme-aware** — adapts text/glyph tints to the ambient brightness and
-///   picks the white/black mark accordingly. The Sprint-3 hosts are dark shell,
-///   but this stays legible on a light surface too.
+/// * **Theme-aware** — text/glyph tints come from the ForeSeeMe design system for
+///   the ambient brightness, and the white/black mark is picked accordingly.
 /// * **Accessible** — the headline is a semantic header; the explanation reads as
 ///   text; Retry is a labelled button. Decorative art is excluded from semantics.
 /// * **Reduced-motion** — a gentle fade-in that collapses to an instant show when
@@ -59,13 +59,11 @@ class OfflineState extends StatelessWidget {
   Widget build(BuildContext context) {
     final reduceMotion =
         MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final isDark = palette.isDark;
 
-    final titleColor =
-        isDark ? AppColorsV2.textPrimary : const Color(0xFF0B1730);
-    final bodyColor =
-        isDark ? AppColorsV2.textSecondary : const Color(0xFF5A6478);
-    final glyph = isDark ? Colors.white : const Color(0xFF0B1730);
+    final glyph = palette.textPrimary;
 
     final explanation = message ??
         'We can’t reach ForeSeeMe right now. Check your Wi‑Fi or '
@@ -112,28 +110,25 @@ class OfflineState extends StatelessWidget {
           child: Text(
             'No Internet Connection',
             textAlign: TextAlign.center,
-            style: AppTextStylesV2.headline.copyWith(
-              color: titleColor,
-              fontSize: 22,
-            ),
+            style: text.headlineSmall?.copyWith(color: palette.textPrimary),
           ),
         ),
         const SizedBox(height: 10),
         Text(
           explanation,
           textAlign: TextAlign.center,
-          style: AppTextStylesV2.body.copyWith(color: bodyColor),
+          style: text.bodyMedium?.copyWith(color: palette.textSecondary),
         ),
         const SizedBox(height: 24),
         // Retry — runs the caller's existing provider refresh.
         OutlinedButton.icon(
           onPressed: onRetry,
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppColorsV2.teal,
-            side: BorderSide(color: AppColorsV2.teal.withValues(alpha: 0.45)),
+            foregroundColor: palette.primary,
+            side: BorderSide(color: palette.primary.withValues(alpha: 0.45)),
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
             ),
           ),
           icon: const Icon(Icons.refresh_rounded, size: 18),

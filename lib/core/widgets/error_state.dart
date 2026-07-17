@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 
-/// Shared **recoverable error** surface for Design System v2 screens.
+/// Shared **recoverable error** surface.
 ///
 /// One error language across the app: a calm centered panel with a glyph, a
 /// title, a plain-language explanation, a Retry button, and an optional,
@@ -16,8 +17,8 @@ import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 /// for those. Classify offline separately (e.g. `isOfflineError`) before falling
 /// back to this.
 ///
-/// * **Theme-aware / dark mode** — adapts title/explanation/glyph tints to the
-///   ambient brightness (Sprint-3 hosts are dark shell; stays legible on light).
+/// * **Theme-aware** — title/explanation/glyph tints come from the ForeSeeMe
+///   design system for the ambient brightness (no hardcoded colours).
 /// * **Accessible** — the title is a semantic header, the explanation reads as
 ///   text, and Retry / the details toggle are labelled buttons; the glyph is
 ///   excluded from semantics.
@@ -50,13 +51,8 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor =
-        isDark ? AppColorsV2.textPrimary : const Color(0xFF0B1730);
-    final bodyColor =
-        isDark ? AppColorsV2.textSecondary : const Color(0xFF5A6478);
-    final iconColor =
-        isDark ? AppColorsV2.textTertiary : const Color(0xFF8B96B1);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     return Center(
       child: Padding(
@@ -64,36 +60,38 @@ class ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ExcludeSemantics(child: Icon(icon, size: 56, color: iconColor)),
+            ExcludeSemantics(
+              child: Icon(icon, size: 56, color: palette.textTertiary),
+            ),
             const SizedBox(height: 18),
             Semantics(
               header: true,
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: AppTextStylesV2.cardTitle.copyWith(color: titleColor),
+                style: text.titleMedium?.copyWith(color: palette.textPrimary),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               explanation,
               textAlign: TextAlign.center,
-              style: AppTextStylesV2.body.copyWith(color: bodyColor),
+              style: text.bodyMedium?.copyWith(color: palette.textSecondary),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColorsV2.teal,
+                foregroundColor: palette.primary,
                 side: BorderSide(
-                  color: AppColorsV2.teal.withValues(alpha: 0.45),
+                  color: palette.primary.withValues(alpha: 0.45),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 22,
                   vertical: 13,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                 ),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -103,11 +101,9 @@ class ErrorState extends StatelessWidget {
               const SizedBox(height: 8),
               _TechnicalDetail(
                 detail!.trim(),
-                labelColor: iconColor,
-                textColor: bodyColor,
-                borderColor: isDark
-                    ? AppColorsV2.stroke
-                    : const Color(0x1A0B1730),
+                labelColor: palette.textTertiary,
+                textColor: palette.textSecondary,
+                borderColor: palette.outlineVariant,
               ),
             ],
           ],
@@ -140,6 +136,7 @@ class _TechnicalDetailState extends State<_TechnicalDetail> {
 
   @override
   Widget build(BuildContext context) {
+    final caption = context.fsmText.bodySmall;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -157,7 +154,7 @@ class _TechnicalDetailState extends State<_TechnicalDetail> {
           ),
           label: Text(
             _open ? 'Hide details' : 'Technical details',
-            style: AppTextStylesV2.caption.copyWith(color: widget.labelColor),
+            style: caption?.copyWith(color: widget.labelColor),
           ),
         ),
         // AnimatedSize smoothly grows/shrinks the panel as the detail reveals.
@@ -172,15 +169,13 @@ class _TechnicalDetailState extends State<_TechnicalDetail> {
                   margin: const EdgeInsets.only(top: 4),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
                     border: Border.all(color: widget.borderColor),
                   ),
                   child: SelectableText(
                     widget.detail,
                     textAlign: TextAlign.left,
-                    style: AppTextStylesV2.caption.copyWith(
-                      color: widget.textColor,
-                    ),
+                    style: caption?.copyWith(color: widget.textColor),
                   ),
                 )
               : const SizedBox(width: double.infinity),

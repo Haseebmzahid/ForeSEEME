@@ -1,9 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-const _kCyan = Color(0xFF28DDE8);
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 
+/// Shared floating glass bottom navigation.
+///
+/// Colour comes entirely from the ForeSeeMe design system for the ambient
+/// brightness: a translucent surface panel, the `primary` accent for the
+/// selected tab, and muted palette text for the rest — no hardcoded colours, so
+/// the bar is at home in both the light and dark themes.
 class AppBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTabSelected;
@@ -16,6 +21,8 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+
     return Container(
       color: Colors.transparent,
       padding: const EdgeInsets.only(
@@ -31,15 +38,15 @@ class AppBottomNavBar extends StatelessWidget {
           child: Container(
             height: 68,
             decoration: BoxDecoration(
-              color: const Color(0xFF0D1F38).withValues(alpha: 0.65),
+              color: palette.surface.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: palette.onSurface.withValues(alpha: 0.08),
                 width: 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: palette.shadow.withValues(alpha: 0.2),
                   blurRadius: 32,
                   offset: const Offset(0, 8),
                 ),
@@ -102,6 +109,9 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final accent = palette.primary;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -114,29 +124,29 @@ class _NavBarItem extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? _kCyan.withValues(alpha: 0.15)
+              ? accent.withValues(alpha: 0.15)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: isSelected
-              ? Border.all(color: _kCyan.withValues(alpha: 0.3), width: 1)
-              : Border.all(color: Colors.transparent, width: 1),
+          border: Border.all(
+            color: isSelected ? accent.withValues(alpha: 0.3) : Colors.transparent,
+            width: 1,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              color: isSelected ? _kCyan : Colors.white.withValues(alpha: 0.5),
+              color: isSelected ? accent : palette.textTertiary,
               size: 24,
             ),
             if (isSelected) ...[
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.manrope(
-                  color: _kCyan,
+                style: context.fsmText.labelMedium?.copyWith(
+                  color: accent,
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
                 ),
               ),
             ],

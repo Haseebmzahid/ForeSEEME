@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
+import '../theme/foreseeme_theme.dart';
+import '../theme/foreseeme_tokens.dart';
 
+/// Compact centered "no data" block (icon + title + subtitle).
+///
+/// All colour and type come from the ForeSeeMe design system, resolved for the
+/// ambient brightness — no hardcoded colours.
 class EmptyStateWidget extends StatelessWidget {
   final String title;
   final String subTitle;
@@ -16,11 +20,11 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.paddingHorizontal,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.gutter),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -28,23 +32,19 @@ class EmptyStateWidget extends StatelessWidget {
           Icon(
             icon,
             size: 72,
-            color: theme.colorScheme.primary.withValues(alpha: 0.42),
+            color: palette.primary.withValues(alpha: 0.42),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            style: text.titleLarge?.copyWith(color: palette.textPrimary),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
           Text(
             subTitle,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+            style: text.bodyMedium?.copyWith(color: palette.textSecondary),
           ),
         ],
       ),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
+import '../theme/foreseeme_theme.dart';
+import '../theme/foreseeme_tokens.dart';
 
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
-
+/// Shared section header: a tinted icon chip followed by a title.
+///
+/// The accent (chip fill, border, icon, and dark-mode glow) is the design
+/// system's `secondary` tone, and the title uses the palette's primary text
+/// colour — all brightness-aware, none hardcoded.
 class SectionHeader extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -14,15 +15,16 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
+    final palette = context.fsmPalette;
+    final isDark = palette.isDark;
+    final accent = palette.secondary;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppDimensions.paddingHorizontal,
-        AppSpacing.md,
-        AppDimensions.paddingHorizontal,
-        AppSpacing.sm,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.md,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.sm,
       ),
       child: Row(
         children: [
@@ -31,37 +33,27 @@ class SectionHeader extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : _kTeal.withValues(alpha: 0.08),
+              color: accent.withValues(alpha: isDark ? 0.14 : 0.08),
               border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.12)
-                    : _kTeal.withValues(alpha: 0.15),
+                color: accent.withValues(alpha: isDark ? 0.24 : 0.15),
               ),
               boxShadow: isDark
                   ? [
                       BoxShadow(
-                        color: _kCyan.withValues(alpha: 0.15),
+                        color: accent.withValues(alpha: 0.15),
                         blurRadius: 10,
                         spreadRadius: -2,
-                      )
+                      ),
                     ]
-                  : [],
+                  : const [],
             ),
-            child: Icon(
-              icon,
-              color: isDark ? _kCyan : _kTeal,
-              size: 16,
-            ),
+            child: Icon(icon, color: accent, size: 16),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: ForeSeeMeSpacing.sm),
           Text(
             title,
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppColors.textPrimary,
+            style: context.fsmText.titleLarge?.copyWith(
+              color: palette.textPrimary,
               letterSpacing: -0.2,
             ),
           ),

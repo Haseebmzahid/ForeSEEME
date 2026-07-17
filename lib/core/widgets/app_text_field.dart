@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
+import '../theme/foreseeme_theme.dart';
+import '../theme/foreseeme_tokens.dart';
 
+/// The app's standard labelled text field.
+///
+/// Focus accent, fill, border, shadow, and text tones all come from the
+/// ForeSeeMe design system for the ambient brightness — no hardcoded colours.
+/// The validation rules, focus handling, autofill hints, and 56dp minimum tap
+/// height are unchanged.
 class AppTextField extends StatefulWidget {
   final String label;
   final String hint;
@@ -106,39 +112,44 @@ class AppTextFieldState extends State<AppTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final accent = palette.primary;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(vertical: ForeSeeMeSpacing.xs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             widget.label.toUpperCase(),
-            style: AppTextStyles.caption.copyWith(
-              color: _isFocused ? AppColors.accent : AppColors.textSecondary,
+            style: text.labelMedium?.copyWith(
+              color: _isFocused ? accent : palette.textSecondary,
+              letterSpacing: 0.6,
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             constraints: const BoxConstraints(minHeight: 56),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppDimensions.inputRadius),
+              borderRadius: ForeSeeMeRadius.input,
               border: Border.all(
-                color: _isFocused ? AppColors.borderFocus : AppColors.border,
+                color: _isFocused ? accent : palette.outline,
                 width: _isFocused ? 1 : 0.6,
               ),
-              color: AppColors.surfaceHigh.withValues(alpha: 0.82),
+              color: palette.surfaceContainerLow,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: _isFocused ? 0.28 : 0.2,
+                  color: palette.shadow.withValues(
+                    alpha: _isFocused ? 0.12 : 0.08,
                   ),
                   blurRadius: _isFocused ? 28 : 18,
                   offset: const Offset(0, 10),
                 ),
                 if (_isFocused)
                   BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.18),
+                    color: accent.withValues(alpha: 0.18),
                     blurRadius: 24,
                     offset: const Offset(0, 8),
                   ),
@@ -156,14 +167,12 @@ class AppTextFieldState extends State<AppTextField> {
               onFieldSubmitted: widget.onFieldSubmitted,
               autocorrect: !widget.isPassword,
               enableSuggestions: !widget.isPassword,
-              style: AppTextStyles.bodyText.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              cursorColor: AppColors.accent,
+              style: text.bodyLarge?.copyWith(color: palette.textPrimary),
+              cursorColor: accent,
               decoration: InputDecoration(
                 hintText: widget.hint,
-                hintStyle: AppTextStyles.bodyText.copyWith(
-                  color: AppColors.textTertiary.withValues(alpha: 0.72),
+                hintStyle: text.bodyLarge?.copyWith(
+                  color: palette.textTertiary.withValues(alpha: 0.72),
                   fontWeight: FontWeight.w400,
                 ),
                 isDense: true,
@@ -174,8 +183,8 @@ class AppTextFieldState extends State<AppTextField> {
                 errorBorder: InputBorder.none,
                 focusedErrorBorder: InputBorder.none,
                 errorMaxLines: 2,
-                errorStyle: AppTextStyles.caption.copyWith(
-                  color: AppColors.error,
+                errorStyle: text.labelMedium?.copyWith(
+                  color: palette.error,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
                 ),
@@ -186,9 +195,7 @@ class AppTextFieldState extends State<AppTextField> {
                 prefixIcon: widget.prefixIcon != null
                     ? IconTheme(
                         data: IconThemeData(
-                          color: _isFocused
-                              ? AppColors.accent
-                              : AppColors.textSecondary,
+                          color: _isFocused ? accent : palette.textSecondary,
                         ),
                         child: widget.prefixIcon!,
                       )
@@ -199,7 +206,8 @@ class AppTextFieldState extends State<AppTextField> {
                 ),
                 suffixIcon: widget.isPassword
                     ? IconButton(
-                        tooltip: _obscureText ? 'Show password' : 'Hide password',
+                        tooltip:
+                            _obscureText ? 'Show password' : 'Hide password',
                         visualDensity: VisualDensity.compact,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
@@ -210,9 +218,7 @@ class AppTextFieldState extends State<AppTextField> {
                           _obscureText
                               ? Icons.visibility_off_rounded
                               : Icons.visibility_rounded,
-                          color: _isFocused
-                              ? AppColors.accent
-                              : AppColors.textSecondary,
+                          color: _isFocused ? accent : palette.textSecondary,
                           size: 20,
                         ),
                         onPressed: () {

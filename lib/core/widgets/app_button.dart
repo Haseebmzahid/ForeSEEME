@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
+import '../theme/foreseeme_theme.dart';
+import '../theme/foreseeme_tokens.dart';
 
+/// The app's primary button.
+///
+/// Three variants — a gradient **filled** CTA (default), an **outlined**
+/// secondary, and a text **ghost** — all drawing colour, gradient, and shadow
+/// from the ForeSeeMe design system for the ambient brightness. Nothing is
+/// hardcoded: the CTA fill is `colors.gradients.primary`, its glow derives from
+/// the `primary`/`secondary` tokens, and disabled states use surface + disabled
+/// text tokens. The press-scale, loading swap, and 56dp touch target are
+/// unchanged.
 class AppButton extends StatefulWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -25,6 +34,8 @@ class AppButton extends StatefulWidget {
 }
 
 class _AppButtonState extends State<AppButton> {
+  static const double _height = 56.0;
+
   bool _isPressed = false;
 
   void _setPressed(bool value) {
@@ -36,6 +47,7 @@ class _AppButtonState extends State<AppButton> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final isDisabled = widget.onPressed == null || widget.isLoading;
 
     if (widget.isGhost) {
@@ -44,20 +56,20 @@ class _AppButtonState extends State<AppButton> {
         onTapDown: () => _setPressed(true),
         onTapEnd: () => _setPressed(false),
         child: SizedBox(
-          height: AppDimensions.buttonHeight,
+          height: _height,
           child: TextButton(
             onPressed: isDisabled ? null : widget.onPressed,
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              disabledForegroundColor: AppColors.textTertiary,
-              textStyle: AppTextStyles.bodyText.copyWith(
+              foregroundColor: palette.primary,
+              disabledForegroundColor: palette.textDisabled,
+              textStyle: context.fsmText.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+              shape: const RoundedRectangleBorder(
+                borderRadius: ForeSeeMeRadius.control,
               ),
             ),
-            child: _buildContent(AppColors.accent),
+            child: _buildContent(context, palette.primary),
           ),
         ),
       );
@@ -69,16 +81,27 @@ class _AppButtonState extends State<AppButton> {
         onTapDown: () => _setPressed(true),
         onTapEnd: () => _setPressed(false),
         child: SizedBox(
-          height: AppDimensions.buttonHeight,
+          height: _height,
           width: double.infinity,
           child: OutlinedButton(
             onPressed: isDisabled ? null : widget.onPressed,
-            style: Theme.of(context).outlinedButtonTheme.style?.copyWith(
-              overlayColor: WidgetStatePropertyAll(
-                AppColors.accent.withValues(alpha: 0.06),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: palette.textPrimary,
+              disabledForegroundColor: palette.textDisabled,
+              side: BorderSide(
+                color: palette.outline,
+                width: ForeSeeMeBorderWidth.thin,
+              ),
+              minimumSize: const Size.fromHeight(_height),
+              shape: const RoundedRectangleBorder(
+                borderRadius: ForeSeeMeRadius.control,
+              ),
+              overlayColor: palette.primary.withValues(alpha: 0.06),
+              textStyle: context.fsmText.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
-            child: _buildContent(AppColors.textPrimary),
+            child: _buildContent(context, palette.textPrimary),
           ),
         ),
       );
@@ -89,32 +112,32 @@ class _AppButtonState extends State<AppButton> {
       onTapDown: () => _setPressed(true),
       onTapEnd: () => _setPressed(false),
       child: SizedBox(
-        height: AppDimensions.buttonHeight,
+        height: _height,
         width: double.infinity,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-            gradient: isDisabled ? null : AppGradients.primaryAction,
-            color: isDisabled ? AppColors.surfaceHigh : null,
+            borderRadius: ForeSeeMeRadius.control,
+            gradient: isDisabled ? null : context.fsmColors.gradients.primary,
+            color: isDisabled ? palette.surfaceContainerHighest : null,
             border: Border.all(
-              color: Colors.white.withValues(alpha: isDisabled ? 0.04 : 0.14),
+              color: palette.onPrimary.withValues(alpha: isDisabled ? 0.0 : 0.14),
               width: 0.8,
             ),
             boxShadow: isDisabled
                 ? []
                 : [
                     BoxShadow(
-                      color: AppColors.accentVariant.withValues(
-                        alpha: _isPressed ? 0.14 : 0.24,
+                      color: palette.primary.withValues(
+                        alpha: _isPressed ? 0.16 : 0.26,
                       ),
                       blurRadius: _isPressed ? 18 : 34,
                       spreadRadius: -8,
                       offset: Offset(0, _isPressed ? 6 : 14),
                     ),
                     BoxShadow(
-                      color: AppColors.accent.withValues(
+                      color: palette.secondary.withValues(
                         alpha: _isPressed ? 0.08 : 0.16,
                       ),
                       blurRadius: _isPressed ? 16 : 28,
@@ -129,24 +152,26 @@ class _AppButtonState extends State<AppButton> {
               backgroundColor: Colors.transparent,
               disabledBackgroundColor: Colors.transparent,
               shadowColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              disabledForegroundColor: AppColors.textTertiary,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+              foregroundColor: palette.onPrimary,
+              disabledForegroundColor: palette.textDisabled,
+              padding: const EdgeInsets.symmetric(
+                horizontal: ForeSeeMeSpacing.xxl,
               ),
-              textStyle: AppTextStyles.bodyText.copyWith(
+              shape: const RoundedRectangleBorder(
+                borderRadius: ForeSeeMeRadius.control,
+              ),
+              textStyle: context.fsmText.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
             ),
-            child: _buildContent(Colors.white),
+            child: _buildContent(context, palette.onPrimary),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent(Color contentColor) {
+  Widget _buildContent(BuildContext context, Color contentColor) {
     if (widget.isLoading) {
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
@@ -163,6 +188,11 @@ class _AppButtonState extends State<AppButton> {
       );
     }
 
+    final label = context.fsmText.bodyLarge?.copyWith(
+      fontWeight: FontWeight.w800,
+      color: contentColor,
+    );
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       child: widget.icon != null
@@ -175,23 +205,14 @@ class _AppButtonState extends State<AppButton> {
                   data: IconThemeData(color: contentColor, size: 20),
                   child: widget.icon!,
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  widget.text,
-                  style: AppTextStyles.bodyText.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: contentColor,
-                  ),
-                ),
+                const SizedBox(width: ForeSeeMeSpacing.md),
+                Text(widget.text, style: label),
               ],
             )
           : Text(
               widget.text,
               key: const ValueKey('text-content'),
-              style: AppTextStyles.bodyText.copyWith(
-                fontWeight: FontWeight.w800,
-                color: contentColor,
-              ),
+              style: label,
             ),
     );
   }

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
-/// Shared "no data" surface for Design System v2 screens.
+/// Shared "no data" surface.
 ///
 /// One empty-state language across the app: a calm centered panel with a glyph
 /// (or a custom [illustration]), a title, a description, and an optional CTA —
@@ -13,9 +14,8 @@ import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 /// connectivity loss ([OfflineState]), and server errors — never reuse it for
 /// those.
 ///
-/// * **Theme-aware / dark mode** — adapts the title, description, and glyph tints
-///   to the ambient brightness (the Sprint-3 hosts are dark shell, but it stays
-///   legible on a light surface too).
+/// * **Theme-aware** — title, description, and glyph tints come from the
+///   ForeSeeMe design system for the ambient brightness (no hardcoded colours).
 /// * **Accessible** — the title is a semantic header, the description reads as
 ///   text, and the CTA is a labelled button; the decorative glyph/illustration is
 ///   excluded from semantics.
@@ -58,13 +58,8 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor =
-        isDark ? AppColorsV2.textPrimary : const Color(0xFF0B1730);
-    final bodyColor =
-        isDark ? AppColorsV2.textSecondary : const Color(0xFF5A6478);
-    final iconColor =
-        isDark ? AppColorsV2.textTertiary : const Color(0xFF8B96B1);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
 
     final hasAction = actionLabel != null && onAction != null;
 
@@ -76,7 +71,7 @@ class EmptyState extends StatelessWidget {
           children: [
             ExcludeSemantics(
               child: illustration ??
-                  Icon(icon, size: iconSize, color: iconColor),
+                  Icon(icon, size: iconSize, color: palette.textTertiary),
             ),
             const SizedBox(height: 18),
             Semantics(
@@ -84,30 +79,30 @@ class EmptyState extends StatelessWidget {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: AppTextStylesV2.cardTitle.copyWith(color: titleColor),
+                style: text.titleMedium?.copyWith(color: palette.textPrimary),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               description,
               textAlign: TextAlign.center,
-              style: AppTextStylesV2.body.copyWith(color: bodyColor),
+              style: text.bodyMedium?.copyWith(color: palette.textSecondary),
             ),
             if (hasAction) ...[
               const SizedBox(height: 20),
               OutlinedButton(
                 onPressed: onAction,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColorsV2.teal,
+                  foregroundColor: palette.primary,
                   side: BorderSide(
-                    color: AppColorsV2.teal.withValues(alpha: 0.45),
+                    color: palette.primary.withValues(alpha: 0.45),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 22,
                     vertical: 13,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                   ),
                 ),
                 child: Text(actionLabel!),

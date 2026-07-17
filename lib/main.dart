@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'core/routes/app_router.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/foreseeme_palette.dart';
+import 'core/theme/foreseeme_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/platform_config_service.dart';
@@ -64,12 +67,31 @@ class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
 
     return MaterialApp.router(
       title: 'ForeSeeMe',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: ForeSeeMeTheme.light,
+      darkTheme: ForeSeeMeTheme.dark,
       themeMode: themeMode,
-      builder: AppTheme.applyColors,
+      builder: _applyThemeChrome,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );
   }
+}
+
+/// Root theme bridge, applied once above the router.
+///
+/// 1. Applies the ForeSeeMe status-/navigation-bar overlay globally (via an
+///    [AnnotatedRegion]) so system chrome switches live with the theme — even on
+///    screens that have no [AppBar] to carry `systemOverlayStyle`.
+/// 2. Keeps the legacy [AppColors] static palette in sync with the active
+///    brightness. This is a **temporary migration bridge**: feature screens not
+///    yet migrated still read `AppColors.*`, and without this they would freeze
+///    to the default palette and break in light mode. Remove it in UX-03 once no
+///    screen reads `AppColors`.
+Widget _applyThemeChrome(BuildContext context, Widget? child) {
+  final brightness = Theme.of(context).brightness;
+  AppColors.useBrightness(brightness);
+  return AnnotatedRegion<SystemUiOverlayStyle>(
+    value: ForeSeeMeTheme.overlayStyleFor(ForeSeeMePalette.of(brightness)),
+    child: child ?? const SizedBox.shrink(),
+  );
 }
