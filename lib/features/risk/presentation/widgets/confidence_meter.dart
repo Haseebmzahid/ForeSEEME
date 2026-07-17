@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 
 /// A thin proportional fill bar visualising the model's real confidence value
 /// (Playbook M-1 item 2) — the pill badge next to it states the number in
@@ -21,7 +21,7 @@ class ConfidenceMeter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fraction = confidence.clamp(0.0, 1.0);
-    final color = _colorFor(fraction);
+    final color = _colorFor(context, fraction);
 
     return ExcludeSemantics(
       // The pill badge beside this bar already carries the accessible label
@@ -34,7 +34,7 @@ class ConfidenceMeter extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: Stack(
             children: [
-              Container(color: AppColorsV2.strokeSoft),
+              Container(color: context.fsmPalette.surfaceContainerHighest),
               FractionallySizedBox(
                 widthFactor: fraction,
                 child: Container(color: color),
@@ -46,16 +46,14 @@ class ConfidenceMeter extends StatelessWidget {
     );
   }
 
-  /// Mirrors [ConfidenceExplanation]'s existing strong/moderate/weak → risk
-  /// token mapping (`confidence_explanation.dart`) — reusing that mapping
-  /// rather than inventing a new one keeps "confidence" and "risk level"
-  /// reading from the same small vocabulary without colliding: low
-  /// confidence renders as the neutral grey `riskUncertain`, never the red
-  /// `riskHigh` (which would misread as "high risk" right beside the hero
-  /// card's own risk color).
-  Color _colorFor(double fraction) {
-    if (fraction >= 0.75) return AppColorsV2.riskLow;
-    if (fraction >= 0.5) return AppColorsV2.riskMedium;
-    return AppColorsV2.riskUncertain;
+  /// Mirrors [ConfidenceExplanation]'s strong/moderate/weak → semantic-token
+  /// mapping: low confidence renders as the neutral tone, never the error red
+  /// (which would misread as "high risk" right beside the hero card's own risk
+  /// colour).
+  Color _colorFor(BuildContext context, double fraction) {
+    final colors = context.fsmColors;
+    if (fraction >= 0.75) return colors.success;
+    if (fraction >= 0.5) return colors.warning;
+    return context.fsmPalette.onSurfaceVariant;
   }
 }

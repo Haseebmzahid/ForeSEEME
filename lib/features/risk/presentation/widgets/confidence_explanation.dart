@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
 
 /// Explains *why* confidence is high or low, in plain language (Sprint 5,
@@ -22,7 +22,8 @@ class ConfidenceExplanation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _ConfidenceStyle.of(strength);
+    final style = _ConfidenceStyle.of(context, strength);
+    final palette = context.fsmPalette;
 
     return Semantics(
       label: '${style.label}. $sentence',
@@ -44,7 +45,7 @@ class ConfidenceExplanation extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   style.label,
-                  style: AppTextStylesV2.caption.copyWith(
+                  style: context.fsmText.bodySmall?.copyWith(
                     color: style.color,
                     fontWeight: FontWeight.w700,
                   ),
@@ -55,8 +56,8 @@ class ConfidenceExplanation extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             sentence,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textSecondary,
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: palette.textSecondary,
             ),
           ),
         ],
@@ -65,7 +66,8 @@ class ConfidenceExplanation extends StatelessWidget {
   }
 }
 
-/// Maps a [ConfidenceStrength] to a distinct icon + label + colour.
+/// Maps a [ConfidenceStrength] to a distinct icon + label + colour (from the
+/// active theme's semantic tokens).
 class _ConfidenceStyle {
   final IconData icon;
   final String label;
@@ -73,21 +75,24 @@ class _ConfidenceStyle {
 
   const _ConfidenceStyle(this.icon, this.label, this.color);
 
-  static _ConfidenceStyle of(ConfidenceStrength strength) => switch (strength) {
-    ConfidenceStrength.strong => const _ConfidenceStyle(
-      Icons.verified_rounded,
-      'Strong confidence',
-      AppColorsV2.riskLow,
-    ),
-    ConfidenceStrength.moderate => const _ConfidenceStyle(
-      Icons.thumbs_up_down_outlined,
-      'Moderate confidence',
-      AppColorsV2.riskMedium,
-    ),
-    ConfidenceStrength.weak => const _ConfidenceStyle(
-      Icons.help_outline_rounded,
-      'Limited confidence',
-      AppColorsV2.riskUncertain,
-    ),
-  };
+  static _ConfidenceStyle of(BuildContext context, ConfidenceStrength strength) {
+    final colors = context.fsmColors;
+    return switch (strength) {
+      ConfidenceStrength.strong => _ConfidenceStyle(
+        Icons.verified_rounded,
+        'Strong confidence',
+        colors.success,
+      ),
+      ConfidenceStrength.moderate => _ConfidenceStyle(
+        Icons.thumbs_up_down_outlined,
+        'Moderate confidence',
+        colors.warning,
+      ),
+      ConfidenceStrength.weak => _ConfidenceStyle(
+        Icons.help_outline_rounded,
+        'Limited confidence',
+        context.fsmPalette.onSurfaceVariant,
+      ),
+    };
+  }
 }

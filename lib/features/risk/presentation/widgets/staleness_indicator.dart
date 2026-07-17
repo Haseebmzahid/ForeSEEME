@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 
 /// Shared, self-guarding "this estimate may be out of date" notice.
@@ -40,6 +41,8 @@ class RiskStalenessNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isRiskStale(generatedAt, now: now)) return const SizedBox.shrink();
 
+    final amber = context.fsmColors.warning;
+
     return Padding(
       padding: EdgeInsets.only(top: topGap),
       child: Semantics(
@@ -47,26 +50,22 @@ class RiskStalenessNotice extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: AppColorsV2.riskMedium.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColorsV2.riskMedium.withValues(alpha: 0.3),
-            ),
+            color: amber.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
+            border: Border.all(color: amber.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.history_toggle_off_rounded,
                 size: 14,
-                color: AppColorsV2.riskMedium,
+                color: amber,
               ),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   message,
-                  style: AppTextStylesV2.caption.copyWith(
-                    color: AppColorsV2.riskMedium,
-                  ),
+                  style: context.fsmText.bodySmall?.copyWith(color: amber),
                 ),
               ),
             ],

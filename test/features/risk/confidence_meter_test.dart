@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_meter.dart';
 
 Future<FractionallySizedBox> pumpMeter(
@@ -17,6 +17,10 @@ Future<FractionallySizedBox> pumpMeter(
 }
 
 Color fillColor(FractionallySizedBox box) => (box.child as Container).color!;
+
+/// The ambient design-system tokens the meter resolves its colour from.
+BuildContext _ctx(WidgetTester tester) =>
+    tester.element(find.byType(ConfidenceMeter));
 
 void main() {
   group('ConfidenceMeter', () {
@@ -43,22 +47,23 @@ void main() {
       tester,
     ) async {
       final box = await pumpMeter(tester, 0.9);
-      expect(fillColor(box), AppColorsV2.riskLow);
+      expect(fillColor(box), _ctx(tester).fsmColors.success);
     });
 
     testWidgets('moderate confidence uses the medium-risk colour', (
       tester,
     ) async {
       final box = await pumpMeter(tester, 0.6);
-      expect(fillColor(box), AppColorsV2.riskMedium);
+      expect(fillColor(box), _ctx(tester).fsmColors.warning);
     });
 
     testWidgets(
       'weak confidence uses the neutral uncertain colour, never riskHigh',
       (tester) async {
         final box = await pumpMeter(tester, 0.2);
-        expect(fillColor(box), AppColorsV2.riskUncertain);
-        expect(fillColor(box), isNot(AppColorsV2.riskHigh));
+        final ctx = _ctx(tester);
+        expect(fillColor(box), ctx.fsmPalette.onSurfaceVariant);
+        expect(fillColor(box), isNot(ctx.fsmPalette.error));
       },
     );
 

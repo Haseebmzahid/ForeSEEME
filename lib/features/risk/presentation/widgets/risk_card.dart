@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/theme/a11y.dart';
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -12,6 +12,7 @@ import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_meter.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
@@ -20,9 +21,9 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dar
 /// bound live to [currentCityRiskProvider].
 ///
 /// Renders every state — loading (skeleton), data, empty ("no risk data yet"),
-/// and error/offline (retry) — and applies the grey uncertainty treatment when
-/// the estimate is low-confidence. Risk is always shown with a label + icon, so
-/// it is never conveyed by colour alone.
+/// and error/offline (retry) — and applies the neutral uncertainty treatment
+/// when the estimate is low-confidence. Risk is always shown with a label +
+/// icon, so it is never conveyed by colour alone.
 class RiskCard extends ConsumerWidget {
   const RiskCard({super.key});
 
@@ -70,7 +71,10 @@ class _RiskCardOverride extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = RiskVisuals.forLevel(riskOverride.riskLevel);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(context, riskOverride.riskLevel);
+    final violet = palette.tertiary;
 
     return Semantics(
       container: true,
@@ -78,9 +82,9 @@ class _RiskCardOverride extends StatelessWidget {
           'Operator-set risk for ${riskOverride.city}: ${a.headline}, '
           '${riskOverride.disease}. Reason: ${riskOverride.reason}',
       child: _CardShell(
-        borderColor: AppColorsV2.violet.withValues(alpha: 0.4),
+        borderColor: violet.withValues(alpha: 0.4),
         gradient: LinearGradient(
-          colors: [AppColorsV2.violet.withValues(alpha: 0.12), a.fill],
+          colors: [violet.withValues(alpha: 0.12), a.fill],
           begin: const Alignment(-0.6, -1),
           end: const Alignment(0.6, 1),
         ),
@@ -92,7 +96,7 @@ class _RiskCardOverride extends StatelessWidget {
               children: [
                 Text(
                   '${riskOverride.city} · Today'.toUpperCase(),
-                  style: AppTextStylesV2.microLabel,
+                  style: _microLabel(context),
                 ),
                 const Spacer(),
                 const OverrideBadge(),
@@ -106,7 +110,10 @@ class _RiskCardOverride extends StatelessWidget {
                 Flexible(
                   child: Text(
                     a.headline,
-                    style: AppTextStylesV2.headline.copyWith(color: a.color),
+                    style: text.displaySmall?.copyWith(
+                      fontSize: 26,
+                      color: a.color,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -115,24 +122,24 @@ class _RiskCardOverride extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               '${riskOverride.disease} · set manually by an operator',
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textSecondary,
-              ),
+              style: text.bodyMedium?.copyWith(color: palette.textSecondary),
             ),
             const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   Icons.notes_rounded,
                   size: 13,
-                  color: AppColorsV2.textTertiary,
+                  color: palette.textTertiary,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     riskOverride.reason,
-                    style: AppTextStylesV2.caption,
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textTertiary,
+                    ),
                   ),
                 ),
               ],
@@ -142,9 +149,7 @@ class _RiskCardOverride extends StatelessWidget {
               Text(
                 'Automated model estimate: '
                 '${RiskVisuals.of(modelEstimate!.riskLevel, lowConfidence: modelEstimate!.lowConfidence).headline}',
-                style: AppTextStylesV2.caption.copyWith(
-                  color: AppColorsV2.textTertiary,
-                ),
+                style: text.bodySmall?.copyWith(color: palette.textTertiary),
               ),
             ],
           ],
@@ -181,15 +186,9 @@ class _CardShell extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           gradient: gradient,
-          color: gradient == null ? A11y.glassFill(context) : null,
+          color: gradient == null ? RiskSurface.fill(context) : null,
           border: Border.all(color: borderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 44,
-              offset: const Offset(0, 18),
-            ),
-          ],
+          boxShadow: context.fsmColors.shadows.strong,
         ),
         child: Stack(
           children: [
@@ -222,6 +221,13 @@ class _CardShell extends StatelessWidget {
   }
 }
 
+/// Uppercase tracked micro-label used across the risk card.
+TextStyle? _microLabel(BuildContext context) =>
+    context.fsmText.labelSmall?.copyWith(
+      letterSpacing: 1.2,
+      color: context.fsmPalette.textTertiary,
+    );
+
 // ── Data state ────────────────────────────────────────────────────────────────
 
 class _RiskCardData extends StatelessWidget {
@@ -231,7 +237,10 @@ class _RiskCardData extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = RiskVisuals.of(
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(
+      context,
       estimate.riskLevel,
       lowConfidence: estimate.lowConfidence,
     );
@@ -245,7 +254,7 @@ class _RiskCardData extends StatelessWidget {
       child: _CardShell(
         borderColor: a.border,
         gradient: LinearGradient(
-          colors: [a.fill, Colors.white.withValues(alpha: 0.04)],
+          colors: [a.fill, RiskSurface.fill(context)],
           begin: const Alignment(-0.6, -1),
           end: const Alignment(0.6, 1),
         ),
@@ -262,7 +271,7 @@ class _RiskCardData extends StatelessWidget {
                     children: [
                       Text(
                         '${estimate.city} · Today'.toUpperCase(),
-                        style: AppTextStylesV2.microLabel,
+                        style: _microLabel(context),
                       ),
                       const SizedBox(height: 6),
                       Row(
@@ -272,7 +281,8 @@ class _RiskCardData extends StatelessWidget {
                           Flexible(
                             child: Text(
                               a.headline,
-                              style: AppTextStylesV2.headline.copyWith(
+                              style: text.displaySmall?.copyWith(
+                                fontSize: 26,
                                 color: a.color,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -283,8 +293,8 @@ class _RiskCardData extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         _subtitle(estimate),
-                        style: AppTextStylesV2.body.copyWith(
-                          color: AppColorsV2.textSecondary,
+                        style: text.bodyMedium?.copyWith(
+                          color: palette.textSecondary,
                         ),
                       ),
                     ],
@@ -303,23 +313,23 @@ class _RiskCardData extends StatelessWidget {
                 Icon(
                   Icons.schedule_rounded,
                   size: 13,
-                  color: AppColorsV2.textTertiary,
+                  color: palette.textTertiary,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '$confidencePct% confidence · updated '
                     '${riskAgeLabel(estimate.generatedAt)}',
-                    style: AppTextStylesV2.caption,
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textTertiary,
+                    ),
                   ),
                 ),
                 ConfidenceMeter(confidence: estimate.confidence, width: 56),
               ],
             ),
             // Shared, self-guarding staleness notice (centralised threshold +
-            // visual): renders only when the estimate is out of date. Offline
-            // reads serve the last cached estimate, so a stale one is labelled
-            // honestly rather than silently looking current.
+            // visual): renders only when the estimate is out of date.
             RiskStalenessNotice(generatedAt: estimate.generatedAt),
           ],
         ),
@@ -357,9 +367,12 @@ class _RiskCardEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final violet = palette.tertiary;
     final where = (city != null && city!.isNotEmpty) ? city! : 'your city';
     return _CardShell(
-      borderColor: AppColorsV2.stroke,
+      borderColor: RiskSurface.stroke(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -367,22 +380,22 @@ class _RiskCardEmpty extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColorsV2.violet.withValues(alpha: 0.12),
+              color: violet.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(
               Icons.monitor_heart_outlined,
-              color: AppColorsV2.violet,
+              color: violet,
               size: 22,
             ),
           ),
           const SizedBox(height: 14),
-          Text('No risk data yet', style: AppTextStylesV2.cardTitle),
+          Text('No risk data yet', style: text.titleLarge),
           const SizedBox(height: 6),
           Text(
             "We don't have an environmental risk estimate for $where this "
             'week. New estimates arrive weekly — check back soon.',
-            style: AppTextStylesV2.body,
+            style: text.bodyMedium?.copyWith(color: palette.textSecondary),
           ),
         ],
       ),
@@ -399,13 +412,13 @@ class _RiskCardError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final error = palette.error;
     return _CardShell(
-      borderColor: RiskVisuals.high.border,
+      borderColor: RiskVisuals.resolve(context, RiskLevel.high).border,
       gradient: LinearGradient(
-        colors: [
-          AppColorsV2.riskHigh.withValues(alpha: 0.08),
-          AppColorsV2.glassFill,
-        ],
+        colors: [error.withValues(alpha: 0.08), RiskSurface.fill(context)],
         begin: const Alignment(-0.6, -1),
         end: const Alignment(0.6, 1),
       ),
@@ -414,19 +427,15 @@ class _RiskCardError extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.error_outline_rounded,
-                color: AppColorsV2.riskHigh,
-                size: 22,
-              ),
+              Icon(Icons.error_outline_rounded, color: error, size: 22),
               const SizedBox(width: 10),
-              Text("Couldn't load risk", style: AppTextStylesV2.cardTitle),
+              Text("Couldn't load risk", style: text.titleLarge),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'You may be offline. Pull the latest when your connection is back.',
-            style: AppTextStylesV2.body,
+            style: text.bodyMedium?.copyWith(color: palette.textSecondary),
           ),
           const SizedBox(height: 14),
           Align(
@@ -434,7 +443,7 @@ class _RiskCardError extends StatelessWidget {
             child: TextButton.icon(
               onPressed: onRetry,
               style: TextButton.styleFrom(
-                foregroundColor: AppColorsV2.teal,
+                foregroundColor: palette.primary,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
@@ -442,7 +451,7 @@ class _RiskCardError extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                   side: BorderSide(
-                    color: AppColorsV2.teal.withValues(alpha: 0.4),
+                    color: palette.primary.withValues(alpha: 0.4),
                   ),
                 ),
               ),
@@ -463,9 +472,9 @@ class _RiskCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _CardShell(
-      borderColor: AppColorsV2.stroke,
-      child: AppSkeleton(
+    return _CardShell(
+      borderColor: RiskSurface.stroke(context),
+      child: const AppSkeleton(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

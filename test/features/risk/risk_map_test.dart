@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -109,7 +109,7 @@ void main() {
       expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
       expect(
         tester.widget<Text>(find.text('High')).style?.color,
-        AppColorsV2.riskHigh,
+        tester.element(find.byType(CityDetailSheet)).fsmPalette.error,
       );
     });
 

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
@@ -15,13 +15,14 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_legend.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
 /// National risk map (Sprint 3, Prompt 4): one **colored zone per city** (a
-/// circle, never a density heatmap) over a dark Google Map, tappable to a
-/// detail sheet, with a colorblind-safe legend. Bound live to
-/// [allCitiesRiskProvider]; handles loading / empty / error states.
+/// circle, never a density heatmap) over a Google Map that follows the app
+/// theme, tappable to a detail sheet, with a colorblind-safe legend. Bound live
+/// to [allCitiesRiskProvider]; handles loading / empty / error states.
 class RiskMapScreen extends ConsumerStatefulWidget {
   const RiskMapScreen({super.key});
 
@@ -40,20 +41,21 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final async = ref.watch(allCitiesRiskProvider);
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
-        title: Text('National Risk Map', style: AppTextStylesV2.cardTitle),
+        title: Text('National Risk Map', style: context.fsmText.titleLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded),
@@ -101,7 +103,8 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
         Positioned.fill(
           child: GoogleMap(
             initialCameraPosition: _initialCamera,
-            style: _kDarkMapStyle,
+            // Deep-space style in dark mode; the default light map otherwise.
+            style: context.fsmPalette.isDark ? _kDarkMapStyle : null,
             circles: _circlesFor(estimates),
             markers: _markersFor(estimates),
             myLocationButtonEnabled: false,
@@ -191,7 +194,7 @@ int _score(RiskEstimateModel e) => switch (e.riskLevel) {
 
 /// Marker hue approximating the risk appearance (markers can't take an exact
 /// colour). Uncertain (low-confidence) maps to azure to stand apart from the
-/// three risk hues.
+/// three risk hues. Uses the static [RiskVisuals] identities.
 double riskMarkerHue(RiskAppearance a) {
   if (identical(a, RiskVisuals.high)) return BitmapDescriptor.hueRed;
   if (identical(a, RiskVisuals.medium)) return BitmapDescriptor.hueOrange;
@@ -213,7 +216,10 @@ class CityDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final a = RiskVisuals.of(
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(
+      context,
       estimate.riskLevel,
       lowConfidence: estimate.lowConfidence,
     );
@@ -223,16 +229,10 @@ class CityDetailSheet extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 12, 22, 26),
       decoration: BoxDecoration(
-        color: AppColorsV2.shellRaised.withValues(alpha: 0.92),
+        color: palette.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: AppColorsV2.stroke),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 40,
-            offset: const Offset(0, -10),
-          ),
-        ],
+        border: Border.all(color: RiskSurface.stroke(context)),
+        boxShadow: context.fsmColors.shadows.strong,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -242,7 +242,7 @@ class CityDetailSheet extends ConsumerWidget {
             height: 4,
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.22),
+              color: palette.onSurfaceVariant.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
@@ -252,14 +252,19 @@ class CityDetailSheet extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(estimate.city, style: AppTextStylesV2.cardTitle),
+                    Text(estimate.city, style: text.titleLarge),
                     const SizedBox(height: 2),
-                    Text(estimate.disease, style: AppTextStylesV2.caption),
+                    Text(
+                      estimate.disease,
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textTertiary,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       'Updated ${riskAgeLabel(estimate.generatedAt)}',
-                      style: AppTextStylesV2.caption.copyWith(
-                        color: AppColorsV2.textFaint,
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textTertiary,
                       ),
                     ),
                   ],
@@ -283,7 +288,7 @@ class CityDetailSheet extends ConsumerWidget {
                     const SizedBox(width: 6),
                     Text(
                       a.label,
-                      style: AppTextStylesV2.caption.copyWith(
+                      style: text.bodySmall?.copyWith(
                         color: a.color,
                         fontWeight: FontWeight.w700,
                       ),
@@ -307,7 +312,7 @@ class CityDetailSheet extends ConsumerWidget {
               child: TextButton.icon(
                 onPressed: () => context.push('/risk-details'),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColorsV2.teal,
+                  foregroundColor: palette.primary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 10,
@@ -316,7 +321,7 @@ class CityDetailSheet extends ConsumerWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                     side: BorderSide(
-                      color: AppColorsV2.teal.withValues(alpha: 0.4),
+                      color: palette.primary.withValues(alpha: 0.4),
                     ),
                   ),
                 ),
@@ -331,7 +336,7 @@ class CityDetailSheet extends ConsumerWidget {
   }
 }
 
-// A dark Google Map style so the map matches the v2 deep-space shell.
+// A dark Google Map style so the map matches the v2 deep-space shell (dark mode).
 const String _kDarkMapStyle = '''
 [
   {"elementType":"geometry","stylers":[{"color":"#0b1120"}]},

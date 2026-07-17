@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// Dashboard card surfacing **supportive** adherence insights (Prompt 7).
 ///
@@ -54,28 +56,39 @@ class _InsightsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.favorite_outline_rounded,
                 size: 18,
-                color: AppColorsV2.teal,
+                color: palette.primary,
               ),
               const SizedBox(width: 8),
-              Text('ADHERENCE INSIGHTS', style: AppTextStylesV2.microLabel),
+              Text(
+                'ADHERENCE INSIGHTS',
+                style: text.labelSmall?.copyWith(
+                  letterSpacing: 1.2,
+                  color: palette.textTertiary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             insights.headline,
-            style: AppTextStylesV2.cardTitle.copyWith(fontSize: 17),
+            style: text.titleMedium?.copyWith(fontSize: 17),
           ),
           const SizedBox(height: 6),
-          Text(insights.supportiveMessage, style: AppTextStylesV2.body),
+          Text(
+            insights.supportiveMessage,
+            style: text.bodyMedium?.copyWith(color: palette.textSecondary),
+          ),
           if (insights.hasData) ...[
             const SizedBox(height: 14),
             Wrap(
@@ -127,17 +140,19 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColorsV2.shellRaised.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColorsV2.strokeSoft),
+        color: palette.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        border: Border.all(color: palette.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: AppColorsV2.teal),
+          Icon(icon, size: 16, color: palette.primary),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,15 +160,17 @@ class _StatChip extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: AppTextStylesV2.caption.copyWith(fontSize: 10),
+                style: text.labelSmall?.copyWith(
+                  fontSize: 10,
+                  color: palette.textTertiary,
+                ),
               ),
               const SizedBox(height: 1),
               Text(
                 value,
-                style: AppTextStylesV2.body.copyWith(
-                  color: AppColorsV2.textPrimary,
+                style: text.bodyMedium?.copyWith(
+                  color: palette.textPrimary,
                   fontWeight: FontWeight.w700,
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -164,7 +181,7 @@ class _StatChip extends StatelessWidget {
   }
 }
 
-/// Shared glass shell matching the Sprint 3 v2 surfaces.
+/// Shared glass shell matching the risk surfaces.
 class _CardShell extends StatelessWidget {
   final Widget child;
   const _CardShell({required this.child});
@@ -174,11 +191,7 @@ class _CardShell extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: RiskSurface.card(context),
       child: child,
     );
   }

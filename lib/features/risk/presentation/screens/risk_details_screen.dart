@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/a11y.dart';
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
@@ -26,14 +26,14 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_mete
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/environment_tiles.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
 
-/// Premium Risk Details analytics screen (matches `docs/ui sprint 3/Risk
-/// details.png`). Pure presentation — composes existing providers only
-/// ([currentCityRiskProvider], [currentCityRiskHistoryProvider],
+/// Premium Risk Details analytics screen. Pure presentation — composes existing
+/// providers only ([currentCityRiskProvider], [currentCityRiskHistoryProvider],
 /// [riskTrendProvider], [currentRecommendationProvider]); no Firestore, no
 /// business logic here. Historical points are real Firestore estimates —
 /// never fabricated; too little history degrades to an informative empty state.
@@ -42,23 +42,24 @@ class RiskDetailsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final riskAsync = ref.watch(currentCityRiskProvider);
     // An active operator override (Prompt 13) is surfaced as a prominent banner
     // above the model detail — never applied silently.
     final override = ref.watch(currentCityOverrideProvider).asData?.value;
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Risk Details', style: AppTextStylesV2.cardTitle),
+        title: Text('Risk Details', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: Column(
@@ -236,7 +237,10 @@ class _HeroCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final a = RiskVisuals.of(
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(
+      context,
       estimate.riskLevel,
       lowConfidence: estimate.lowConfidence,
     );
@@ -253,7 +257,7 @@ class _HeroCard extends ConsumerWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
-              colors: [a.fill, Colors.white.withValues(alpha: 0.03)],
+              colors: [a.fill, RiskSurface.fill(context)],
               begin: const Alignment(-0.6, -1),
               end: const Alignment(0.5, 1),
             ),
@@ -300,7 +304,7 @@ class _HeroCard extends ConsumerWidget {
                     const SizedBox(height: 14),
                     Text(
                       a.headline,
-                      style: AppTextStylesV2.headline.copyWith(
+                      style: text.displaySmall?.copyWith(
                         color: a.color,
                         fontSize: 30,
                       ),
@@ -309,8 +313,8 @@ class _HeroCard extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Text(
                       '${estimate.city} · ${estimate.disease}',
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textSecondary,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textSecondary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -331,8 +335,8 @@ class _HeroCard extends ConsumerWidget {
                     // recency so the headline is never read as "right now".
                     Text(
                       'Updated ${riskAgeLabel(estimate.generatedAt)}',
-                      style: AppTextStylesV2.caption.copyWith(
-                        color: AppColorsV2.textTertiary,
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textTertiary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -353,30 +357,31 @@ class _ConfidenceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Semantics(
       label: '$percent percent confidence',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: AppColorsV2.textSecondary.withValues(alpha: 0.12),
+          color: palette.textSecondary.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: AppColorsV2.textSecondary.withValues(alpha: 0.3),
+            color: palette.textSecondary.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.verified_outlined,
               size: 13,
-              color: AppColorsV2.textSecondary,
+              color: palette.textSecondary,
             ),
             const SizedBox(width: 5),
             Text(
               '$percent% confidence',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.textSecondary,
+              style: context.fsmText.bodySmall?.copyWith(
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -394,6 +399,7 @@ class _TrendChartCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final historyAsync = ref.watch(currentCityRiskHistoryProvider);
     final trend =
         ref.watch(riskTrendProvider).value ?? TrendDirection.insufficient;
@@ -404,12 +410,18 @@ class _TrendChartCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('RISK TREND', style: AppTextStylesV2.microLabel),
+              Text(
+                'RISK TREND',
+                style: context.fsmText.labelSmall?.copyWith(
+                  letterSpacing: 1.2,
+                  color: palette.textTertiary,
+                ),
+              ),
               const Spacer(),
               Text(
                 'Risk index',
-                style: AppTextStylesV2.caption.copyWith(
-                  color: AppColorsV2.textFaint,
+                style: context.fsmText.bodySmall?.copyWith(
+                  color: palette.textTertiary,
                 ),
               ),
             ],
@@ -424,10 +436,11 @@ class _TrendChartCard extends ConsumerWidget {
               if (history.length < 2) return const _NoTrendView();
               final ordered = [...history]
                 ..sort((a, b) => a.generatedAt.compareTo(b.generatedAt));
-              final color = RiskVisuals.of(
+              final color = RiskVisuals.colorOf(
+                context,
                 ordered.last.riskLevel,
                 lowConfidence: ordered.last.lowConfidence,
-              ).color;
+              );
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -460,46 +473,47 @@ class _TrendSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final colors = context.fsmColors;
     final (IconData icon, Color color, String verb) = switch (direction) {
       TrendDirection.rising => (
         Icons.trending_up_rounded,
-        AppColorsV2.riskHigh,
+        palette.error,
         'Rising',
       ),
       TrendDirection.falling => (
         Icons.trending_down_rounded,
-        AppColorsV2.riskLow,
+        colors.success,
         'Improving',
       ),
       TrendDirection.stable => (
         Icons.trending_flat_rounded,
-        AppColorsV2.riskMedium,
+        colors.warning,
         'Stable',
       ),
       TrendDirection.insufficient => (
         Icons.remove_rounded,
-        AppColorsV2.riskUncertain,
+        palette.onSurfaceVariant,
         'Not enough data',
       ),
     };
 
-    final text = direction == TrendDirection.insufficient
+    final label = direction == TrendDirection.insufficient
         ? verb
         : '$verb over the $spanText';
 
     return Semantics(
-      label: 'Trend: $text',
+      label: 'Trend: $label',
       child: Row(
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 7),
           Flexible(
             child: Text(
-              text,
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textPrimary,
+              label,
+              style: context.fsmText.bodyMedium?.copyWith(
+                color: palette.textPrimary,
                 fontWeight: FontWeight.w700,
-                fontSize: 14,
               ),
             ),
           ),
@@ -516,22 +530,24 @@ class _NoTrendView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return SizedBox(
       height: 172,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.show_chart_rounded,
               size: 44,
-              color: AppColorsV2.textTertiary,
+              color: palette.textTertiary,
             ),
             const SizedBox(height: 12),
             Text(
               'No historical trend available yet.',
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textSecondary,
+              style: text.bodyMedium?.copyWith(
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
@@ -540,7 +556,7 @@ class _NoTrendView extends StatelessWidget {
             Text(
               'A trend appears once a few weekly estimates have been recorded '
               'for your city.',
-              style: AppTextStylesV2.caption,
+              style: text.bodySmall?.copyWith(color: palette.textTertiary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -556,26 +572,27 @@ class _ChartError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return SizedBox(
       height: 172,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.cloud_off_rounded,
               size: 40,
-              color: AppColorsV2.textTertiary,
+              color: palette.textTertiary,
             ),
             const SizedBox(height: 10),
-            Text("Couldn't load the trend", style: AppTextStylesV2.body),
+            Text("Couldn't load the trend", style: context.fsmText.bodyMedium),
             const SizedBox(height: 12),
             TextButton.icon(
               onPressed: onRetry,
               style: TextButton.styleFrom(
-                foregroundColor: AppColorsV2.teal,
+                foregroundColor: palette.primary,
                 side: BorderSide(
-                  color: AppColorsV2.teal.withValues(alpha: 0.4),
+                  color: palette.primary.withValues(alpha: 0.4),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -611,7 +628,7 @@ class _AnalyticsRow extends StatelessWidget {
           Expanded(
             child: _AnalyticsCard(
               icon: _driverIcon(driver.kind),
-              iconColor: AppColorsV2.blue,
+              iconColor: context.fsmColors.info,
               label: 'Primary driver',
               value: driver.label,
               detail: driver.value,
@@ -621,7 +638,7 @@ class _AnalyticsRow extends StatelessWidget {
           Expanded(
             child: _AnalyticsCard(
               icon: Icons.verified_outlined,
-              iconColor: AppColorsV2.teal,
+              iconColor: context.fsmPalette.primary,
               label: 'Confidence',
               value: '$confidencePct%',
             ),
@@ -655,6 +672,8 @@ class _AnalyticsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Semantics(
       label: detail != null ? '$label: $value $detail' : '$label: $value',
       child: _GlassCard(
@@ -666,12 +685,18 @@ class _AnalyticsCard extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
               ),
               child: Icon(icon, size: 18, color: iconColor),
             ),
             const SizedBox(height: 12),
-            Text(label, style: AppTextStylesV2.microLabel),
+            Text(
+              label,
+              style: text.labelSmall?.copyWith(
+                letterSpacing: 1.2,
+                color: palette.textTertiary,
+              ),
+            ),
             const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -680,7 +705,7 @@ class _AnalyticsCard extends StatelessWidget {
                 Flexible(
                   child: Text(
                     value,
-                    style: AppTextStylesV2.cardTitle.copyWith(fontSize: 18),
+                    style: text.titleLarge,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -688,10 +713,9 @@ class _AnalyticsCard extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '· $detail',
-                    style: AppTextStylesV2.body.copyWith(
-                      color: AppColorsV2.textSecondary,
+                    style: text.bodyMedium?.copyWith(
+                      color: palette.textSecondary,
                       fontWeight: FontWeight.w600,
-                      fontSize: 14,
                     ),
                   ),
                 ],
@@ -726,54 +750,54 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final primary = palette.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColorsV2.teal.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.3)),
+        color: primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
+        border: Border.all(color: primary.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.health_and_safety_outlined,
                 size: 18,
-                color: AppColorsV2.teal,
+                color: primary,
               ),
               const SizedBox(width: 8),
               Text(
                 'What you can do',
-                style: AppTextStylesV2.cardTitle.copyWith(
-                  color: AppColorsV2.teal,
-                  fontSize: 16,
-                ),
+                style: text.titleMedium?.copyWith(color: primary),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
             recommendation.text,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textPrimary,
-            ),
+            style: text.bodyMedium?.copyWith(color: palette.textPrimary),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.verified_outlined,
                 size: 13,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Source: ${recommendation.source}',
-                  style: AppTextStylesV2.caption,
+                  style: text.bodySmall?.copyWith(
+                    color: palette.textTertiary,
+                  ),
                 ),
               ),
             ],
@@ -796,15 +820,11 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Reduced-transparency fallback: opaque fill + stronger stroke (audit M4).
+    // Reduced-transparency fallback handled centrally by RiskSurface (audit M4).
     return Container(
       width: double.infinity,
       padding: padding,
-      decoration: BoxDecoration(
-        color: A11y.glassFill(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: A11y.stroke(context)),
-      ),
+      decoration: RiskSurface.card(context),
       child: child,
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
@@ -14,6 +14,7 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/health_profil
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_comparison_service.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
@@ -39,23 +40,24 @@ class _ComparisonScreenState extends ConsumerState<ComparisonScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final defaultCity =
         _selectedCity ??
         ref.watch(userCityProvider).asData?.value ??
         kSupportedCities.first;
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Compare', style: AppTextStylesV2.cardTitle),
+        title: Text('Compare', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: Column(
@@ -100,21 +102,18 @@ class _ViewToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: RiskSurface.card(context, radius: 999),
       child: Row(
         children: [
-          _segment('Cities', _View.cities),
-          _segment('Diseases', _View.diseases),
+          _segment(context, 'Cities', _View.cities),
+          _segment(context, 'Diseases', _View.diseases),
         ],
       ),
     );
   }
 
-  Widget _segment(String label, _View value) {
+  Widget _segment(BuildContext context, String label, _View value) {
+    final palette = context.fsmPalette;
     final selected = view == value;
     return Expanded(
       child: Semantics(
@@ -127,19 +126,21 @@ class _ViewToggle extends StatelessWidget {
             duration: const Duration(milliseconds: 180),
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: selected ? AppColorsV2.teal.withValues(alpha: 0.18) : null,
+              color: selected
+                  ? palette.primary.withValues(alpha: 0.18)
+                  : null,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
                 color: selected
-                    ? AppColorsV2.teal.withValues(alpha: 0.5)
+                    ? palette.primary.withValues(alpha: 0.5)
                     : Colors.transparent,
               ),
             ),
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: AppTextStylesV2.body.copyWith(
-                color: selected ? AppColorsV2.teal : AppColorsV2.textSecondary,
+              style: context.fsmText.bodyMedium?.copyWith(
+                color: selected ? palette.primary : palette.textSecondary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -157,6 +158,7 @@ class _CitiesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final async = ref.watch(allCitiesRiskProvider);
     return async.when(
       loading: () => const _BarsSkeleton(),
@@ -190,7 +192,9 @@ class _CitiesView extends ConsumerWidget {
           children: [
             Text(
               'Latest environmental risk across cities, most severe first.',
-              style: AppTextStylesV2.body,
+              style: context.fsmText.bodyMedium?.copyWith(
+                color: palette.textSecondary,
+              ),
             ),
             RiskStalenessNotice(generatedAt: newest, topGap: 12),
             const SizedBox(height: 14),
@@ -220,6 +224,7 @@ class _DiseasesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final async = ref.watch(cityDiseaseSummaryProvider(city));
     return Column(
       children: [
@@ -255,7 +260,9 @@ class _DiseasesView extends ConsumerWidget {
                   Text(
                     'Diseases $city has faced over recent weeks, most severe '
                     'first.',
-                    style: AppTextStylesV2.body,
+                    style: context.fsmText.bodyMedium?.copyWith(
+                      color: palette.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   for (final s in summaries)
@@ -320,6 +327,7 @@ class _CityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Semantics(
       button: true,
       selected: selected,
@@ -330,19 +338,19 @@ class _CityChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: selected
-                ? AppColorsV2.teal.withValues(alpha: 0.18)
-                : AppColorsV2.glassFill,
+                ? palette.primary.withValues(alpha: 0.18)
+                : RiskSurface.fill(context),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected
-                  ? AppColorsV2.teal.withValues(alpha: 0.5)
-                  : AppColorsV2.stroke,
+                  ? palette.primary.withValues(alpha: 0.5)
+                  : RiskSurface.stroke(context),
             ),
           ),
           child: Text(
             label,
-            style: AppTextStylesV2.caption.copyWith(
-              color: selected ? AppColorsV2.teal : AppColorsV2.textSecondary,
+            style: context.fsmText.bodySmall?.copyWith(
+              color: selected ? palette.primary : palette.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -369,7 +377,9 @@ class _ComparisonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = RiskVisuals.of(level, lowConfidence: lowConfidence);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(context, level, lowConfidence: lowConfidence);
     return Semantics(
       container: true,
       label: '$title, $subtitle: ${a.label} risk',
@@ -381,8 +391,8 @@ class _ComparisonRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: AppTextStylesV2.body.copyWith(
-                    color: AppColorsV2.textPrimary,
+                  style: text.bodyMedium?.copyWith(
+                    color: palette.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -392,7 +402,7 @@ class _ComparisonRow extends StatelessWidget {
               const SizedBox(width: 5),
               Text(
                 a.label,
-                style: AppTextStylesV2.caption.copyWith(
+                style: text.bodySmall?.copyWith(
                   color: a.color,
                   fontWeight: FontWeight.w700,
                 ),
@@ -402,7 +412,10 @@ class _ComparisonRow extends StatelessWidget {
           const SizedBox(height: 6),
           _Bar(fraction: severityFraction(level), color: a.color),
           const SizedBox(height: 4),
-          Text(subtitle, style: AppTextStylesV2.caption),
+          Text(
+            subtitle,
+            style: text.bodySmall?.copyWith(color: palette.textTertiary),
+          ),
         ],
       ),
     );
@@ -416,13 +429,14 @@ class _Bar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final track = context.fsmPalette.surfaceContainerHighest;
     return LayoutBuilder(
       builder: (context, constraints) {
         return ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: Stack(
             children: [
-              Container(height: 10, color: AppColorsV2.stroke),
+              Container(height: 10, color: track),
               Container(
                 height: 10,
                 width: constraints.maxWidth * fraction,

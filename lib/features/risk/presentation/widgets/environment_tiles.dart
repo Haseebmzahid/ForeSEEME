@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/a11y.dart';
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/aqi_band.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// Two always-visible environment tiles — AQI and weather — sourced directly
 /// from the estimate's stored feature values (Playbook M-1 item 6). Unlike the
@@ -17,7 +18,7 @@ class EnvironmentTiles extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final band = aqiBandFor(estimate.aqi);
-    final bandColor = _aqiBandColor(band);
+    final bandColor = _aqiBandColor(context, band);
 
     return IntrinsicHeight(
       child: Row(
@@ -46,7 +47,7 @@ class EnvironmentTiles extends StatelessWidget {
                   '${estimate.humidity.round()} percent humidity',
               child: _EnvTile(
                 icon: Icons.thermostat_rounded,
-                iconColor: AppColorsV2.blue,
+                iconColor: context.fsmColors.info,
                 label: 'WEATHER',
                 value: '${estimate.temperature.round()}°C',
                 bandLabel: '${estimate.humidity.round()}% humidity',
@@ -58,14 +59,18 @@ class EnvironmentTiles extends StatelessWidget {
     );
   }
 
-  /// Reuses the single three-tier risk color vocabulary — never a new hue —
-  /// so AQI severity reads consistently with the rest of the risk surfaces.
-  Color _aqiBandColor(AqiBand band) => switch (band) {
-    AqiBand.good || AqiBand.moderate => AppColorsV2.riskLow,
-    AqiBand.unhealthyForSensitiveGroups ||
-    AqiBand.unhealthy => AppColorsV2.riskMedium,
-    AqiBand.veryUnhealthy || AqiBand.hazardous => AppColorsV2.riskHigh,
-  };
+  /// Reuses the semantic three-tier vocabulary from the active theme — never a
+  /// new hue — so AQI severity reads consistently with the rest of the risk
+  /// surfaces (good→success, unhealthy→warning, hazardous→error).
+  Color _aqiBandColor(BuildContext context, AqiBand band) {
+    final colors = context.fsmColors;
+    return switch (band) {
+      AqiBand.good || AqiBand.moderate => colors.success,
+      AqiBand.unhealthyForSensitiveGroups ||
+      AqiBand.unhealthy => colors.warning,
+      AqiBand.veryUnhealthy || AqiBand.hazardous => context.fsmPalette.error,
+    };
+  }
 }
 
 class _EnvTile extends StatelessWidget {
@@ -87,14 +92,12 @@ class _EnvTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: A11y.glassFill(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: A11y.stroke(context)),
-      ),
+      decoration: RiskSurface.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -102,23 +105,29 @@ class _EnvTile extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: iconColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
             ),
             child: Icon(icon, size: 18, color: iconColor),
           ),
           const SizedBox(height: 12),
-          Text(label, style: AppTextStylesV2.microLabel),
+          Text(
+            label,
+            style: text.labelSmall?.copyWith(
+              letterSpacing: 1.2,
+              color: palette.textTertiary,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: AppTextStylesV2.cardTitle.copyWith(fontSize: 18),
+            style: text.titleLarge,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
             bandLabel,
-            style: AppTextStylesV2.caption.copyWith(
-              color: bandColor ?? AppColorsV2.textSecondary,
+            style: text.bodySmall?.copyWith(
+              color: bandColor ?? palette.textSecondary,
               fontWeight: bandColor != null ? FontWeight.w700 : FontWeight.w500,
             ),
             overflow: TextOverflow.ellipsis,

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/explanation_templater.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_explanation.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// The "Why this prediction?" trust surface (Sprint 5, Prompt 6).
 ///
@@ -38,34 +40,39 @@ class _Explanation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.psychology_outlined,
               size: 18,
-              color: AppColorsV2.violet,
+              color: palette.tertiary,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 view.title,
-                style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                style: text.titleMedium,
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        Text(view.lead, style: AppTextStylesV2.body),
+        Text(
+          view.lead,
+          style: text.bodyMedium?.copyWith(color: palette.textSecondary),
+        ),
         const SizedBox(height: 14),
         for (final driver in view.drivers) ...[
           _DriverRow(driver: driver),
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 2),
-        const Divider(height: 1, color: AppColorsV2.stroke),
+        Divider(height: 1, color: palette.outlineVariant),
         const SizedBox(height: 14),
         ConfidenceExplanation(
           strength: view.strength,
@@ -74,18 +81,16 @@ class _Explanation extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            const Icon(
+            Icon(
               Icons.auto_awesome_outlined,
               size: 12,
-              color: AppColorsV2.textFaint,
+              color: palette.textTertiary,
             ),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 view.provenanceNote,
-                style: AppTextStylesV2.caption.copyWith(
-                  color: AppColorsV2.textFaint,
-                ),
+                style: text.bodySmall?.copyWith(color: palette.textTertiary),
               ),
             ),
           ],
@@ -104,8 +109,12 @@ class _DriverRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final increases = driver.direction == ContributionDirection.increases;
-    final color = increases ? AppColorsV2.riskHigh : AppColorsV2.riskLow;
+    final color = increases
+        ? context.fsmPalette.error
+        : context.fsmColors.success;
     final icon = increases
         ? Icons.arrow_upward_rounded
         : Icons.arrow_downward_rounded;
@@ -121,7 +130,7 @@ class _DriverRow extends StatelessWidget {
             height: 26,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
             ),
             child: Icon(icon, size: 15, color: color),
           ),
@@ -129,8 +138,8 @@ class _DriverRow extends StatelessWidget {
           Expanded(
             child: Text(
               driver.label,
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textPrimary,
+              style: text.bodyMedium?.copyWith(
+                color: palette.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -139,8 +148,8 @@ class _DriverRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               driver.valueText,
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.textSecondary,
+              style: text.bodySmall?.copyWith(
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -158,15 +167,17 @@ class _Unavailable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Semantics(
       label: 'A detailed explanation is not available for this estimate.',
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             Icons.info_outline_rounded,
             size: 18,
-            color: AppColorsV2.textTertiary,
+            color: palette.textTertiary,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -175,13 +186,15 @@ class _Unavailable extends StatelessWidget {
               children: [
                 Text(
                   ExplanationTemplater.title,
-                  style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                  style: text.titleMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "A detailed explanation isn't available for this estimate yet. "
                   'Newer weekly estimates include the drivers behind the risk.',
-                  style: AppTextStylesV2.body,
+                  style: text.bodyMedium?.copyWith(
+                    color: palette.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -203,11 +216,7 @@ class _PanelShell extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: RiskSurface.card(context),
       child: child,
     );
   }

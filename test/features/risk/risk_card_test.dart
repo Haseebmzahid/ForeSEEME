@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
@@ -54,6 +55,10 @@ Future<void> pumpScope(
 Color? headlineColor(WidgetTester tester, String text) =>
     tester.widget<Text>(find.text(text)).style?.color;
 
+/// The ambient design-system tokens the card resolves its risk colour from.
+BuildContext _ctx(WidgetTester tester) =>
+    tester.element(find.byType(RiskCard));
+
 void main() {
   group('RiskCard data states', () {
     testWidgets('High shows label + triangle icon + risk colour', (
@@ -75,7 +80,7 @@ void main() {
       expect(find.text('High Risk'), findsOneWidget);
       expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
       expect(find.textContaining('89% confidence'), findsOneWidget);
-      expect(headlineColor(tester, 'High Risk'), AppColorsV2.riskHigh);
+      expect(headlineColor(tester, 'High Risk'), _ctx(tester).fsmPalette.error);
     });
 
     testWidgets('Medium shows label + caution icon + risk colour', (
@@ -96,7 +101,7 @@ void main() {
 
       expect(find.text('Medium Risk'), findsOneWidget);
       expect(find.byIcon(Icons.priority_high_rounded), findsOneWidget);
-      expect(headlineColor(tester, 'Medium Risk'), AppColorsV2.riskMedium);
+      expect(headlineColor(tester, 'Medium Risk'), _ctx(tester).fsmColors.warning);
     });
 
     testWidgets('Low shows label + check icon + risk colour', (tester) async {
@@ -115,7 +120,7 @@ void main() {
 
       expect(find.text('Low Risk'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline_rounded), findsOneWidget);
-      expect(headlineColor(tester, 'Low Risk'), AppColorsV2.riskLow);
+      expect(headlineColor(tester, 'Low Risk'), _ctx(tester).fsmColors.success);
     });
 
     testWidgets('low-confidence renders the grey uncertainty treatment', (
@@ -141,7 +146,10 @@ void main() {
       expect(find.byIcon(Icons.help_outline_rounded), findsOneWidget);
       expect(find.text('High Risk'), findsNothing);
       expect(find.textContaining('low confidence'), findsOneWidget);
-      expect(headlineColor(tester, 'Uncertain'), AppColorsV2.riskUncertain);
+      expect(
+        headlineColor(tester, 'Uncertain'),
+        _ctx(tester).fsmPalette.onSurfaceVariant,
+      );
     });
   });
 

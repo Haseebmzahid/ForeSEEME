@@ -1,38 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 
 /// Colorblind-safe key mapping each risk colour to its icon + label.
 ///
 /// Reusable across Sprint 3 surfaces (national risk map, accessibility audit).
 /// Each row pairs the level colour with its distinct icon and text, so the key
-/// reads correctly without relying on colour.
+/// reads correctly without relying on colour. Colours are resolved from the
+/// active theme (brightness-aware).
 class RiskLegend extends StatelessWidget {
   /// Lay the levels out in a row (default) or a column.
   final Axis direction;
 
   const RiskLegend({super.key, this.direction = Axis.horizontal});
 
+  static const List<RiskLevel> _levels = [
+    RiskLevel.low,
+    RiskLevel.medium,
+    RiskLevel.high,
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final rows = [
-      for (final a in RiskVisuals.levels) _LegendRow(appearance: a),
-    ];
+    final rows = [for (final level in _levels) _LegendRow(level: level)];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColorsV2.shellRaised.withValues(alpha: 0.66),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: RiskSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text('RISK LEVEL', style: AppTextStylesV2.microLabel),
+            child: Text(
+              'RISK LEVEL',
+              style: context.fsmText.labelSmall?.copyWith(
+                letterSpacing: 1.2,
+                color: context.fsmPalette.textTertiary,
+              ),
+            ),
           ),
           if (direction == Axis.horizontal)
             Wrap(spacing: 16, runSpacing: 8, children: rows)
@@ -54,22 +64,22 @@ class RiskLegend extends StatelessWidget {
 }
 
 class _LegendRow extends StatelessWidget {
-  final RiskAppearance appearance;
+  final RiskLevel level;
 
-  const _LegendRow({required this.appearance});
+  const _LegendRow({required this.level});
 
   @override
   Widget build(BuildContext context) {
+    final a = RiskVisuals.resolve(context, level);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(appearance.icon, size: 15, color: appearance.color),
+        Icon(a.icon, size: 15, color: a.color),
         const SizedBox(width: 7),
         Text(
-          appearance.label,
-          style: AppTextStylesV2.body.copyWith(
-            color: AppColorsV2.textPrimary,
-            fontSize: 12,
+          a.label,
+          style: context.fsmText.bodySmall?.copyWith(
+            color: context.fsmPalette.textPrimary,
           ),
         ),
       ],

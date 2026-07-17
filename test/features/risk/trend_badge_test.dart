@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
 
@@ -18,26 +18,30 @@ Future<void> pumpBadge(WidgetTester tester, TrendDirection d) async {
 Color? labelColor(WidgetTester tester, String text) =>
     tester.widget<Text>(find.text(text)).style?.color;
 
+/// The ambient design-system tokens the badge resolves its colour from.
+BuildContext _ctx(WidgetTester tester) =>
+    tester.element(find.byType(TrendBadge));
+
 void main() {
   testWidgets('rising: up arrow + label + high colour', (tester) async {
     await pumpBadge(tester, TrendDirection.rising);
     expect(find.text('Rising'), findsOneWidget);
     expect(find.byIcon(Icons.trending_up_rounded), findsOneWidget);
-    expect(labelColor(tester, 'Rising'), AppColorsV2.riskHigh);
+    expect(labelColor(tester, 'Rising'), _ctx(tester).fsmPalette.error);
   });
 
   testWidgets('stable: flat arrow + label + medium colour', (tester) async {
     await pumpBadge(tester, TrendDirection.stable);
     expect(find.text('Stable'), findsOneWidget);
     expect(find.byIcon(Icons.trending_flat_rounded), findsOneWidget);
-    expect(labelColor(tester, 'Stable'), AppColorsV2.riskMedium);
+    expect(labelColor(tester, 'Stable'), _ctx(tester).fsmColors.warning);
   });
 
   testWidgets('falling: down arrow + label + low colour', (tester) async {
     await pumpBadge(tester, TrendDirection.falling);
     expect(find.text('Falling'), findsOneWidget);
     expect(find.byIcon(Icons.trending_down_rounded), findsOneWidget);
-    expect(labelColor(tester, 'Falling'), AppColorsV2.riskLow);
+    expect(labelColor(tester, 'Falling'), _ctx(tester).fsmColors.success);
   });
 
   testWidgets(
@@ -48,7 +52,7 @@ void main() {
       expect(find.text('—'), findsOneWidget);
       expect(
         labelColor(tester, 'Insufficient data'),
-        AppColorsV2.riskUncertain,
+        _ctx(tester).fsmPalette.onSurfaceVariant,
       );
 
       // No directional arrow may be shown for insufficient history.

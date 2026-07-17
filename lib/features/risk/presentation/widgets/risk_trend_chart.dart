@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 
 /// Premium "Risk index" trend line for the Risk Details screen.
@@ -10,8 +10,8 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 /// High=2 per point) — it never fabricates points; the curve is purely visual
 /// smoothing between real values. Features: smooth curve, gradient fill, rounded
 /// caps, a subtle grid, relative day/week x-labels, a touch tooltip, and an
-/// animated draw on open that respects the reduced-motion setting. Dark-theme
-/// native (Design System v2).
+/// animated draw on open that respects the reduced-motion setting. Colours are
+/// resolved from the active theme (brightness-aware).
 class RiskTrendChart extends StatelessWidget {
   /// Trailing history (any order; sorted ascending internally). Must have ≥2
   /// points — the caller shows an empty state otherwise.
@@ -59,7 +59,7 @@ class RiskTrendChart extends StatelessWidget {
           builder: (context, t, _) {
             final spots = [for (final s in realSpots) FlSpot(s.x, s.y * t)];
             return LineChart(
-              _data(spots, ordered, labels),
+              _data(context, spots, ordered, labels),
               duration:
                   Duration.zero, // the tween drives the draw, not fl_chart
             );
@@ -70,10 +70,13 @@ class RiskTrendChart extends StatelessWidget {
   }
 
   LineChartData _data(
+    BuildContext context,
     List<FlSpot> spots,
     List<RiskEstimateModel> ordered,
     List<String> labels,
   ) {
+    final palette = context.fsmPalette;
+    final caption = context.fsmText.bodySmall;
     final lastX = (ordered.length - 1).toDouble();
     return LineChartData(
       minX: 0,
@@ -85,7 +88,7 @@ class RiskTrendChart extends StatelessWidget {
         drawVerticalLine: false,
         horizontalInterval: 1,
         getDrawingHorizontalLine: (_) => FlLine(
-          color: AppColorsV2.stroke.withValues(alpha: 0.6),
+          color: palette.outline.withValues(alpha: 0.5),
           strokeWidth: 1,
           dashArray: const [4, 6],
         ),
@@ -113,9 +116,9 @@ class RiskTrendChart extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   labels[i],
-                  style: AppTextStylesV2.caption.copyWith(
+                  style: caption?.copyWith(
                     fontSize: 10,
-                    color: isNow ? color : AppColorsV2.textFaint,
+                    color: isNow ? color : palette.textTertiary,
                     fontWeight: isNow ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
@@ -128,7 +131,7 @@ class RiskTrendChart extends StatelessWidget {
         enabled: true,
         getTouchLineStart: (_, _) => 0,
         touchTooltipData: LineTouchTooltipData(
-          getTooltipColor: (_) => AppColorsV2.shellRaised,
+          getTooltipColor: (_) => palette.surfaceContainerHigh,
           tooltipBorderRadius: BorderRadius.circular(10),
           tooltipPadding: const EdgeInsets.symmetric(
             horizontal: 12,
@@ -138,15 +141,15 @@ class RiskTrendChart extends StatelessWidget {
             for (final spot in touched)
               LineTooltipItem(
                 '${_levelName(_score(ordered[spot.x.round()].riskLevel))} risk\n',
-                AppTextStylesV2.caption.copyWith(
+                (caption ?? const TextStyle()).copyWith(
                   color: color,
                   fontWeight: FontWeight.w800,
                 ),
                 children: [
                   TextSpan(
                     text: _labelFor(ordered, spot.x.round()),
-                    style: AppTextStylesV2.caption.copyWith(
-                      color: AppColorsV2.textSecondary,
+                    style: caption?.copyWith(
+                      color: palette.textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -171,7 +174,7 @@ class RiskTrendChart extends StatelessWidget {
               radius: 4,
               color: color,
               strokeWidth: 2,
-              strokeColor: AppColorsV2.shell,
+              strokeColor: palette.surface,
             ),
           ),
           belowBarData: BarAreaData(

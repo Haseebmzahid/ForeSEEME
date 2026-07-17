@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_deep_link_router.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// Dashboard card surfacing the current **cited** recommendation (Prompt 6).
 ///
@@ -59,53 +61,54 @@ class _RecommendationContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final error = palette.error;
     return _CardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.health_and_safety_outlined,
                 size: 18,
-                color: AppColorsV2.teal,
+                color: palette.primary,
               ),
               const SizedBox(width: 8),
-              Text('RECOMMENDED FOR YOU', style: AppTextStylesV2.microLabel),
+              Text(
+                'RECOMMENDED FOR YOU',
+                style: text.labelSmall?.copyWith(
+                  letterSpacing: 1.2,
+                  color: palette.textTertiary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             recommendation.text,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textPrimary,
-            ),
+            style: text.bodyMedium?.copyWith(color: palette.textPrimary),
           ),
           const SizedBox(height: 12),
           // Escalation — always routes to professional/emergency help.
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColorsV2.riskHigh.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: AppColorsV2.riskHigh.withValues(alpha: 0.25),
-              ),
+              color: error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
+              border: Border.all(color: error.withValues(alpha: 0.25)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.emergency_outlined,
-                  size: 15,
-                  color: AppColorsV2.riskHigh,
-                ),
+                Icon(Icons.emergency_outlined, size: 15, color: error),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     recommendation.escalation,
-                    style: AppTextStylesV2.caption.copyWith(
-                      color: AppColorsV2.textSecondary,
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textSecondary,
                     ),
                   ),
                 ),
@@ -115,16 +118,18 @@ class _RecommendationContent extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.verified_outlined,
                 size: 13,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Source: ${recommendation.source}',
-                  style: AppTextStylesV2.caption,
+                  style: text.bodySmall?.copyWith(
+                    color: palette.textTertiary,
+                  ),
                 ),
               ),
               _LearnMoreButton(deepLink: recommendation.deepLink),
@@ -155,12 +160,12 @@ class _LearnMoreButton extends StatelessWidget {
       ),
       label: Text(toHospitals ? 'Find help' : 'Learn more'),
       style: TextButton.styleFrom(
-        foregroundColor: AppColorsV2.teal,
+        foregroundColor: context.fsmPalette.primary,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         // Keep a ≥48px accessible tap target (Prompt 9 a11y pass).
         minimumSize: const Size(0, 48),
         tapTargetSize: MaterialTapTargetSize.padded,
-        textStyle: AppTextStylesV2.caption.copyWith(
+        textStyle: context.fsmText.bodySmall?.copyWith(
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -168,7 +173,7 @@ class _LearnMoreButton extends StatelessWidget {
   }
 }
 
-/// Shared glass shell matching the Sprint 3 v2 surfaces.
+/// Shared glass shell matching the risk surfaces.
 class _CardShell extends StatelessWidget {
   final Widget child;
   const _CardShell({required this.child});
@@ -178,11 +183,7 @@ class _CardShell extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: RiskSurface.card(context),
       child: child,
     );
   }

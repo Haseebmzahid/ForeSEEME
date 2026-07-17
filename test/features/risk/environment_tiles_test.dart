@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/environment_tiles.dart';
 
@@ -32,6 +32,10 @@ Future<void> pumpTiles(WidgetTester tester, RiskEstimateModel estimate) async {
 Color? textColor(WidgetTester tester, String text) =>
     tester.widget<Text>(find.text(text)).style?.color;
 
+/// The ambient design-system tokens the tiles resolve their band colour from.
+BuildContext _ctx(WidgetTester tester) =>
+    tester.element(find.byType(EnvironmentTiles));
+
 void main() {
   testWidgets('shows both an AQI value+band and a weather value', (
     tester,
@@ -48,14 +52,14 @@ void main() {
     await pumpTiles(tester, _est(aqi: 20, temperature: 25, humidity: 40));
 
     expect(find.text('Good'), findsOneWidget);
-    expect(textColor(tester, 'Good'), AppColorsV2.riskLow);
+    expect(textColor(tester, 'Good'), _ctx(tester).fsmColors.success);
   });
 
   testWidgets('a Hazardous AQI band uses the high-risk colour', (tester) async {
     await pumpTiles(tester, _est(aqi: 350, temperature: 30, humidity: 50));
 
     expect(find.text('Hazardous'), findsOneWidget);
-    expect(textColor(tester, 'Hazardous'), AppColorsV2.riskHigh);
+    expect(textColor(tester, 'Hazardous'), _ctx(tester).fsmPalette.error);
   });
 
   testWidgets('each tile carries a Semantics node (not colour-only)', (
