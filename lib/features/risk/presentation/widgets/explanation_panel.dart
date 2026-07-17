@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/explanation_templater.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_explanation.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// The "Why this prediction?" trust surface (Sprint 5, Prompt 6).
 ///
@@ -216,7 +216,7 @@ class _PanelShell extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: RiskSurface.card(context),
+      decoration: ForeSeeMeSurface.card(context),
       child: child,
     );
   }

@@ -231,15 +231,11 @@ class ForeSeeMeColors extends ThemeExtension<ForeSeeMeColors> {
 
 /// Ergonomic access to the ForeSeeMe design system from a [BuildContext].
 ///
-/// Shared widgets consume the design system through these accessors instead of
-/// reaching for raw `Colors.*` / `AppColors.*`. Both are **brightness-aware**
-/// (they read `Theme.of(context).brightness`, so `ThemeMode.system/light/dark`
-/// are honoured) and, crucially, **safe during the phased migration**: while the
-/// app root is still themed with the legacy `AppTheme`, they resolve the
-/// canonical [ForeSeeMePalette] directly rather than trusting the ambient
-/// `ColorScheme`. Once the root switches to [ForeSeeMeTheme] the values are
-/// identical (the scheme is built from the same palette), and [fsmColors] then
-/// prefers any theme-attached [ForeSeeMeColors] extension.
+/// Every screen consumes the design system through these accessors instead of
+/// reaching for a raw `Colors.*` literal. Both are **brightness-aware** (they
+/// read `Theme.of(context).brightness`, so `ThemeMode.system/light/dark` are
+/// honoured); [fsmColors] prefers the theme-attached [ForeSeeMeColors]
+/// extension when present, falling back to resolving the palette directly.
 extension ForeSeeMeContext on BuildContext {
   /// The base ForeSeeMe palette (brand, surfaces, text, outlines, effects) for
   /// the ambient brightness.
@@ -260,8 +256,8 @@ extension ForeSeeMeContext on BuildContext {
 
 /// ForeSeeMe premium design-system — **the theme** (single entry point).
 ///
-/// [ForeSeeMeTheme] is the one source of truth every screen will *eventually*
-/// consume. It exposes:
+/// [ForeSeeMeTheme] is the one source of truth every screen consumes. It
+/// exposes:
 ///
 ///  * [light] / [dark] — fully-built [ThemeData] (Material 3), including a
 ///    complete [ColorScheme], the [ForeSeeMeTypography] text theme, component
@@ -274,8 +270,7 @@ extension ForeSeeMeContext on BuildContext {
 /// already drives `themeMode`.
 ///
 /// **No raw colour literal appears in this file** — every colour is resolved
-/// from a [ForeSeeMePalette]. This class is additive and does not modify the
-/// currently-wired [AppTheme]; adoption happens in a later migration sprint.
+/// from a [ForeSeeMePalette].
 class ForeSeeMeTheme {
   ForeSeeMeTheme._();
 

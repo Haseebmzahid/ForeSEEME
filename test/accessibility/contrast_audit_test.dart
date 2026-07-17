@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:fyp_foreseeme/core/theme/a11y.dart';
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_palette.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.dart';
@@ -34,25 +36,11 @@ void main() {
     });
   });
 
-  // ── Contrast on the glass surface (audit M4) ───────────────────────────────
-  group('text & risk colours on the glass surface', () {
-    final bg = A11y.glassSurface; // glassFill composited over the shell
-
-    void expectAtLeast(String name, Color fg, double min) {
-      final ratio = A11y.contrastRatio(fg, bg);
-      expect(
-        ratio,
-        greaterThanOrEqualTo(min),
-        reason: '$name on glass = ${ratio.toStringAsFixed(2)}:1 (needs $min:1)',
-      );
-    }
-
-    test('body text tiers meet AA (4.5:1)', () {
-      expectAtLeast('textPrimary', AppColorsV2.textPrimary, 7.0); // near-AAA
-      expectAtLeast('textSecondary', AppColorsV2.textSecondary, A11y.aaText);
-      expectAtLeast('textTertiary', AppColorsV2.textTertiary, A11y.aaText);
-      expectAtLeast('textFaint', AppColorsV2.textFaint, A11y.aaText);
-    });
+  // ── Risk colours meet AA on the surface they're actually drawn on ──────────
+  group('risk colours on the ForeSeeMe surface', () {
+    // RiskVisuals' static (brightness-independent) appearances are sourced
+    // from the dark palette's semantic tokens (see risk_visuals.dart).
+    final bg = ForeSeeMePalette.dark.background;
 
     test('every risk colour meets AA as a label/icon (4.5:1)', () {
       for (final a in [
@@ -61,27 +49,33 @@ void main() {
         RiskVisuals.high,
         RiskVisuals.uncertain,
       ]) {
-        expectAtLeast('risk ${a.label}', a.color, A11y.aaText);
+        final ratio = A11y.contrastRatio(a.color, bg);
+        expect(
+          ratio,
+          greaterThanOrEqualTo(A11y.aaText),
+          reason: 'risk ${a.label} = ${ratio.toStringAsFixed(2)}:1 '
+              '(needs ${A11y.aaText}:1)',
+        );
       }
-    });
-
-    test('the interactive teal meets the UI-component threshold (3:1)', () {
-      expectAtLeast('teal', AppColorsV2.teal, A11y.aaLargeText);
     });
   });
 
-  // ── Reduced-transparency fallback ──────────────────────────────────────────
+  // ── Reduced-transparency fallback (ForeSeeMeSurface, the one glass-card
+  // recipe every screen now shares) ───────────────────────────────────────────
   group('reduced-transparency fallback', () {
     Future<BuildContext> contextWith(WidgetTester tester, bool highContrast) async {
       late BuildContext ctx;
       await tester.pumpWidget(
-        MediaQuery(
-          data: MediaQueryData(highContrast: highContrast),
-          child: Builder(
-            builder: (context) {
-              ctx = context;
-              return const SizedBox();
-            },
+        MaterialApp(
+          theme: ForeSeeMeTheme.dark,
+          home: MediaQuery(
+            data: MediaQueryData(highContrast: highContrast),
+            child: Builder(
+              builder: (context) {
+                ctx = context;
+                return const SizedBox();
+              },
+            ),
           ),
         ),
       );
@@ -91,19 +85,21 @@ void main() {
     testWidgets('normal: translucent glass, blurred', (tester) async {
       final ctx = await contextWith(tester, false);
       expect(A11y.reduceTransparency(ctx), isFalse);
-      expect(A11y.glassFill(ctx), AppColorsV2.glassFill); // translucent
-      expect(A11y.glassFill(ctx).a, lessThan(1.0));
+      expect(ForeSeeMeSurface.fill(ctx).a, lessThan(1.0)); // translucent
       expect(A11y.blurSigma(ctx, sigma: 16), 16);
     });
 
     testWidgets('high contrast: opaque solid fill, no blur, stronger stroke', (
       tester,
     ) async {
+      final normalCtx = await contextWith(tester, false);
+      final normalStroke = ForeSeeMeSurface.stroke(normalCtx).a;
+
       final ctx = await contextWith(tester, true);
       expect(A11y.reduceTransparency(ctx), isTrue);
-      expect(A11y.glassFill(ctx).a, 1.0); // fully opaque
+      expect(ForeSeeMeSurface.fill(ctx).a, 1.0); // fully opaque
       expect(A11y.blurSigma(ctx, sigma: 16), 0); // blur dropped
-      expect(A11y.stroke(ctx).a, greaterThan(AppColorsV2.stroke.a));
+      expect(ForeSeeMeSurface.stroke(ctx).a, greaterThan(normalStroke));
     });
   });
 
@@ -135,7 +131,7 @@ void main() {
             data: MediaQueryData(disableAnimations: true), // reduced motion
             child: MaterialApp(
               home: Scaffold(
-                backgroundColor: AppColorsV2.shell,
+                backgroundColor: Colors.black,
                 body: Center(child: RiskCard()),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
@@ -26,7 +27,6 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_mete
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/environment_tiles.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/explanation_panel.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_trend_chart.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
@@ -257,7 +257,7 @@ class _HeroCard extends ConsumerWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
-              colors: [a.fill, RiskSurface.fill(context)],
+              colors: [a.fill, ForeSeeMeSurface.fill(context)],
               begin: const Alignment(-0.6, -1),
               end: const Alignment(0.5, 1),
             ),
@@ -820,11 +820,11 @@ class _GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Reduced-transparency fallback handled centrally by RiskSurface (audit M4).
+    // Reduced-transparency fallback handled centrally by ForeSeeMeSurface (audit M4).
     return Container(
       width: double.infinity,
       padding: padding,
-      decoration: RiskSurface.card(context),
+      decoration: ForeSeeMeSurface.card(context),
       child: child,
     );
   }

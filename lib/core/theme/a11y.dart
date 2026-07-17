@@ -2,22 +2,22 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
-
-/// Accessibility helpers for the "Liquid Glass" design system (Sprint 5, Prompt 15).
+/// Accessibility helpers for the ForeSeeMe design system (Sprint 5, Prompt 15).
 ///
 /// Two concerns, both from audit **M4**:
 ///
 /// 1. **Contrast maths** — WCAG 2.1 relative luminance + contrast ratio, plus an
-///    alpha-composite so a *translucent* surface's effective colour (over the
-///    shell) can be measured. Used by the contrast-audit tests and reusable at
-///    runtime.
+///    alpha-composite so a *translucent* surface's effective colour (over its
+///    background) can be measured. Used by the contrast-audit tests and
+///    reusable at runtime.
 /// 2. **Reduced-transparency fallback** — when the user asks for higher contrast
 ///    (`MediaQuery.highContrast`, i.e. iOS "Increase Contrast" / Android
 ///    high-contrast), translucent glass fills collapse to **solid** surfaces and
 ///    backdrop blur is dropped, so text never sits on an unpredictable, low-
 ///    contrast translucent layer. Flutter exposes no dedicated "reduce
-///    transparency" flag, so `highContrast` is the honest trigger.
+///    transparency" flag, so `highContrast` is the honest trigger. See
+///    [ForeSeeMeSurface] for the design system's one glass-card recipe built on
+///    top of this fallback.
 class A11y {
   A11y._();
 
@@ -63,33 +63,11 @@ class A11y {
     );
   }
 
-  /// The effective opaque background of a neutral glass card: the translucent
-  /// [AppColorsV2.glassFill] composited over [AppColorsV2.shell]. This is what
-  /// text-on-glass contrast is actually measured against.
-  static Color get glassSurface =>
-      compositeOver(AppColorsV2.glassFill, AppColorsV2.shell);
-
   // ── Reduced-transparency fallback ──────────────────────────────────────────
 
   /// Whether to drop translucency in favour of solid, higher-contrast surfaces.
   static bool reduceTransparency(BuildContext context) =>
       MediaQuery.maybeOf(context)?.highContrast ?? false;
-
-  /// A glass card's fill: translucent normally, an **opaque** solid under
-  /// reduced transparency (so contrast no longer depends on what shows through).
-  static Color glassFill(
-    BuildContext context, {
-    Color translucent = AppColorsV2.glassFill,
-    Color solid = AppColorsV2.shellRaised,
-  }) => reduceTransparency(context) ? solid : translucent;
-
-  /// A card stroke: the standard hairline normally, a stronger, more visible
-  /// border under reduced transparency.
-  static Color stroke(
-    BuildContext context, {
-    Color normal = AppColorsV2.stroke,
-    Color strong = const Color(0x33FFFFFF), // white @ .20
-  }) => reduceTransparency(context) ? strong : normal;
 
   /// Backdrop-blur sigma for a `BackdropFilter` surface: [sigma] normally, **0**
   /// under reduced transparency (no blur, so the solid fill fully governs

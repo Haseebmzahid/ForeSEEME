@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shimmer/shimmer.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -34,7 +33,7 @@ RiskEstimateModel estimate({
 /// The card under a Scaffold; the enclosing [ProviderScope] supplies overrides.
 const _host = MaterialApp(
   home: Scaffold(
-    backgroundColor: AppColorsV2.shell,
+    backgroundColor: Colors.black,
     body: Center(child: RiskCard()),
   ),
 );

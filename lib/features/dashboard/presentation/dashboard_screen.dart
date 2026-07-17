@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
@@ -15,28 +16,6 @@ import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
-
-// ── Shared frosted-surface decoration ────────────────────────────────────────
-
-/// One "glass card" recipe for the whole dashboard, sourced entirely from the
-/// active ForeSeeMe theme so it renders correctly in light and dark and keeps a
-/// single, consistent card elevation/hierarchy. Translucent [surface] over the
-/// ambient gradient, a hairline border, and the design-system medium shadow.
-BoxDecoration _glassDecoration(
-  BuildContext context, {
-  double radius = ForeSeeMeRadius.lg,
-}) {
-  final p = context.fsmPalette;
-  return BoxDecoration(
-    borderRadius: BorderRadius.circular(radius),
-    color: p.surface.withValues(alpha: p.isDark ? 0.55 : 0.80),
-    border: Border.all(
-      color: p.isDark ? p.onSurface.withValues(alpha: 0.06) : p.outlineVariant,
-      width: ForeSeeMeBorderWidth.thin,
-    ),
-    boxShadow: context.fsmColors.shadows.medium,
-  );
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -437,7 +416,7 @@ class _HealthInsightsEntry extends StatelessWidget {
         borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
         child: Ink(
           padding: const EdgeInsets.all(16),
-          decoration: _glassDecoration(context, radius: ForeSeeMeRadius.md),
+          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
           child: Row(
             children: [
               Container(
@@ -841,7 +820,7 @@ class _QuickActionCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: _glassDecoration(context, radius: ForeSeeMeRadius.md),
+        decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
         child: Column(
           children: [
             Icon(icon, color: palette.primary, size: 24),
@@ -878,7 +857,7 @@ class _GlassContainer extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
-          decoration: _glassDecoration(context),
+          decoration: ForeSeeMeSurface.card(context),
           child: child,
         ),
       ),

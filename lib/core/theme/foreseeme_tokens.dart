@@ -7,9 +7,8 @@ import 'package:flutter/widgets.dart';
 // — separate from the colour palette — means there is exactly one place to tune
 // shape/rhythm, and the theme builder never hard-codes a magic number.
 //
-// This file is part of the new, consolidated theme foundation and is purely
-// additive: it does not replace AppDimensions / AppSpacing. Screens migrate onto
-// these tokens in a later sprint.
+// This is the app's one spacing/radius/elevation system — every screen reads
+// these tokens; there is no other set to migrate off of.
 
 /// Corner-radius scale. `full` is an effectively-pill radius for chips/FABs.
 class ForeSeeMeRadius {

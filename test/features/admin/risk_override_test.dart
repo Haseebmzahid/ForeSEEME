@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_repository.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
@@ -77,7 +76,7 @@ class _FakeAdmin implements AdminRepository {
 
 const _cardHost = MaterialApp(
   home: Scaffold(
-    backgroundColor: AppColorsV2.shell,
+    backgroundColor: Colors.black,
     body: Center(child: RiskCard()),
   ),
 );

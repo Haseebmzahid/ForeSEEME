@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
@@ -14,7 +15,6 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/health_profil
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_comparison_service.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
@@ -102,7 +102,7 @@ class _ViewToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: RiskSurface.card(context, radius: 999),
+      decoration: ForeSeeMeSurface.card(context, radius: 999),
       child: Row(
         children: [
           _segment(context, 'Cities', _View.cities),
@@ -339,12 +339,12 @@ class _CityChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected
                 ? palette.primary.withValues(alpha: 0.18)
-                : RiskSurface.fill(context),
+                : ForeSeeMeSurface.fill(context),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected
                   ? palette.primary.withValues(alpha: 0.5)
-                  : RiskSurface.stroke(context),
+                  : ForeSeeMeSurface.stroke(context),
             ),
           ),
           child: Text(

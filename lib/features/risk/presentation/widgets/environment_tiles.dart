@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/aqi_band.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// Two always-visible environment tiles — AQI and weather — sourced directly
 /// from the estimate's stored feature values (Playbook M-1 item 6). Unlike the
@@ -97,7 +97,7 @@ class _EnvTile extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: RiskSurface.card(context),
+      decoration: ForeSeeMeSurface.card(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -13,9 +13,8 @@ import 'package:flutter/material.dart';
 /// health-green primary, teal + violet as supporting accents, and a full,
 /// deliberately-consistent light theme (the previous light theme was partial).
 ///
-/// This file is additive and does not replace [AppColors] / [AppColorsV2]; the
-/// frozen Sprint 1/2 and Sprint 3 surfaces keep their current tokens until they
-/// are migrated onto this system in a later sprint.
+/// This is the app's one colour system — every surface reads its colours from
+/// here, directly or via the theme built from it.
 @immutable
 class ForeSeeMePalette {
   const ForeSeeMePalette({

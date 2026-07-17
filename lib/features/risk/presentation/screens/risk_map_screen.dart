@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
@@ -15,7 +16,6 @@ import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.da
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_legend.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
@@ -231,7 +231,7 @@ class CityDetailSheet extends ConsumerWidget {
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: RiskSurface.stroke(context)),
+        border: Border.all(color: ForeSeeMeSurface.stroke(context)),
         boxShadow: context.fsmColors.shadows.strong,
       ),
       child: Column(

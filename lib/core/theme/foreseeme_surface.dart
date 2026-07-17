@@ -12,10 +12,9 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 /// transparency the fill becomes opaque and the border stronger, so contrast
 /// never depends on translucency.
 ///
-/// This is the design system's canonical home for the recipe. (The Risk module's
-/// `RiskSurface` and the Dashboard's local helper predate it and carry the same
-/// semantics; consolidating them onto this class is a follow-up cleanup — they
-/// are outside the current migration's scope.)
+/// This is the design system's **only** glass-card recipe (UX-09): the Risk
+/// module's former `RiskSurface` and the Dashboard's former local helper both
+/// carried the same semantics and have been consolidated onto this class.
 class ForeSeeMeSurface {
   ForeSeeMeSurface._();
 

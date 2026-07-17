@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 
 Widget _host(DateTime generatedAt, {DateTime? now}) => MaterialApp(
   home: Scaffold(
-    backgroundColor: AppColorsV2.shell,
+    backgroundColor: Colors.black,
     body: Center(
       child: RiskStalenessNotice(generatedAt: generatedAt, now: now),
     ),

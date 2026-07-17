@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 
 /// Colorblind-safe key mapping each risk colour to its icon + label.
@@ -29,7 +29,7 @@ class RiskLegend extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: RiskSurface.card(context, radius: ForeSeeMeRadius.md),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

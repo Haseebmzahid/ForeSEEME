@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_deep_link_router.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 
 /// Dashboard card surfacing the current **cited** recommendation (Prompt 6).
 ///
@@ -183,7 +183,7 @@ class _CardShell extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: RiskSurface.card(context),
+      decoration: ForeSeeMeSurface.card(context),
       child: child,
     );
   }

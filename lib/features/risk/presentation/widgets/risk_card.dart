@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/theme/a11y.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
@@ -12,7 +13,6 @@ import 'package:fyp_foreseeme/features/risk/presentation/risk_override_provider.
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/confidence_meter.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_override_notice.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_surface.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/staleness_indicator.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/trend_badge.dart';
@@ -186,7 +186,7 @@ class _CardShell extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           gradient: gradient,
-          color: gradient == null ? RiskSurface.fill(context) : null,
+          color: gradient == null ? ForeSeeMeSurface.fill(context) : null,
           border: Border.all(color: borderColor),
           boxShadow: context.fsmColors.shadows.strong,
         ),
@@ -254,7 +254,7 @@ class _RiskCardData extends StatelessWidget {
       child: _CardShell(
         borderColor: a.border,
         gradient: LinearGradient(
-          colors: [a.fill, RiskSurface.fill(context)],
+          colors: [a.fill, ForeSeeMeSurface.fill(context)],
           begin: const Alignment(-0.6, -1),
           end: const Alignment(0.6, 1),
         ),
@@ -372,7 +372,7 @@ class _RiskCardEmpty extends StatelessWidget {
     final violet = palette.tertiary;
     final where = (city != null && city!.isNotEmpty) ? city! : 'your city';
     return _CardShell(
-      borderColor: RiskSurface.stroke(context),
+      borderColor: ForeSeeMeSurface.stroke(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -418,7 +418,7 @@ class _RiskCardError extends StatelessWidget {
     return _CardShell(
       borderColor: RiskVisuals.resolve(context, RiskLevel.high).border,
       gradient: LinearGradient(
-        colors: [error.withValues(alpha: 0.08), RiskSurface.fill(context)],
+        colors: [error.withValues(alpha: 0.08), ForeSeeMeSurface.fill(context)],
         begin: const Alignment(-0.6, -1),
         end: const Alignment(0.6, 1),
       ),
@@ -473,7 +473,7 @@ class _RiskCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CardShell(
-      borderColor: RiskSurface.stroke(context),
+      borderColor: ForeSeeMeSurface.stroke(context),
       child: const AppSkeleton(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
