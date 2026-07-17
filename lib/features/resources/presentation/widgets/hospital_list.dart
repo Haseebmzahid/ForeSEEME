@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 
 /// A list of nearby-hospital cards. Pure widget — call/directions actions are
@@ -49,15 +51,13 @@ class HospitalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final canCall = hospital.hasPhone;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -70,8 +70,8 @@ class HospitalCard extends StatelessWidget {
                   children: [
                     Text(
                       hospital.name,
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textPrimary,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
@@ -80,7 +80,9 @@ class HospitalCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         hospital.address,
-                        style: AppTextStylesV2.caption,
+                        style: text.bodySmall?.copyWith(
+                          color: palette.textTertiary,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -111,12 +113,47 @@ class HospitalCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(
-                child: _CallButton(enabled: canCall, onTap: onCall),
-              ),
+              Expanded(child: _CallButton(enabled: canCall, onTap: onCall)),
               const SizedBox(width: 10),
               Expanded(child: _DirectionsButton(onTap: onDirections)),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shared pill for the hospital meta chips.
+class _MetaChip extends StatelessWidget {
+  final Color color;
+  final IconData? icon;
+  final String label;
+
+  const _MetaChip({required this.color, required this.label, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: icon == null ? 10 : 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: context.fsmText.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -129,23 +166,10 @@ class _DistanceChip extends StatelessWidget {
   const _DistanceChip({required this.distanceKm});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColorsV2.teal.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.32)),
-      ),
-      child: Text(
-        '${distanceKm.toStringAsFixed(1)} km',
-        style: AppTextStylesV2.caption.copyWith(
-          color: AppColorsV2.teal,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _MetaChip(
+    color: context.fsmPalette.secondary,
+    label: '${distanceKm.toStringAsFixed(1)} km',
+  );
 }
 
 class _RatingChip extends StatelessWidget {
@@ -160,33 +184,10 @@ class _RatingChip extends StatelessWidget {
         : rating.toStringAsFixed(1);
     return Semantics(
       label: 'Rated $label out of 5',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: AppColorsV2.riskMedium.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: AppColorsV2.riskMedium.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.star_rounded,
-              size: 14,
-              color: AppColorsV2.riskMedium,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.riskMedium,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+      child: _MetaChip(
+        color: context.fsmColors.warning,
+        icon: Icons.star_rounded,
+        label: label,
       ),
     );
   }
@@ -197,35 +198,11 @@ class _OpenNowChip extends StatelessWidget {
   const _OpenNowChip({required this.open});
 
   @override
-  Widget build(BuildContext context) {
-    final color = open ? AppColorsV2.riskLow : AppColorsV2.textTertiary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            open ? Icons.schedule_rounded : Icons.schedule_outlined,
-            size: 13,
-            color: color,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            open ? 'Open now' : 'Closed',
-            style: AppTextStylesV2.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _MetaChip(
+    color: open ? context.fsmColors.success : context.fsmPalette.textTertiary,
+    icon: open ? Icons.schedule_rounded : Icons.schedule_outlined,
+    label: open ? 'Open now' : 'Closed',
+  );
 }
 
 class _CallButton extends StatelessWidget {
@@ -236,6 +213,7 @@ class _CallButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Opacity(
       opacity: enabled ? 1 : 0.4,
       child: Material(
@@ -246,18 +224,18 @@ class _CallButton extends StatelessWidget {
           child: Ink(
             padding: const EdgeInsets.symmetric(vertical: 11),
             decoration: BoxDecoration(
-              gradient: AppGradientsV2.brand,
+              gradient: context.fsmColors.gradients.brand,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.call_rounded, size: 15, color: Colors.white),
-                SizedBox(width: 7),
+                Icon(Icons.call_rounded, size: 15, color: palette.onPrimary),
+                const SizedBox(width: 7),
                 Text(
                   'Call',
-                  style: TextStyle(
-                    color: Colors.white,
+                  style: context.fsmText.bodySmall?.copyWith(
+                    color: palette.onPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -278,6 +256,7 @@ class _DirectionsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -286,15 +265,15 @@ class _DirectionsButton extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: palette.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(11),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            border: Border.all(color: palette.outlineVariant),
           ),
           child: Text(
             'Directions',
             textAlign: TextAlign.center,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textPrimary,
+            style: context.fsmText.bodySmall?.copyWith(
+              color: palette.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),

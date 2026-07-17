@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_scaffold.dart';
@@ -88,16 +88,19 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
   }
 
   void _showError(String message) {
+    final palette = context.fsmPalette;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           message,
-          style: AppTextStyles.bodyText.copyWith(color: Colors.white),
+          style: context.fsmText.bodyLarge?.copyWith(color: palette.onError),
         ),
-        backgroundColor: AppColors.error,
+        backgroundColor: palette.error,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(AppSpacing.md),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        ),
+        margin: const EdgeInsets.all(ForeSeeMeSpacing.xxl),
       ),
     );
   }
@@ -224,32 +227,33 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
         }
       } else if (next is HealthProfileStateError) {
         if (mounted) {
+          final palette = context.fsmPalette;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.error_outline_rounded,
-                    color: Colors.white,
+                    color: palette.onError,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       next.message,
-                      style: AppTextStyles.bodyText.copyWith(
-                        color: Colors.white,
+                      style: context.fsmText.bodyLarge?.copyWith(
+                        color: palette.onError,
                       ),
                     ),
                   ),
                 ],
               ),
-              backgroundColor: AppColors.error,
+              backgroundColor: palette.error,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
               ),
-              margin: const EdgeInsets.all(AppSpacing.md),
+              margin: const EdgeInsets.all(ForeSeeMeSpacing.xxl),
             ),
           );
         }
@@ -283,13 +287,14 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
     required bool showPrefillSkeleton,
     required Object? prefillError,
   }) {
+    final palette = context.fsmPalette;
     return AppScaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: palette.background,
       appBar: widget.isEditMode
           ? AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
-              leading: BackButton(color: AppColors.textPrimary),
+              leading: BackButton(color: palette.textPrimary),
             )
           : null,
       body: prefillError != null
@@ -307,11 +312,13 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
               child: Column(
                 children: [
                   SizedBox(
-                    height: widget.isEditMode ? AppSpacing.xs : AppSpacing.lg,
+                    height: widget.isEditMode
+                        ? ForeSeeMeSpacing.xs
+                        : ForeSeeMeSpacing.huge,
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppDimensions.paddingHorizontal,
+                      horizontal: ForeSeeMeSpacing.gutter,
                     ),
                     child: _StepProgress(current: _currentStep, total: 2),
                   ),
@@ -333,14 +340,12 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
           ? null
           : Container(
               padding: const EdgeInsets.all(
-                AppDimensions.paddingHorizontal,
-              ).copyWith(top: AppSpacing.md),
+                ForeSeeMeSpacing.gutter,
+              ).copyWith(top: ForeSeeMeSpacing.xxl),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: palette.background,
                 border: Border(
-                  top: BorderSide(
-                    color: AppColors.border.withValues(alpha: 0.3),
-                  ),
+                  top: BorderSide(color: palette.outlineVariant),
                 ),
               ),
               child: SafeArea(
@@ -355,7 +360,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                               onPressed: isLoading ? null : _goToCityStep,
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
+                          const SizedBox(width: ForeSeeMeSpacing.xxl),
                           Expanded(
                             flex: 2,
                             child: AppButton(
@@ -376,11 +381,13 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
   // ── Step 1: city ─────────────────────────────────────────────────────────
 
   Widget _buildCityStep() {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        AppDimensions.paddingHorizontal,
-        AppSpacing.lg,
-        AppDimensions.paddingHorizontal,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.huge,
+        ForeSeeMeSpacing.gutter,
         120,
       ),
       child: Column(
@@ -391,55 +398,53 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
               header: true,
               child: Text(
                 widget.isEditMode ? 'Edit Health Profile' : 'Complete Profile',
-                style: AppTextStyles.heading1,
+                style: text.displayLarge?.copyWith(fontSize: 32),
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: ForeSeeMeSpacing.xs),
           AppReveal(
             delayMs: 50,
             child: Text(
               widget.isEditMode
                   ? 'Update your underlying health conditions.'
                   : "Let's personalize your medical experience.",
-              style: AppTextStyles.bodyText.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: text.bodyLarge?.copyWith(color: palette.textSecondary),
             ),
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: 80),
           AppReveal(
             delayMs: 100,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Select Your City', style: AppTextStyles.heading2),
-                const SizedBox(height: AppSpacing.md),
+                Text('Select Your City', style: text.headlineLarge),
+                const SizedBox(height: ForeSeeMeSpacing.xxl),
                 Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
+                  spacing: ForeSeeMeSpacing.md,
+                  runSpacing: ForeSeeMeSpacing.md,
                   children: _cities.map((city) {
                     final isSelected = _selectedCity == city;
                     return ChoiceChip(
                       label: Text(city),
-                      labelStyle: AppTextStyles.bodyText.copyWith(
+                      labelStyle: text.bodyLarge?.copyWith(
                         color: isSelected
-                            ? Colors.white
-                            : AppColors.textPrimary,
+                            ? palette.onPrimary
+                            : palette.textPrimary,
                         fontWeight: isSelected
                             ? FontWeight.w600
                             : FontWeight.w400,
                       ),
                       selected: isSelected,
                       onSelected: (_) => setState(() => _selectedCity = city),
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.surface,
+                      selectedColor: palette.primary,
+                      backgroundColor: palette.surface,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
+                        borderRadius: BorderRadius.circular(
+                          ForeSeeMeRadius.full,
+                        ),
                         side: BorderSide(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.border,
+                          color: isSelected ? palette.primary : palette.outline,
                         ),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -461,11 +466,13 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
   // ── Step 2: chronic conditions ──────────────────────────────────────────
 
   Widget _buildConditionsStep() {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        AppDimensions.paddingHorizontal,
-        AppSpacing.lg,
-        AppDimensions.paddingHorizontal,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.huge,
+        ForeSeeMeSpacing.gutter,
         120,
       ),
       child: Column(
@@ -474,47 +481,46 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
           AppReveal(
             child: Semantics(
               header: true,
-              child: Text(
-                'Underlying Conditions',
-                style: AppTextStyles.heading2,
-              ),
+              child: Text('Underlying Conditions', style: text.headlineLarge),
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: ForeSeeMeSpacing.xs),
           AppReveal(
             delayMs: 50,
             child: Text(
               'Select any conditions that apply to you.',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.textSecondary,
+              style: text.labelMedium?.copyWith(
+                color: palette.textSecondary,
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: ForeSeeMeSpacing.xxl),
           AppReveal(
             delayMs: 100,
             child: Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
+              spacing: ForeSeeMeSpacing.md,
+              runSpacing: ForeSeeMeSpacing.md,
               children: _conditionsOptions.map((condition) {
                 final isSelected = _selectedConditions.contains(condition);
                 return FilterChip(
                   label: Text(condition),
-                  labelStyle: AppTextStyles.bodyText.copyWith(
+                  labelStyle: text.bodyLarge?.copyWith(
                     color: isSelected
-                        ? AppColors.primaryDark
-                        : AppColors.textPrimary,
+                        ? palette.onPrimaryContainer
+                        : palette.textPrimary,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                   selected: isSelected,
                   onSelected: (_) => _onConditionToggle(condition),
-                  selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                  backgroundColor: AppColors.surface,
+                  selectedColor: palette.primaryContainer,
+                  backgroundColor: palette.surface,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(32),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.xxl),
                     side: BorderSide(
-                      color: isSelected ? AppColors.primary : AppColors.border,
-                      width: isSelected ? 1.5 : 1.0,
+                      color: isSelected ? palette.primary : palette.outline,
+                      width: isSelected
+                          ? ForeSeeMeBorderWidth.thick
+                          : ForeSeeMeBorderWidth.thin,
                     ),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -522,7 +528,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                     vertical: 14,
                   ),
                   showCheckmark: true,
-                  checkmarkColor: AppColors.primaryDark,
+                  checkmarkColor: palette.onPrimaryContainer,
                 );
               }).toList(),
             ),
@@ -543,38 +549,40 @@ class _StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Semantics(
       label: 'Step ${current + 1} of $total',
-      child: Row(
-        children: [
-          Text(
-            'Step ${current + 1} of $total',
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+      child: ExcludeSemantics(
+        child: Row(
+          children: [
+            Text(
+              'Step ${current + 1} of $total',
+              style: context.fsmText.labelMedium?.copyWith(
+                color: palette.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Row(
-              children: List.generate(total, (i) {
-                final filled = i <= current;
-                return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(
-                      right: i == total - 1 ? 0 : AppSpacing.xs,
+            const SizedBox(width: ForeSeeMeSpacing.xxl),
+            Expanded(
+              child: Row(
+                children: List.generate(total, (i) {
+                  final filled = i <= current;
+                  return Expanded(
+                    child: Container(
+                      margin: EdgeInsets.only(
+                        right: i == total - 1 ? 0 : ForeSeeMeSpacing.xs,
+                      ),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: filled ? palette.primary : palette.outline,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: filled ? AppColors.primary : AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -590,30 +598,31 @@ class _HealthProfileSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppDimensions.paddingHorizontal,
-      ),
+    return const SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.gutter),
       child: AppSkeleton(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: AppSpacing.md),
-            const SkeletonBar(width: double.infinity, height: 4, radius: 2),
-            const SizedBox(height: AppSpacing.xxl),
-            const SkeletonBar(width: 200, height: 28),
-            const SizedBox(height: AppSpacing.xs),
-            const SkeletonBar(width: 260, height: 16),
-            const SizedBox(height: AppSpacing.xxl),
-            const SkeletonBar(width: 140, height: 20),
-            const SizedBox(height: AppSpacing.md),
+            SizedBox(height: ForeSeeMeSpacing.xxl),
+            SkeletonBar(width: double.infinity, height: 4, radius: 2),
+            SizedBox(height: 80),
+            SkeletonBar(width: 200, height: 28),
+            SizedBox(height: ForeSeeMeSpacing.xs),
+            SkeletonBar(width: 260, height: 16),
+            SizedBox(height: 80),
+            SkeletonBar(width: 140, height: 20),
+            SizedBox(height: ForeSeeMeSpacing.xxl),
             Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: List.generate(
-                5,
-                (_) => const SkeletonBox(width: 92, height: 40, radius: 100),
-              ),
+              spacing: ForeSeeMeSpacing.md,
+              runSpacing: ForeSeeMeSpacing.md,
+              children: [
+                SkeletonBox(width: 92, height: 40, radius: 100),
+                SkeletonBox(width: 92, height: 40, radius: 100),
+                SkeletonBox(width: 92, height: 40, radius: 100),
+                SkeletonBox(width: 92, height: 40, radius: 100),
+                SkeletonBox(width: 92, height: 40, radius: 100),
+              ],
             ),
           ],
         ),

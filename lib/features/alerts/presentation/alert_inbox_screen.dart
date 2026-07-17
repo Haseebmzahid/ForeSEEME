@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
@@ -47,21 +49,22 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final async = ref.watch(userAlertsStreamProvider);
     final unreadCount = ref.watch(unreadAlertCountProvider);
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Alerts', style: AppTextStylesV2.cardTitle),
+        title: Text('Alerts', style: context.fsmText.titleLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all_rounded),
@@ -74,10 +77,10 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
                 : () async {
                     await ref.read(markAllAlertsReadProvider)();
                     if (!context.mounted) return;
+                    // Inherits the design system's snackBarTheme.
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('All alerts marked as read'),
-                        backgroundColor: AppColorsV2.teal,
                       ),
                     );
                   },
@@ -210,6 +213,7 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Semantics(
       button: true,
       selected: selected,
@@ -219,27 +223,25 @@ class _FilterChip extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
             child: Container(
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: selected
-                    ? AppColorsV2.teal.withValues(alpha: 0.15)
-                    : AppColorsV2.glassFill,
-                borderRadius: BorderRadius.circular(20),
+                    ? palette.primary.withValues(alpha: 0.15)
+                    : ForeSeeMeSurface.fill(context),
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
                 border: Border.all(
                   color: selected
-                      ? AppColorsV2.teal.withValues(alpha: 0.5)
-                      : AppColorsV2.stroke,
+                      ? palette.primary.withValues(alpha: 0.5)
+                      : ForeSeeMeSurface.stroke(context),
                 ),
               ),
               child: Text(
                 label,
-                style: AppTextStylesV2.caption.copyWith(
-                  color: selected
-                      ? AppColorsV2.teal
-                      : AppColorsV2.textSecondary,
+                style: context.fsmText.bodySmall?.copyWith(
+                  color: selected ? palette.primary : palette.textSecondary,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
@@ -331,7 +333,13 @@ class _DateHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 12, 2, 8),
-      child: Text(text.toUpperCase(), style: AppTextStylesV2.microLabel),
+      child: Text(
+        text.toUpperCase(),
+        style: context.fsmText.labelSmall?.copyWith(
+          letterSpacing: 1.2,
+          color: context.fsmPalette.textTertiary,
+        ),
+      ),
     );
   }
 }
@@ -344,7 +352,11 @@ class _AlertTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appearance = RiskVisuals.forLevel(
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    // Brightness-aware risk appearance, so tiles read correctly in light + dark.
+    final appearance = RiskVisuals.resolve(
+      context,
       RiskLevelX.fromJson(alert.riskLevel),
     );
     final unread = !alert.read;
@@ -377,14 +389,18 @@ class _AlertTile extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
             child: Ink(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: unread ? appearance.fill : AppColorsV2.glassFill,
-                borderRadius: BorderRadius.circular(18),
+                color: unread
+                    ? appearance.fill
+                    : ForeSeeMeSurface.fill(context),
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
                 border: Border.all(
-                  color: unread ? appearance.border : AppColorsV2.stroke,
+                  color: unread
+                      ? appearance.border
+                      : ForeSeeMeSurface.stroke(context),
                 ),
               ),
               child: Column(
@@ -401,8 +417,8 @@ class _AlertTile extends StatelessWidget {
                           children: [
                             Text(
                               alert.title,
-                              style: AppTextStylesV2.body.copyWith(
-                                color: AppColorsV2.textPrimary,
+                              style: text.bodyMedium?.copyWith(
+                                color: palette.textPrimary,
                                 fontWeight: unread
                                     ? FontWeight.w700
                                     : FontWeight.w600,
@@ -410,10 +426,20 @@ class _AlertTile extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            Text(alert.body, style: AppTextStylesV2.body),
+                            Text(
+                              alert.body,
+                              style: text.bodyMedium?.copyWith(
+                                color: palette.textSecondary,
+                              ),
+                            ),
                             if (caption.isNotEmpty) ...[
                               const SizedBox(height: 4),
-                              Text(caption, style: AppTextStylesV2.caption),
+                              Text(
+                                caption,
+                                style: text.bodySmall?.copyWith(
+                                  color: palette.textTertiary,
+                                ),
+                              ),
                             ],
                           ],
                         ),
@@ -454,35 +480,38 @@ class _RecommendationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColorsV2.shellRaised.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColorsV2.strokeSoft),
+        color: palette.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        border: Border.all(color: palette.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             recommendation.text,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textPrimary,
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: palette.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.verified_outlined,
                 size: 13,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Source: ${recommendation.source}',
-                  style: AppTextStylesV2.caption,
+                  style: context.fsmText.bodySmall?.copyWith(
+                    color: palette.textTertiary,
+                  ),
                 ),
               ),
             ],

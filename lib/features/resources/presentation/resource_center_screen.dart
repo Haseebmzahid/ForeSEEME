@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/article_detail_sheet.dart';
@@ -28,8 +28,11 @@ class ResourceCenterScreen extends ConsumerWidget {
 
     void openHospitals() => context.push('/nearby-hospitals');
 
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       body: Stack(
         children: [
           const Positioned.fill(child: _Background()),
@@ -38,11 +41,16 @@ class ResourceCenterScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
               children: [
-                Text('Resource Center', style: AppTextStylesV2.cardTitle),
+                Semantics(
+                  header: true,
+                  child: Text('Resource Center', style: text.titleLarge),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   'Verified guidance & emergency help',
-                  style: AppTextStylesV2.body,
+                  style: text.bodyMedium?.copyWith(
+                    color: palette.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 18),
                 EmergencyCard(
@@ -55,7 +63,13 @@ class ResourceCenterScreen extends ConsumerWidget {
                   NearbyHospitalsEntry(prominent: true, onTap: openHospitals),
                 ],
                 const SizedBox(height: 22),
-                Text('SELF-CARE GUIDES', style: AppTextStylesV2.microLabel),
+                Text(
+                  'SELF-CARE GUIDES',
+                  style: text.labelSmall?.copyWith(
+                    letterSpacing: 1.2,
+                    color: palette.textTertiary,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 for (final article in articles)
                   Padding(
@@ -111,13 +125,17 @@ class _Background extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(-0.8, -0.9),
+          center: const Alignment(-0.8, -0.9),
           radius: 1.2,
-          colors: [Color(0x1A2FD4C2), AppColorsV2.shell],
-          stops: [0.0, 0.6],
+          colors: [
+            palette.secondary.withValues(alpha: 0.10),
+            palette.background,
+          ],
+          stops: const [0.0, 0.6],
         ),
       ),
     );

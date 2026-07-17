@@ -2,26 +2,26 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fyp_foreseeme/core/theme/a11y.dart';
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
-
-const _kTeal = Color(0xFF006D77);
-const _kCyan = Color(0xFF28DDE8);
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final user = ref.watch(authStateProvider).value;
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: palette.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -30,19 +30,18 @@ class ProfileScreen extends ConsumerWidget {
         centerTitle: true,
         title: Text(
           'ForeSeeMe',
-          style: GoogleFonts.spaceGrotesk(
+          style: context.fsmText.titleLarge?.copyWith(
             fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
             letterSpacing: -0.5,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.notifications_none_rounded,
-              color: Colors.white,
+              color: palette.onSurfaceVariant,
             ),
+            tooltip: 'Alerts',
             onPressed: () {},
           ),
           const SizedBox(width: 8),
@@ -50,20 +49,11 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          // Ambient liquid glass background
+          // Ambient design-system background gradient
           Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF06111D),
-                    Color(0xFF0D1F38),
-                    Color(0xFF040A12),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.0, 0.4, 1.0],
-                ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -80,7 +70,9 @@ class ProfileScreen extends ConsumerWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      _kCyan.withValues(alpha: 0.15),
+                      palette.primary.withValues(
+                        alpha: palette.isDark ? 0.15 : 0.10,
+                      ),
                       Colors.transparent,
                     ],
                   ),
@@ -113,12 +105,7 @@ class ProfileScreen extends ConsumerWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'SETTINGS & PREFERENCES',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
+                      style: _sectionLabelStyle(context),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -141,35 +128,35 @@ class ProfileScreen extends ConsumerWidget {
                             extra: {'isEditMode': true},
                           ),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           icon: Icons.notifications_outlined,
                           title: 'Notifications',
                           subtitle: 'Manage push alerts',
                           onTap: () => context.push('/notifications/settings'),
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           icon: Icons.alarm_outlined,
                           title: 'Reminders',
                           subtitle: 'Dosage & check-ups',
                           onTap: () {},
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           icon: Icons.lock_outline_rounded,
                           title: 'Privacy',
                           subtitle: 'Data & permissions',
                           onTap: () {},
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           icon: Icons.help_outline_rounded,
                           title: 'Help Center',
                           subtitle: 'FAQs & Support',
                           onTap: () {},
                         ),
-                        _Divider(),
+                        const _Divider(),
                         _SettingsTile(
                           icon: Icons.info_outline_rounded,
                           title: 'About',
@@ -211,11 +198,10 @@ class ProfileScreen extends ConsumerWidget {
                     onPressed: () {},
                     child: Text(
                       'DELETE ACCOUNT',
-                      style: GoogleFonts.manrope(
-                        fontSize: 12,
+                      style: context.fsmText.labelMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.0,
-                        color: AppColors.error.withValues(alpha: 0.8),
+                        color: palette.error,
                       ),
                     ),
                   ),
@@ -230,6 +216,15 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+/// Uppercase tracked section label used between Profile sections.
+TextStyle? _sectionLabelStyle(BuildContext context) =>
+    context.fsmText.labelSmall?.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.5,
+      color: context.fsmPalette.textTertiary,
+    );
+
 // ── Hero Section ─────────────────────────────────────────────────────────────
 
 class _ProfileHeroSection extends StatelessWidget {
@@ -240,6 +235,9 @@ class _ProfileHeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return Column(
       children: [
         Stack(
@@ -252,32 +250,28 @@ class _ProfileHeroSection extends StatelessWidget {
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [_kCyan, _kTeal],
+                gradient: LinearGradient(
+                  colors: [palette.primary, palette.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _kCyan.withValues(alpha: 0.3),
+                    color: palette.primary.withValues(alpha: 0.3),
                     blurRadius: 24,
                     spreadRadius: -4,
                   ),
                 ],
               ),
               child: Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFF0D1F38),
+                  color: palette.surface,
                 ),
                 child: Center(
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : 'P',
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    style: text.displayMedium?.copyWith(fontSize: 40),
                   ),
                 ),
               ),
@@ -290,12 +284,12 @@ class _ProfileHeroSection extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _kCyan,
-                  border: Border.all(color: const Color(0xFF0D1F38), width: 3),
+                  color: palette.primary,
+                  border: Border.all(color: palette.surface, width: 3),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.edit_rounded,
-                  color: Color(0xFF0D1F38),
+                  color: palette.onPrimary,
                   size: 16,
                 ),
               ),
@@ -305,29 +299,20 @@ class _ProfileHeroSection extends StatelessWidget {
         const SizedBox(height: 20),
         Text(
           name,
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: -0.5,
-          ),
+          style: text.displayMedium?.copyWith(fontSize: 26),
         ),
         const SizedBox(height: 4),
         Text(
           email,
-          style: GoogleFonts.manrope(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: Colors.white.withValues(alpha: 0.6),
-          ),
+          style: text.bodyMedium?.copyWith(color: palette.textSecondary),
         ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: _kTeal.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: _kTeal.withValues(alpha: 0.3)),
+            color: palette.secondary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+            border: Border.all(color: palette.secondary.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -335,19 +320,19 @@ class _ProfileHeroSection extends StatelessWidget {
               Container(
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
-                  color: _kCyan,
+                decoration: BoxDecoration(
+                  color: palette.secondary,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Text(
                 'PREMIUM HEALTH TRACKING',
-                style: GoogleFonts.manrope(
+                style: text.labelSmall?.copyWith(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.0,
-                  color: _kCyan,
+                  color: palette.secondary,
                 ),
               ),
             ],
@@ -365,6 +350,7 @@ class _HealthOverviewSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final medicationsAsync = ref.watch(medicationsStreamProvider);
     final activeMedsCount = medicationsAsync.maybeWhen(
       data: (meds) => meds.where((m) => m.isActive).length,
@@ -377,21 +363,13 @@ class _HealthOverviewSection extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.health_and_safety_rounded,
-                color: _kCyan,
+                color: palette.primary,
                 size: 18,
               ),
               const SizedBox(width: 8),
-              Text(
-                'HEALTH OVERVIEW',
-                style: GoogleFonts.manrope(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
+              Text('HEALTH OVERVIEW', style: _sectionLabelStyle(context)),
             ],
           ),
           const SizedBox(height: 20),
@@ -402,16 +380,12 @@ class _HealthOverviewSection extends ConsumerWidget {
                   title: 'Medications',
                   value: activeMedsCount.toString(),
                   badge: 'Active',
-                  badgeColor: _kTeal,
+                  badgeColor: palette.secondary,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _OverviewCard(
-                  title: 'Adherence',
-                  value: '94',
-                  suffix: '%',
-                ),
+                child: _OverviewCard(title: 'Adherence', value: '94', suffix: '%'),
               ),
             ],
           ),
@@ -431,7 +405,7 @@ class _HealthOverviewSection extends ConsumerWidget {
                 child: _OverviewCard(
                   title: 'Streak',
                   value: '14',
-                  valueColor: _kCyan,
+                  valueColor: palette.primary,
                   suffix: 'Days',
                   suffixIsSubtext: true,
                 ),
@@ -465,22 +439,23 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF06111D).withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        color: palette.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+        border: Border.all(color: palette.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: GoogleFonts.manrope(
+            style: text.bodyMedium?.copyWith(
               fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.6),
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
@@ -490,20 +465,18 @@ class _OverviewCard extends StatelessWidget {
             children: [
               Text(
                 value,
-                style: GoogleFonts.spaceGrotesk(
+                style: text.displayMedium?.copyWith(
                   fontSize: 32,
-                  fontWeight: FontWeight.w700,
-                  color: valueColor ?? Colors.white,
+                  color: valueColor ?? palette.textPrimary,
                   letterSpacing: -1.0,
                 ),
               ),
               if (suffix != null && !suffixIsSubtext) ...[
                 Text(
                   suffix!,
-                  style: GoogleFonts.spaceGrotesk(
+                  style: text.displayMedium?.copyWith(
                     fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: palette.textTertiary,
                   ),
                 ),
               ],
@@ -511,10 +484,8 @@ class _OverviewCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   suffix!,
-                  style: GoogleFonts.manrope(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.5),
+                  style: text.labelMedium?.copyWith(
+                    color: palette.textTertiary,
                   ),
                 ),
               ],
@@ -526,15 +497,17 @@ class _OverviewCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: badgeColor?.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    color: (badgeColor ?? palette.primary).withValues(
+                      alpha: 0.2,
+                    ),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
                   ),
                   child: Text(
                     badge!,
-                    style: GoogleFonts.manrope(
+                    style: text.labelSmall?.copyWith(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
-                      color: badgeColor ?? Colors.white,
+                      color: badgeColor ?? palette.primary,
                     ),
                   ),
                 ),
@@ -554,6 +527,7 @@ class _PremiumThemeSwitcher extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final themeMode = ref.watch(themeNotifierProvider);
     final isDark =
         themeMode == ThemeMode.dark ||
@@ -567,20 +541,20 @@ class _PremiumThemeSwitcher extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: _kCyan.withValues(alpha: 0.15),
+              color: palette.primary.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.palette_outlined, color: _kCyan, size: 20),
+            child: Icon(
+              Icons.palette_outlined,
+              color: palette.primary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               'Theme Mode',
-              style: GoogleFonts.manrope(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+              style: context.fsmText.titleMedium?.copyWith(fontSize: 15),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -588,9 +562,9 @@ class _PremiumThemeSwitcher extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: const Color(0xFF06111D).withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              color: palette.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+              border: Border.all(color: palette.outlineVariant),
             ),
             child: Row(
               children: [
@@ -634,46 +608,41 @@ class _ThemeToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1E2E44) : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.4),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.manrope(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                color: isSelected
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.4),
+    final palette = context.fsmPalette;
+    final contentColor = isSelected
+        ? palette.textPrimary
+        : palette.textTertiary;
+
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: '$label theme',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? palette.surfaceContainerHighest
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+            boxShadow: isSelected ? context.fsmColors.shadows.soft : [],
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 14, color: contentColor),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: context.fsmText.labelMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  color: contentColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -706,16 +675,19 @@ class _SettingsTileState extends State<_SettingsTile> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return InkWell(
       onTap: widget.onTap,
       onHover: (val) => setState(() => _isHovered = val),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: _isHovered
-              ? Colors.white.withValues(alpha: 0.05)
+              ? palette.onSurface.withValues(alpha: 0.05)
               : Colors.transparent,
         ),
         child: Row(
@@ -723,10 +695,10 @@ class _SettingsTileState extends State<_SettingsTile> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _kTeal.withValues(alpha: 0.15),
+                color: palette.secondary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(widget.icon, color: _kCyan, size: 20),
+              child: Icon(widget.icon, color: palette.secondary, size: 20),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -735,19 +707,13 @@ class _SettingsTileState extends State<_SettingsTile> {
                 children: [
                   Text(
                     widget.title,
-                    style: GoogleFonts.manrope(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    style: text.titleMedium?.copyWith(fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     widget.subtitle,
-                    style: GoogleFonts.manrope(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.5),
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textTertiary,
                     ),
                   ),
                 ],
@@ -756,7 +722,7 @@ class _SettingsTileState extends State<_SettingsTile> {
             if (widget.showTrailing)
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: palette.textTertiary,
               ),
           ],
         ),
@@ -766,9 +732,11 @@ class _SettingsTileState extends State<_SettingsTile> {
 }
 
 class _Divider extends StatelessWidget {
+  const _Divider();
+
   @override
   Widget build(BuildContext context) {
-    return Container(height: 1, color: Colors.white.withValues(alpha: 0.05));
+    return Container(height: 1, color: context.fsmPalette.outlineVariant);
   }
 }
 
@@ -787,43 +755,43 @@ class _LogoutButtonState extends State<_LogoutButton> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) => setState(() => _isPressed = false),
-      onTapCancel: () => setState(() => _isPressed = false),
-      onTap: widget.onPressed,
-      child: AnimatedScale(
-        scale: _isPressed ? 0.98 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D1F38),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _kTeal.withValues(alpha: 0.3)),
-            boxShadow: [
-              BoxShadow(
-                color: _kCyan.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: 'Log Out',
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: widget.onPressed,
+        child: AnimatedScale(
+          scale: _isPressed ? 0.98 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            decoration: BoxDecoration(
+              color: palette.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+              border: Border.all(
+                color: palette.primary.withValues(alpha: 0.3),
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.logout_rounded, color: _kCyan, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Log Out',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: _kCyan,
+              boxShadow: context.fsmColors.shadows.soft,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout_rounded, color: palette.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Log Out',
+                  style: context.fsmText.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: palette.primary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -846,24 +814,16 @@ class _GlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     // Reduced-transparency fallback (audit M4): a translucent, blurred glass
     // panel over a gradient can drop below contrast thresholds. Under high
-    // contrast we drop the backdrop blur and make the fill opaque with a
-    // stronger border, so text sits on a solid, predictable surface.
+    // contrast the blur is dropped and ForeSeeMeSurface makes the fill opaque
+    // with a stronger border, so text sits on a solid, predictable surface.
     final sigma = A11y.blurSigma(context, sigma: 16);
-    final reduce = A11y.reduceTransparency(context);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: Container(
           padding: padding,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFF0D1F38).withValues(alpha: reduce ? 1.0 : 0.45),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: reduce ? 0.20 : 0.05),
-              width: 1.0,
-            ),
-          ),
+          decoration: ForeSeeMeSurface.card(context),
           child: child,
         ),
       ),

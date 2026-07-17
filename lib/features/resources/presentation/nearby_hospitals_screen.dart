@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
@@ -27,22 +28,23 @@ class NearbyHospitalsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final async = ref.watch(nearbyHospitalsProvider);
     final isHigh =
         ref.watch(currentCityRiskProvider).value?.riskLevel == RiskLevel.high;
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Nearby Hospitals', style: AppTextStylesV2.cardTitle),
+        title: Text('Nearby Hospitals', style: context.fsmText.titleLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -92,8 +94,8 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     }
 
     return RefreshIndicator(
-      color: AppColorsV2.teal,
-      backgroundColor: AppColorsV2.shellRaised,
+      color: context.fsmPalette.primary,
+      backgroundColor: context.fsmPalette.surfaceContainerHigh,
       onRefresh: () => _refresh(ref),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -113,8 +115,8 @@ class NearbyHospitalsScreen extends ConsumerWidget {
           Center(
             child: Text(
               '${_freshnessLabel(result)} · Google Places',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.textFaint,
+              style: context.fsmText.bodySmall?.copyWith(
+                color: context.fsmPalette.textTertiary,
               ),
             ),
           ),
@@ -262,37 +264,37 @@ class _ViewOnMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColorsV2.teal.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.map_outlined, size: 18, color: AppColorsV2.teal),
-              const SizedBox(width: 10),
-              Text(
-                'View on map',
-                style: AppTextStylesV2.body.copyWith(
-                  color: AppColorsV2.teal,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+    final accent = context.fsmPalette.secondary;
+    return Semantics(
+      button: true,
+      label: 'View on map',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+              border: Border.all(color: accent.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.map_outlined, size: 18, color: accent),
+                const SizedBox(width: 10),
+                Text(
+                  'View on map',
+                  style: context.fsmText.bodyMedium?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: AppColorsV2.teal,
-              ),
-            ],
+                const Spacer(),
+                Icon(Icons.chevron_right_rounded, size: 20, color: accent),
+              ],
+            ),
           ),
         ),
       ),
@@ -319,24 +321,30 @@ class _PermissionDeniedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.location_disabled_rounded,
-              size: 56,
-              color: AppColorsV2.textTertiary,
+            ExcludeSemantics(
+              child: Icon(
+                Icons.location_disabled_rounded,
+                size: 56,
+                color: palette.textTertiary,
+              ),
             ),
             const SizedBox(height: 18),
-            Text(
-              servicesDisabled
-                  ? 'Location is turned off'
-                  : 'Location permission needed',
-              style: AppTextStylesV2.cardTitle,
-              textAlign: TextAlign.center,
+            Semantics(
+              header: true,
+              child: Text(
+                servicesDisabled
+                    ? 'Location is turned off'
+                    : 'Location permission needed',
+                style: context.fsmText.titleLarge,
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -344,7 +352,9 @@ class _PermissionDeniedView extends StatelessWidget {
                   ? 'Turn on location services so we can find hospitals near '
                         'you.'
                   : 'Allow location access so we can find hospitals near you.',
-              style: AppTextStylesV2.body,
+              style: context.fsmText.bodyMedium?.copyWith(
+                color: palette.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 22),
@@ -366,7 +376,7 @@ class _PermissionDeniedView extends StatelessWidget {
             const SizedBox(height: 8),
             TextButton(
               onPressed: onRetry,
-              style: TextButton.styleFrom(foregroundColor: AppColorsV2.teal),
+              style: TextButton.styleFrom(foregroundColor: palette.primary),
               child: const Text('Try again'),
             ),
           ],
@@ -388,31 +398,35 @@ class _PrimaryAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-          decoration: BoxDecoration(
-            gradient: AppGradientsV2.brand,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: AppTextStylesV2.body.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+            decoration: BoxDecoration(
+              gradient: context.fsmColors.gradients.brand,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: palette.onPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: context.fsmText.bodyMedium?.copyWith(
+                    color: palette.onPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -432,34 +446,39 @@ class _SecondaryAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: AppColorsV2.textPrimary),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  style: AppTextStylesV2.body.copyWith(
-                    color: AppColorsV2.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: palette.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+              border: Border.all(color: palette.outlineVariant),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 17, color: palette.textPrimary),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: context.fsmText.bodySmall?.copyWith(
+                      color: palette.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -476,8 +495,8 @@ class _RefreshWrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      color: AppColorsV2.teal,
-      backgroundColor: AppColorsV2.shellRaised,
+      color: context.fsmPalette.primary,
+      backgroundColor: context.fsmPalette.surfaceContainerHigh,
       onRefresh: onRefresh,
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -497,27 +516,24 @@ class _HighRiskBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final urgent = palette.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
       decoration: BoxDecoration(
-        color: AppColorsV2.riskHigh.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsV2.riskHigh.withValues(alpha: 0.3)),
+        color: urgent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+        border: Border.all(color: urgent.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            size: 18,
-            color: AppColorsV2.riskHigh,
-          ),
+          Icon(Icons.warning_amber_rounded, size: 18, color: urgent),
           const SizedBox(width: 10),
           Expanded(
             child: Text.rich(
               TextSpan(
-                style: AppTextStylesV2.body.copyWith(
-                  color: AppColorsV2.textPrimary,
-                  fontSize: 12,
+                style: context.fsmText.bodySmall?.copyWith(
+                  color: palette.textPrimary,
                 ),
                 children: const [
                   TextSpan(text: 'Surfaced because risk is '),
@@ -558,23 +574,31 @@ class _Centered extends StatelessWidget {
     // Full-screen wait → the unified branded loader (never a bare spinner).
     if (spinner) return BrandLoading(message: title);
 
+    final palette = context.fsmPalette;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: AppColorsV2.textTertiary),
+            ExcludeSemantics(
+              child: Icon(icon, size: 56, color: palette.textTertiary),
+            ),
             const SizedBox(height: 18),
-            Text(
-              title,
-              style: AppTextStylesV2.cardTitle,
-              textAlign: TextAlign.center,
+            Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: context.fsmText.titleLarge,
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: AppTextStylesV2.body,
+              style: context.fsmText.bodyMedium?.copyWith(
+                color: palette.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
@@ -582,12 +606,12 @@ class _Centered extends StatelessWidget {
               TextButton.icon(
                 onPressed: onRetry,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColorsV2.teal,
+                  foregroundColor: palette.primary,
                   side: BorderSide(
-                    color: AppColorsV2.teal.withValues(alpha: 0.4),
+                    color: palette.primary.withValues(alpha: 0.4),
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
                   ),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 16),

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
 /// Entry point to the nearby-hospitals screen from the Resource Center.
 ///
-/// [prominent] (used on High risk) renders a red-tinted card explaining why it
-/// surfaced; otherwise it is a calm teal teaser row.
+/// [prominent] (used on High risk) renders an `error`-tinted card explaining why
+/// it surfaced; otherwise it is a calm `secondary` teaser row. Both tones come
+/// from the design system, resolved for the ambient brightness.
 class NearbyHospitalsEntry extends StatelessWidget {
   final bool prominent;
   final VoidCallback onTap;
@@ -18,18 +20,20 @@ class NearbyHospitalsEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = prominent ? AppColorsV2.riskHigh : AppColorsV2.teal;
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final accent = prominent ? palette.error : palette.secondary;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
         child: Ink(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             color: accent.withValues(alpha: prominent ? 0.10 : 0.08),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
             border: Border.all(color: accent.withValues(alpha: 0.3)),
           ),
           child: Row(
@@ -42,17 +46,19 @@ class NearbyHospitalsEntry extends StatelessWidget {
                   children: [
                     Text(
                       'Nearby hospitals',
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textPrimary,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textPrimary,
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
                       ),
                     ),
                     if (prominent) ...[
                       const SizedBox(height: 2),
                       Text(
                         'Surfaced because risk is High in your area',
-                        style: AppTextStylesV2.caption.copyWith(fontSize: 11),
+                        style: text.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: palette.textTertiary,
+                        ),
                       ),
                     ],
                   ],
@@ -60,7 +66,7 @@ class NearbyHospitalsEntry extends StatelessWidget {
               ),
               Text(
                 'View →',
-                style: AppTextStylesV2.caption.copyWith(
+                style: text.bodySmall?.copyWith(
                   color: accent,
                   fontWeight: FontWeight.w700,
                 ),

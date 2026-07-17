@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_visuals.dart';
 
@@ -19,7 +21,9 @@ class ArticleDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = ResourceTopicVisual.of(article.topic);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final visual = ResourceTopicVisual.of(context, article.topic);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -28,9 +32,9 @@ class ArticleDetailSheet extends StatelessWidget {
       expand: false,
       builder: (context, controller) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF141028).withValues(alpha: 0.98),
+          color: palette.surface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppColorsV2.stroke),
+          border: Border.all(color: ForeSeeMeSurface.stroke(context)),
         ),
         child: ListView(
           controller: controller,
@@ -42,8 +46,8 @@ class ArticleDetailSheet extends StatelessWidget {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 18),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(999),
+                  color: palette.onSurfaceVariant.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
                 ),
               ),
             ),
@@ -59,9 +63,7 @@ class ArticleDetailSheet extends StatelessWidget {
                   child: Icon(visual.icon, color: visual.color),
                 ),
                 const SizedBox(width: 13),
-                Expanded(
-                  child: Text(article.title, style: AppTextStylesV2.cardTitle),
-                ),
+                Expanded(child: Text(article.title, style: text.titleLarge)),
               ],
             ),
             const SizedBox(height: 16),
@@ -86,7 +88,10 @@ class ArticleDetailSheet extends StatelessWidget {
                     Expanded(
                       child: Text(
                         point,
-                        style: AppTextStylesV2.body.copyWith(height: 1.5),
+                        style: text.bodyMedium?.copyWith(
+                          color: palette.textSecondary,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                   ],
@@ -96,27 +101,26 @@ class ArticleDetailSheet extends StatelessWidget {
             // Source citation block.
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColorsV2.glassFill,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColorsV2.stroke),
+              decoration: ForeSeeMeSurface.card(
+                context,
+                radius: ForeSeeMeRadius.sm,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.verified_rounded,
                         size: 15,
-                        color: AppColorsV2.teal,
+                        color: palette.secondary,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Source: ${article.sourceName}',
-                          style: AppTextStylesV2.caption.copyWith(
-                            color: AppColorsV2.textSecondary,
+                          style: text.bodySmall?.copyWith(
+                            color: palette.textSecondary,
                           ),
                         ),
                       ),
@@ -128,15 +132,17 @@ class ArticleDetailSheet extends StatelessWidget {
                     child: TextButton.icon(
                       onPressed: onOpenSource,
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColorsV2.teal,
+                        foregroundColor: palette.primary,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 8,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            ForeSeeMeRadius.xs,
+                          ),
                           side: BorderSide(
-                            color: AppColorsV2.teal.withValues(alpha: 0.4),
+                            color: palette.primary.withValues(alpha: 0.4),
                           ),
                         ),
                       ),
@@ -151,8 +157,8 @@ class ArticleDetailSheet extends StatelessWidget {
             Text(
               'General guidance, not a substitute for professional medical '
               'advice. In an emergency, call Rescue 1122.',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.textFaint,
+              style: text.bodySmall?.copyWith(
+                color: palette.textTertiary,
                 fontStyle: FontStyle.italic,
               ),
             ),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/emergency_contact.dart';
 
 /// One-tap emergency dial card. Tapping anywhere on the card (or the call
-/// button) triggers [onCall], which dials the contact.
+/// button) triggers [onCall], which dials the contact. The urgent tone comes
+/// from the design system's `error` token, resolved for the ambient brightness.
 class EmergencyCard extends StatelessWidget {
   final EmergencyContact contact;
   final VoidCallback onCall;
@@ -13,6 +16,10 @@ class EmergencyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final urgent = palette.error;
+
     return Semantics(
       button: true,
       label: 'Call ${contact.name}',
@@ -20,22 +27,20 @@ class EmergencyCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onCall,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
           child: Ink(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
               gradient: LinearGradient(
                 colors: [
-                  AppColorsV2.riskHigh.withValues(alpha: 0.16),
-                  Colors.white.withValues(alpha: 0.03),
+                  urgent.withValues(alpha: 0.16),
+                  ForeSeeMeSurface.fill(context),
                 ],
                 begin: const Alignment(-0.8, -1),
                 end: const Alignment(0.8, 1),
               ),
-              border: Border.all(
-                color: AppColorsV2.riskHigh.withValues(alpha: 0.36),
-              ),
+              border: Border.all(color: urgent.withValues(alpha: 0.36)),
             ),
             child: Row(
               children: [
@@ -43,13 +48,10 @@ class EmergencyCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColorsV2.riskHigh.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
+                    color: urgent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                   ),
-                  child: const Icon(
-                    Icons.emergency_share_rounded,
-                    color: AppColorsV2.riskHigh,
-                  ),
+                  child: Icon(Icons.emergency_share_rounded, color: urgent),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -58,10 +60,15 @@ class EmergencyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Emergency · ${contact.name}',
-                        style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                        style: text.titleMedium,
                       ),
                       const SizedBox(height: 2),
-                      Text('Tap to call now', style: AppTextStylesV2.caption),
+                      Text(
+                        'Tap to call now',
+                        style: text.bodySmall?.copyWith(
+                          color: palette.textTertiary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -70,17 +77,17 @@ class EmergencyCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColorsV2.riskHigh,
+                    color: urgent,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColorsV2.riskHigh.withValues(alpha: 0.5),
+                        color: urgent.withValues(alpha: 0.5),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.call_rounded, color: Colors.white),
+                  child: Icon(Icons.call_rounded, color: palette.onError),
                 ),
               ],
             ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_visuals.dart';
 
@@ -18,20 +20,22 @@ class ResourceArticleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visual = ResourceTopicVisual.of(article.topic);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final visual = ResourceTopicVisual.of(context, article.topic);
+    final caption = text.bodySmall?.copyWith(
+      fontSize: 11,
+      color: palette.textTertiary,
+    );
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
         child: Ink(
           padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: AppColorsV2.glassFill,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColorsV2.stroke),
-          ),
+          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
           child: Row(
             children: [
               Container(
@@ -50,10 +54,9 @@ class ResourceArticleCard extends StatelessWidget {
                   children: [
                     Text(
                       article.title,
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textPrimary,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textPrimary,
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -62,31 +65,21 @@ class ResourceArticleCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             'Source: ${article.sourceName}',
-                            style: AppTextStylesV2.caption.copyWith(
-                              fontSize: 11,
-                            ),
+                            style: caption,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (article.verified) ...[
-                          Text(
-                            ' · ',
-                            style: AppTextStylesV2.caption.copyWith(
-                              fontSize: 11,
-                            ),
-                          ),
-                          const Icon(
+                          Text(' · ', style: caption),
+                          Icon(
                             Icons.verified_rounded,
                             size: 12,
-                            color: AppColorsV2.teal,
+                            color: palette.secondary,
                           ),
                           const SizedBox(width: 3),
                           Text(
                             'verified',
-                            style: AppTextStylesV2.caption.copyWith(
-                              fontSize: 11,
-                              color: AppColorsV2.teal,
-                            ),
+                            style: caption?.copyWith(color: palette.secondary),
                           ),
                         ],
                       ],
@@ -95,9 +88,9 @@ class ResourceArticleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
             ],
           ),

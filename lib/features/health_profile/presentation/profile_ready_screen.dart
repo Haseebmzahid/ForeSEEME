@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 
 /// One-time "you're set" confirmation shown right after first-time profile
 /// setup succeeds (S6C-04), before the notification permission pre-prompt
@@ -27,8 +28,11 @@ class ProfileReadyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       body: Stack(
         children: [
           const Positioned.fill(child: _Background()),
@@ -38,21 +42,24 @@ class ProfileReadyScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const Spacer(flex: 2),
-                  _ReadyIcon(),
+                  const _ReadyIcon(),
                   const SizedBox(height: 28),
                   Semantics(
                     header: true,
                     child: Text(
                       "You're all set!",
                       textAlign: TextAlign.center,
-                      style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                      style: text.displayMedium?.copyWith(fontSize: 28),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     "We're now watching environmental health risk for $city.",
                     textAlign: TextAlign.center,
-                    style: AppTextStylesV2.body.copyWith(height: 1.5),
+                    style: text.bodyMedium?.copyWith(
+                      color: palette.textSecondary,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 18),
                   Text(
@@ -62,7 +69,9 @@ class ProfileReadyScreen extends StatelessWidget {
                         : "You didn't note any chronic conditions — you can add "
                               'them anytime from your profile.',
                     textAlign: TextAlign.center,
-                    style: AppTextStylesV2.caption,
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textTertiary,
+                    ),
                   ),
                   const Spacer(flex: 3),
                   _ContinueButton(
@@ -81,27 +90,33 @@ class ProfileReadyScreen extends StatelessWidget {
 }
 
 class _ReadyIcon extends StatelessWidget {
+  const _ReadyIcon();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        color: AppColorsV2.riskLow.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColorsV2.riskLow.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColorsV2.riskLow.withValues(alpha: 0.25),
-            blurRadius: 32,
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.check_circle_outline_rounded,
-        color: AppColorsV2.riskLow,
-        size: 44,
+    // A success moment — the design system's success tone.
+    final success = context.fsmColors.success;
+    return ExcludeSemantics(
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: success.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.xl),
+          border: Border.all(color: success.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: success.withValues(alpha: 0.25),
+              blurRadius: 32,
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.check_circle_outline_rounded,
+          color: success,
+          size: 44,
+        ),
       ),
     );
   }
@@ -113,31 +128,35 @@ class _ContinueButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: AppGradientsV2.brand,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColorsV2.brandViolet.withValues(alpha: 0.4),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: const Center(
-            child: Text(
-              'Continue',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: 'Continue',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+          child: Ink(
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: context.fsmColors.gradients.brand,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+              boxShadow: [
+                BoxShadow(
+                  color: palette.tertiary.withValues(alpha: 0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                'Continue',
+                style: context.fsmText.bodyLarge?.copyWith(
+                  color: palette.onPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
@@ -152,13 +171,17 @@ class _Background extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    final palette = context.fsmPalette;
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(0, -0.5),
+          center: const Alignment(0, -0.5),
           radius: 1.1,
-          colors: [Color(0x1A35C28A), AppColorsV2.shell],
-          stops: [0.0, 0.7],
+          colors: [
+            context.fsmColors.success.withValues(alpha: 0.10),
+            palette.background,
+          ],
+          stops: const [0.0, 0.7],
         ),
       ),
     );

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
@@ -15,10 +16,12 @@ class NotificationPermissionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final isBusy = ref.watch(alertsControllerProvider).isLoading;
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       body: Stack(
         children: [
           const Positioned.fill(child: _Background()),
@@ -28,14 +31,14 @@ class NotificationPermissionScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   const Spacer(flex: 2),
-                  _BellIcon(),
+                  const _BellIcon(),
                   const SizedBox(height: 28),
                   Semantics(
                     header: true,
                     child: Text(
                       'Stay ahead of risk',
                       textAlign: TextAlign.center,
-                      style: AppTextStylesV2.headline.copyWith(fontSize: 28),
+                      style: text.displayMedium?.copyWith(fontSize: 28),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -45,7 +48,10 @@ class NotificationPermissionScreen extends ConsumerWidget {
                     'don’t have to check. Allowing notifications turns these '
                     'alerts on; you can change them anytime in Settings.',
                     textAlign: TextAlign.center,
-                    style: AppTextStylesV2.body.copyWith(height: 1.5),
+                    style: text.bodyMedium?.copyWith(
+                      color: palette.textSecondary,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 26),
                   const _Benefit('Timely high-risk warnings'),
@@ -65,8 +71,8 @@ class NotificationPermissionScreen extends ConsumerWidget {
                     onPressed: isBusy ? null : () => context.pop(),
                     child: Text(
                       'Maybe later',
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textTertiary,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textTertiary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -110,27 +116,32 @@ class NotificationPermissionScreen extends ConsumerWidget {
 }
 
 class _BellIcon extends StatelessWidget {
+  const _BellIcon();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        color: AppColorsV2.violet.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColorsV2.violet.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColorsV2.violet.withValues(alpha: 0.25),
-            blurRadius: 32,
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: const Icon(
-        Icons.notifications_active_outlined,
-        color: AppColorsV2.violet,
-        size: 44,
+    final violet = context.fsmPalette.tertiary;
+    return ExcludeSemantics(
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: violet.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.xl),
+          border: Border.all(color: violet.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: violet.withValues(alpha: 0.25),
+              blurRadius: 32,
+              spreadRadius: -4,
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.notifications_active_outlined,
+          color: violet,
+          size: 44,
+        ),
       ),
     );
   }
@@ -147,13 +158,18 @@ class _Benefit extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle_outline_rounded,
             size: 18,
-            color: AppColorsV2.riskLow,
+            color: context.fsmColors.success,
           ),
           const SizedBox(width: 10),
-          Text(label, style: AppTextStylesV2.body),
+          Text(
+            label,
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: context.fsmPalette.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -168,42 +184,49 @@ class _AllowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          height: 56,
-          decoration: BoxDecoration(
-            gradient: AppGradientsV2.brand,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppColorsV2.brandViolet.withValues(alpha: 0.4),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Center(
-            child: busy
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+    final palette = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: 'Allow notifications',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+          child: Ink(
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: context.fsmColors.gradients.brand,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+              boxShadow: [
+                BoxShadow(
+                  color: palette.tertiary.withValues(alpha: 0.4),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Center(
+              child: busy
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        strokeCap: StrokeCap.round,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          palette.onPrimary,
+                        ),
+                      ),
+                    )
+                  : Text(
+                      'Allow notifications',
+                      style: context.fsmText.bodyLarge?.copyWith(
+                        color: palette.onPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  )
-                : const Text(
-                    'Allow notifications',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+            ),
           ),
         ),
       ),
@@ -216,13 +239,17 @@ class _Background extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    final palette = context.fsmPalette;
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(0, -0.5),
+          center: const Alignment(0, -0.5),
           radius: 1.1,
-          colors: [Color(0x1A7C6BFF), AppColorsV2.shell],
-          stops: [0.0, 0.7],
+          colors: [
+            palette.tertiary.withValues(alpha: 0.10),
+            palette.background,
+          ],
+          stops: const [0.0, 0.7],
         ),
       ),
     );

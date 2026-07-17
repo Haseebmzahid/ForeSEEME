@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 
 /// Full-screen map of the nearby hospitals ("View on map"). Each hospital is a
@@ -53,18 +53,19 @@ class _HospitalsMapScreenState extends State<HospitalsMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Hospitals map', style: AppTextStylesV2.cardTitle),
+        title: Text('Hospitals map', style: context.fsmText.titleLarge),
       ),
       body: GoogleMap(
         initialCameraPosition: CameraPosition(target: _center, zoom: 12),

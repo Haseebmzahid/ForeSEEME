@@ -1,31 +1,38 @@
 import 'package:flutter/material.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 
 /// Icon + accent colour for a [ResourceTopic] (presentation-only mapping).
+///
+/// Colours resolve from the active theme's tokens for the ambient brightness, so
+/// topic accents stay legible in light and dark: lungs → `secondary`,
+/// asthma → `tertiary`, air quality → `warning`, heat → `error`.
 class ResourceTopicVisual {
   final IconData icon;
   final Color color;
 
   const ResourceTopicVisual(this.icon, this.color);
 
-  static ResourceTopicVisual of(ResourceTopic topic) => switch (topic) {
-    ResourceTopic.lungs => const ResourceTopicVisual(
-      Icons.air_rounded,
-      AppColorsV2.teal,
-    ),
-    ResourceTopic.asthma => const ResourceTopicVisual(
-      Icons.monitor_heart_outlined,
-      AppColorsV2.violet,
-    ),
-    ResourceTopic.airQuality => const ResourceTopicVisual(
-      Icons.wb_sunny_outlined,
-      AppColorsV2.riskMedium,
-    ),
-    ResourceTopic.heat => const ResourceTopicVisual(
-      Icons.device_thermostat_rounded,
-      AppColorsV2.riskHigh,
-    ),
-  };
+  static ResourceTopicVisual of(BuildContext context, ResourceTopic topic) {
+    final palette = context.fsmPalette;
+    return switch (topic) {
+      ResourceTopic.lungs => ResourceTopicVisual(
+        Icons.air_rounded,
+        palette.secondary,
+      ),
+      ResourceTopic.asthma => ResourceTopicVisual(
+        Icons.monitor_heart_outlined,
+        palette.tertiary,
+      ),
+      ResourceTopic.airQuality => ResourceTopicVisual(
+        Icons.wb_sunny_outlined,
+        context.fsmColors.warning,
+      ),
+      ResourceTopic.heat => ResourceTopicVisual(
+        Icons.device_thermostat_rounded,
+        palette.error,
+      ),
+    };
+  }
 }

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 
 /// Notification preferences (Sprint 3, Prompt 8): per-severity and per-condition
@@ -18,19 +21,21 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final async = ref.watch(notificationPreferencesControllerProvider);
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Notifications', style: AppTextStylesV2.cardTitle),
+        title: Text('Notifications', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: AppMotion.stateSwitcher(
@@ -84,26 +89,34 @@ class NotificationSettingsScreen extends ConsumerWidget {
       }
     }
 
+    // Brightness-aware risk appearances, so the severity icons read correctly
+    // in light and dark.
+    final high = RiskVisuals.resolve(context, RiskLevel.high);
+    final medium = RiskVisuals.resolve(context, RiskLevel.medium);
+    final low = RiskVisuals.resolve(context, RiskLevel.low);
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
         Text(
           "Choose which risk alerts you receive. We'll start sending these in "
           'a future update.',
-          style: AppTextStylesV2.body,
+          style: context.fsmText.bodyMedium?.copyWith(
+            color: context.fsmPalette.textSecondary,
+          ),
         ),
         const SizedBox(height: 18),
         _DevicePermissionRow(
           onTap: () => context.push('/notifications/permission'),
         ),
         const SizedBox(height: 22),
-        Text('BY SEVERITY', style: AppTextStylesV2.microLabel),
+        _sectionLabel(context, 'BY SEVERITY'),
         const SizedBox(height: 12),
         _Card(
           children: [
             _ToggleTile(
-              icon: RiskVisuals.high.icon,
-              iconColor: RiskVisuals.high.color,
+              icon: high.icon,
+              iconColor: high.color,
               title: 'High risk alerts',
               value: prefs.highRiskAlerts,
               onChanged: (v) =>
@@ -111,8 +124,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
             ),
             const _TileDivider(),
             _ToggleTile(
-              icon: RiskVisuals.medium.icon,
-              iconColor: RiskVisuals.medium.color,
+              icon: medium.icon,
+              iconColor: medium.color,
               title: 'Medium risk alerts',
               value: prefs.mediumRiskAlerts,
               onChanged: (v) =>
@@ -120,8 +133,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
             ),
             const _TileDivider(),
             _ToggleTile(
-              icon: RiskVisuals.low.icon,
-              iconColor: RiskVisuals.low.color,
+              icon: low.icon,
+              iconColor: low.color,
               title: 'Low risk updates',
               value: prefs.lowRiskUpdates,
               onChanged: (v) =>
@@ -130,7 +143,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 22),
-        Text('BY CONDITION', style: AppTextStylesV2.microLabel),
+        _sectionLabel(context, 'BY CONDITION'),
         const SizedBox(height: 12),
         _Card(
           children: [
@@ -151,47 +164,55 @@ class NotificationSettingsScreen extends ConsumerWidget {
   }
 }
 
+/// Uppercase tracked section label.
+Widget _sectionLabel(BuildContext context, String label) => Text(
+  label,
+  style: context.fsmText.labelSmall?.copyWith(
+    letterSpacing: 1.2,
+    color: context.fsmPalette.textTertiary,
+  ),
+);
+
 class _DevicePermissionRow extends StatelessWidget {
   final VoidCallback onTap;
   const _DevicePermissionRow({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final violet = palette.tertiary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
         child: Ink(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: AppColorsV2.violet.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColorsV2.violet.withValues(alpha: 0.3),
-            ),
+            color: violet.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+            border: Border.all(color: violet.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.notifications_active_outlined,
                 size: 20,
-                color: AppColorsV2.violet,
+                color: violet,
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Device notification permission',
-                  style: AppTextStylesV2.body.copyWith(
-                    color: AppColorsV2.textPrimary,
+                  style: context.fsmText.bodyMedium?.copyWith(
+                    color: palette.textPrimary,
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
                   ),
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
             ],
           ),
@@ -208,11 +229,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(children: children),
     );
   }
@@ -226,7 +243,7 @@ class _TileDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      color: Colors.white.withValues(alpha: 0.05),
+      color: context.fsmPalette.outlineVariant,
       indent: 16,
       endIndent: 16,
     );
@@ -261,21 +278,11 @@ class _ToggleTile extends StatelessWidget {
           Expanded(
             child: Text(
               title,
-              style: AppTextStylesV2.body.copyWith(
-                color: AppColorsV2.textPrimary,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
+              style: context.fsmText.titleMedium?.copyWith(fontSize: 15),
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColorsV2.brandBlue,
-            inactiveThumbColor: Colors.white.withValues(alpha: 0.6),
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.10),
-          ),
+          // Inherits the design system's primary via the active ColorScheme.
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
