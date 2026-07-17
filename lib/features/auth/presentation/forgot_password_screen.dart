@@ -4,18 +4,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/a11y.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/core/widgets/app_button.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/password_reset_controller.dart';
-
-// Brand accent pair used across the auth surfaces (matches the Login screen's
-// liquid-glass treatment — teal → cyan glow). Works on light and dark shells.
-const Color _kTeal = Color(0xFF006D77);
-const Color _kCyan = Color(0xFF28DDE8);
 
 /// Forgot Password — a premium, liquid-glass screen consistent with the Login
 /// screen. Presentation only: it delegates to [PasswordResetController] (no
@@ -124,7 +121,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 
   /// A premium floating "glass" snackbar (used for resend feedback).
   void _showSnack(String message, {bool isError = false}) {
-    final accent = isError ? AppColors.error : _kCyan;
+    final palette = context.fsmPalette;
+    final accent = isError ? palette.error : palette.secondary;
+    final sigma = A11y.blurSigma(context, sigma: 18);
     final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
@@ -132,17 +131,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
         backgroundColor: Colors.transparent,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 4),
-        margin: const EdgeInsets.all(AppSpacing.md),
+        margin: const EdgeInsets.all(ForeSeeMeSpacing.xxl),
         padding: EdgeInsets.zero,
         content: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D1F38).withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(16),
+                color: palette.inverseSurface.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
                 border: Border.all(color: accent.withValues(alpha: 0.45)),
               ),
               child: Row(
@@ -158,11 +157,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                   Expanded(
                     child: Text(
                       message,
-                      style: GoogleFonts.manrope(
+                      style: context.fsmText.bodyMedium?.copyWith(
                         fontSize: 13.5,
                         height: 1.4,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: palette.onInverseSurface,
                       ),
                     ),
                   ),
@@ -177,16 +176,12 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: true, // keyboard-aware (content scrolls)
       body: Stack(
         children: [
-          _AmbientBackground(isDark: isDark),
+          const _AmbientBackground(),
 
           SafeArea(
             child: AppReveal(
@@ -207,16 +202,16 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                               constraints: const BoxConstraints(maxWidth: 460),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
-                                  AppDimensions.paddingHorizontal,
+                                  ForeSeeMeSpacing.gutter,
                                   72,
-                                  AppDimensions.paddingHorizontal,
-                                  AppSpacing.lg,
+                                  ForeSeeMeSpacing.gutter,
+                                  ForeSeeMeSpacing.huge,
                                 ),
                                 child: AppMotion.stateSwitcher(
                                   context,
                                   _view == _View.success
-                                      ? _buildSuccess(isDark)
-                                      : _buildForm(isDark),
+                                      ? _buildSuccess()
+                                      : _buildForm(),
                                 ),
                               ),
                             ),
@@ -242,20 +237,19 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 
   // ── Form view ──────────────────────────────────────────────────────────────
 
-  Widget _buildForm(bool isDark) {
+  Widget _buildForm() {
     return Column(
       key: const ValueKey('form'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Hero(
-          isDark: isDark,
+        const _Hero(
           icon: Icons.lock_reset_rounded,
           title: 'Forgot password?',
           subtitle:
               "Enter your email and we'll send you instructions to reset your "
               'password.',
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
 
         AnimatedBuilder(
           animation: _shakeCtrl,
@@ -265,7 +259,6 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
             return Transform.translate(offset: Offset(dx, 0), child: child);
           },
           child: _GlassCard(
-            isDark: isDark,
             child: AutofillGroup(
               child: Form(
                 key: _formKey,
@@ -304,7 +297,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                           ? const SizedBox(width: double.infinity)
                           : Padding(
                               padding: const EdgeInsets.only(
-                                top: AppSpacing.sm,
+                                top: ForeSeeMeSpacing.sm,
                               ),
                               child: _InlineError(message: _errorMessage!),
                             ),
@@ -316,19 +309,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
           ),
         ),
 
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
 
-        _GradientButton(
-          label: 'Send reset link',
+        AppButton(
+          text: 'Send reset link',
           isLoading: _submitting,
           onPressed: _submitting ? null : _submit,
         ),
 
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
 
         _SignInRow(
           prompt: 'Remember your password?',
-          isDark: isDark,
           onTap: _backToSignIn,
         ),
       ],
@@ -337,55 +329,50 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 
   // ── Success view ─────────────────────────────────────────────────────────--
 
-  Widget _buildSuccess(bool isDark) {
+  Widget _buildSuccess() {
+    final palette = context.fsmPalette;
     return Column(
       key: const ValueKey('success'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _AnimatedSuccessMark(),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
 
         Semantics(
           header: true,
           child: Text(
             'Check your inbox',
             textAlign: TextAlign.center,
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-              color: AppColors.textPrimary,
-            ),
+            style: context.fsmText.headlineLarge?.copyWith(fontSize: 26),
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: ForeSeeMeSpacing.md),
 
         Semantics(
           liveRegion: true,
           child: Text(
             kPasswordResetNeutralMessage,
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodyText.copyWith(
+            style: context.fsmText.bodyLarge?.copyWith(
               fontSize: 15,
               height: 1.5,
-              color: AppColors.textSecondary,
+              color: palette.textSecondary,
             ),
           ),
         ),
 
         if (_emailCtrl.text.trim().isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: ForeSeeMeSpacing.xxl),
           _EmailChip(email: _emailCtrl.text.trim()),
         ],
 
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: ForeSeeMeSpacing.huge),
 
-        _GradientButton(
-          label: 'Back to Sign In',
-          isLoading: false,
+        AppButton(
+          text: 'Back to Sign In',
           onPressed: _backToSignIn,
         ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: ForeSeeMeSpacing.xs),
 
         _ResendButton(isLoading: _resending, onPressed: _resend),
       ],
@@ -398,33 +385,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
 // ═════════════════════════════════════════════════════════════════════════════
 
 class _AmbientBackground extends StatelessWidget {
-  final bool isDark;
-  const _AmbientBackground({required this.isDark});
+  const _AmbientBackground();
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return ExcludeSemantics(
       child: Stack(
         children: [
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? const [
-                          Color(0xFF0A1628),
-                          Color(0xFF0D1F38),
-                          Color(0xFF081220),
-                        ]
-                      : const [
-                          Color(0xFFF0F7FF),
-                          Color(0xFFE6F5F5),
-                          Color(0xFFF5F0FF),
-                        ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.5, 1.0],
-                ),
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -433,7 +405,7 @@ class _AmbientBackground extends StatelessWidget {
             right: -60,
             child: _GlowOrb(
               size: 280,
-              color: _kTeal.withValues(alpha: isDark ? 0.28 : 0.14),
+              color: palette.secondary.withValues(alpha: palette.isDark ? 0.28 : 0.14),
             ),
           ),
           Positioned(
@@ -441,7 +413,7 @@ class _AmbientBackground extends StatelessWidget {
             left: -80,
             child: _GlowOrb(
               size: 240,
-              color: _kCyan.withValues(alpha: isDark ? 0.18 : 0.10),
+              color: palette.primary.withValues(alpha: palette.isDark ? 0.18 : 0.10),
             ),
           ),
         ],
@@ -469,13 +441,11 @@ class _GlowOrb extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  final bool isDark;
   final IconData icon;
   final String title;
   final String subtitle;
 
   const _Hero({
-    required this.isDark,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -483,6 +453,8 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -494,8 +466,8 @@ class _Hero extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  _kCyan.withValues(alpha: 0.22),
-                  _kTeal.withValues(alpha: 0.10),
+                  palette.secondary.withValues(alpha: 0.22),
+                  palette.primary.withValues(alpha: 0.10),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.55, 1.0],
@@ -506,49 +478,34 @@ class _Hero extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  gradient: const LinearGradient(
-                    colors: [_kTeal, _kCyan],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.xs),
+                  gradient: context.fsmColors.gradients.primary,
                   boxShadow: [
                     BoxShadow(
-                      color: _kCyan.withValues(alpha: 0.40),
+                      color: palette.primary.withValues(alpha: 0.40),
                       blurRadius: 18,
                       spreadRadius: -4,
                       offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
+                child: Icon(icon, color: palette.onPrimary, size: 20),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
         Semantics(
           header: true,
           child: Text(
             title,
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              height: 1.10,
-              letterSpacing: -0.5,
-              color: isDark ? Colors.white : AppColors.textPrimary,
-            ),
+            style: text.displayLarge?.copyWith(fontSize: 32),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: ForeSeeMeSpacing.sm),
         Text(
           subtitle,
-          style: GoogleFonts.manrope(
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            height: 1.55,
-            color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
-          ),
+          style: text.bodyLarge?.copyWith(color: palette.textSecondary),
         ),
       ],
     );
@@ -556,45 +513,22 @@ class _Hero extends StatelessWidget {
 }
 
 class _GlassCard extends StatelessWidget {
-  final bool isDark;
   final Widget child;
 
-  const _GlassCard({required this.isDark, required this.child});
+  const _GlassCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
+    // Reduced-transparency fallback (audit M4): under high contrast the blur
+    // drops and ForeSeeMeSurface makes the fill opaque with a stronger border.
+    final sigma = A11y.blurSigma(context, sigma: 24);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.xl),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: isDark
-                ? const Color(0xFF0D1F38).withValues(alpha: 0.72)
-                : Colors.white.withValues(alpha: 0.78),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.10)
-                  : _kTeal.withValues(alpha: 0.14),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _kTeal.withValues(alpha: isDark ? 0.20 : 0.08),
-                blurRadius: 40,
-                spreadRadius: -8,
-                offset: const Offset(0, 16),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.06),
-                blurRadius: 24,
-                spreadRadius: -10,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.xl),
           child: child,
         ),
       ),
@@ -609,6 +543,8 @@ class _InlineError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Semantics(
       liveRegion: true,
       container: true,
@@ -616,14 +552,14 @@ class _InlineError extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: AppColors.error.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.error.withValues(alpha: 0.32)),
+          color: palette.error.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          border: Border.all(color: palette.error.withValues(alpha: 0.32)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.error_outline_rounded, size: 18, color: AppColors.error),
+            Icon(Icons.error_outline_rounded, size: 18, color: palette.error),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -631,8 +567,8 @@ class _InlineError extends StatelessWidget {
                 children: [
                   Text(
                     "We couldn't send the link",
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.error,
+                    style: text.labelMedium?.copyWith(
+                      color: palette.error,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0,
                     ),
@@ -640,8 +576,8 @@ class _InlineError extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     message,
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.error,
+                    style: text.labelMedium?.copyWith(
+                      color: palette.error,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0,
                       height: 1.4,
@@ -663,25 +599,26 @@ class _EmailChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: _kTeal.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: _kTeal.withValues(alpha: 0.24)),
+          color: palette.secondary.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+          border: Border.all(color: palette.secondary.withValues(alpha: 0.24)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.alternate_email_rounded, size: 15, color: _kCyan),
+            Icon(Icons.alternate_email_rounded, size: 15, color: palette.secondary),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
                 email,
                 overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.textPrimary,
+                style: context.fsmText.labelMedium?.copyWith(
+                  color: palette.textPrimary,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0,
                 ),
@@ -696,17 +633,13 @@ class _EmailChip extends StatelessWidget {
 
 class _SignInRow extends StatelessWidget {
   final String prompt;
-  final bool isDark;
   final VoidCallback onTap;
 
-  const _SignInRow({
-    required this.prompt,
-    required this.isDark,
-    required this.onTap,
-  });
+  const _SignInRow({required this.prompt, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
@@ -714,19 +647,17 @@ class _SignInRow extends StatelessWidget {
         children: [
           Text(
             prompt,
-            style: AppTextStyles.bodyText.copyWith(
+            style: context.fsmText.bodyMedium?.copyWith(
               fontSize: 14,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.55)
-                  : AppColors.textSecondary,
+              color: palette.textSecondary,
             ),
           ),
           TextButton(
             onPressed: onTap,
             style: TextButton.styleFrom(
-              foregroundColor: _kCyan,
+              foregroundColor: palette.secondary,
               minimumSize: const Size(0, 48),
-              textStyle: AppTextStyles.bodyText.copyWith(
+              textStyle: context.fsmText.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -745,21 +676,23 @@ class _GlassBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final sigma = A11y.blurSigma(context, sigma: 12);
     return Padding(
       padding: const EdgeInsets.all(8),
       child: ClipOval(
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
           child: Material(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: ForeSeeMeSurface.fill(context),
             shape: CircleBorder(
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              side: BorderSide(color: ForeSeeMeSurface.stroke(context)),
             ),
             child: IconButton(
               tooltip: 'Back to sign in',
               onPressed: onTap,
               iconSize: 22,
-              color: AppColors.textPrimary,
+              color: palette.textPrimary,
               icon: const Icon(Icons.arrow_back_rounded),
             ),
           ),
@@ -776,6 +709,7 @@ class _AnimatedSuccessMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return ExcludeSemantics(
       child: Center(
         child: AppReveal(
@@ -786,8 +720,8 @@ class _AnimatedSuccessMark extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.success.withValues(alpha: 0.26),
-                  _kTeal.withValues(alpha: 0.10),
+                  palette.success.withValues(alpha: 0.26),
+                  palette.secondary.withValues(alpha: 0.10),
                   Colors.transparent,
                 ],
                 stops: const [0.0, 0.55, 1.0],
@@ -799,23 +733,19 @@ class _AnimatedSuccessMark extends StatelessWidget {
                 height: 62,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [_kTeal, _kCyan],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: context.fsmColors.gradients.primary,
                   boxShadow: [
                     BoxShadow(
-                      color: _kCyan.withValues(alpha: 0.40),
+                      color: palette.primary.withValues(alpha: 0.40),
                       blurRadius: 22,
                       spreadRadius: -4,
                       offset: const Offset(0, 8),
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.mark_email_read_rounded,
-                  color: Colors.white,
+                  color: palette.onPrimary,
                   size: 30,
                 ),
               ),
@@ -836,6 +766,7 @@ class _ResendButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Center(
       child: Semantics(
         button: true,
@@ -844,10 +775,10 @@ class _ResendButton extends StatelessWidget {
         child: TextButton(
           onPressed: isLoading ? null : () => onPressed(),
           style: TextButton.styleFrom(
-            foregroundColor: _kCyan,
-            disabledForegroundColor: AppColors.textTertiary,
+            foregroundColor: palette.secondary,
+            disabledForegroundColor: palette.textDisabled,
             minimumSize: const Size(0, 48),
-            textStyle: AppTextStyles.caption.copyWith(
+            textStyle: context.fsmText.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -857,15 +788,17 @@ class _ResendButton extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: isLoading
-                    ? const Padding(
-                        key: ValueKey('spin'),
-                        padding: EdgeInsets.only(right: 8),
+                    ? Padding(
+                        key: const ValueKey('spin'),
+                        padding: const EdgeInsets.only(right: 8),
                         child: SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(_kCyan),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              palette.secondary,
+                            ),
                           ),
                         ),
                       )
@@ -876,102 +809,6 @@ class _ResendButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Gradient CTA — mirrors the Login screen's primary button (press + loading)
-// ═════════════════════════════════════════════════════════════════════════════
-
-class _GradientButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  // VoidCallback accepts sync handlers and `Future<void> Function()`s alike.
-  final VoidCallback? onPressed;
-
-  const _GradientButton({
-    required this.label,
-    required this.isLoading,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDisabled = onPressed == null || isLoading;
-
-    final button = AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.curve,
-      height: AppDimensions.buttonHeight,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-        gradient: isDisabled
-            ? null
-            : const LinearGradient(
-                colors: [_kTeal, _kCyan],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-        color: isDisabled ? AppColors.surfaceHigh : null,
-        border: Border.all(
-          color: isDisabled
-              ? Colors.transparent
-              : Colors.white.withValues(alpha: 0.18),
-          width: 0.8,
-        ),
-        boxShadow: isDisabled
-            ? []
-            : [
-                BoxShadow(
-                  color: _kCyan.withValues(alpha: 0.38),
-                  blurRadius: 32,
-                  spreadRadius: -6,
-                  offset: const Offset(0, 10),
-                ),
-                BoxShadow(
-                  color: _kTeal.withValues(alpha: 0.22),
-                  blurRadius: 24,
-                  spreadRadius: -8,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-      ),
-      child: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: isLoading
-              ? const SizedBox(
-                  key: ValueKey('loading'),
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.2,
-                    strokeCap: StrokeCap.round,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Text(
-                  label,
-                  key: const ValueKey('label'),
-                  style: GoogleFonts.manrope(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                    color: isDisabled ? AppColors.textTertiary : Colors.white,
-                  ),
-                ),
-        ),
-      ),
-    );
-
-    return Semantics(
-      button: true,
-      enabled: !isDisabled,
-      label: isLoading ? 'Sending, please wait' : label,
-      child: isDisabled ? button : PressableScale(onTap: onPressed, child: button),
     );
   }
 }

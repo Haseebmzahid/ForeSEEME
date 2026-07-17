@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_colors.dart';
-import 'package:fyp_foreseeme/core/theme/app_theme.dart';
+import 'package:fyp_foreseeme/core/theme/a11y.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
@@ -65,32 +66,34 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+
     ref.listen<AuthState>(authNotifierProvider, (prev, next) {
       if (next is AuthStateError && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
+                Icon(Icons.error_outline_rounded, color: palette.onError, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(next.message,
-                      style: AppTextStyles.bodyText.copyWith(color: Colors.white)),
+                  child: Text(
+                    next.message,
+                    style: context.fsmText.bodyLarge?.copyWith(color: palette.onError),
+                  ),
                 ),
               ],
             ),
-            backgroundColor: AppColors.error,
+            backgroundColor: palette.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: const EdgeInsets.all(AppSpacing.md),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+            ),
+            margin: const EdgeInsets.all(ForeSeeMeSpacing.xxl),
           ),
         );
       }
     });
-
-    final isDark =
-        AppColors.activePalette == AppColors.darkPalette ||
-        Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -100,14 +103,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? const [Color(0xFF0A1628), Color(0xFF0D1F38), Color(0xFF081220)]
-                      : const [Color(0xFFF0F7FF), Color(0xFFE6F5F5), Color(0xFFF5F0FF)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.5, 1.0],
-                ),
+                gradient: context.fsmColors.gradients.surface,
               ),
             ),
           ),
@@ -122,7 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF006D77).withValues(alpha: isDark ? 0.26 : 0.12),
+                    palette.secondary.withValues(alpha: palette.isDark ? 0.26 : 0.12),
                     Colors.transparent,
                   ],
                 ),
@@ -140,7 +136,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF28DDE8).withValues(alpha: isDark ? 0.16 : 0.09),
+                    palette.primary.withValues(alpha: palette.isDark ? 0.16 : 0.09),
                     Colors.transparent,
                   ],
                 ),
@@ -157,148 +153,110 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     hasScrollBody: false,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppDimensions.paddingHorizontal),
+                          horizontal: ForeSeeMeSpacing.gutter),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const SizedBox(height: AppSpacing.lg),
+                          const SizedBox(height: ForeSeeMeSpacing.huge),
                           // Hero header
-                          _RegisterHeroHeader(isDark: isDark),
-                          const SizedBox(height: AppSpacing.md),
+                          const _RegisterHeroHeader(),
+                          const SizedBox(height: ForeSeeMeSpacing.xxl),
                           // Glassmorphic form card
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                              child: Container(
-                                padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
-                                  color: isDark
-                                      ? const Color(0xFF0D1F38).withValues(alpha: 0.72)
-                                      : Colors.white.withValues(alpha: 0.78),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.10)
-                                        : const Color(0xFF006D77).withValues(alpha: 0.14),
-                                    width: 1.0,
+                          _GlassFormCard(
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AppTextField(
+                                    label: 'Full Name',
+                                    hint: 'Haseeb',
+                                    controller: _nameCtrl,
+                                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Name is required';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF006D77)
-                                          .withValues(alpha: isDark ? 0.20 : 0.08),
-                                      blurRadius: 40,
-                                      spreadRadius: -8,
-                                      offset: const Offset(0, 16),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: isDark ? 0.28 : 0.06),
-                                      blurRadius: 24,
-                                      spreadRadius: -10,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: Form(
-                                  key: _formKey,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      AppTextField(
-                                        label: 'Full Name',
-                                        hint: 'Haseeb',
-                                        controller: _nameCtrl,
-                                        prefixIcon: const Icon(Icons.person_outline_rounded),
-                                        validator: (v) {
-                                          if (v == null || v.trim().isEmpty) {
-                                            return 'Name is required';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      AppTextField(
-                                        label: 'Email',
-                                        hint: 'you@example.com',
-                                        controller: _emailCtrl,
-                                        keyboardType: TextInputType.emailAddress,
-                                        prefixIcon: const Icon(Icons.mail_outline_rounded),
-                                        validator: (v) {
-                                          if (v == null || v.trim().isEmpty) {
-                                            return 'Email is required';
-                                          }
-                                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                              .hasMatch(v.trim())) {
-                                            return 'Enter a valid email';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      AppTextField(
-                                        label: 'Password',
-                                        hint: 'Min. 8 characters',
-                                        controller: _passwordCtrl,
-                                        isPassword: true,
-                                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                                        validator: (v) {
-                                          if (v == null || v.isEmpty) {
-                                            return 'Password is required';
-                                          }
-                                          if (v.length < 8) {
-                                            return 'Password must be at least 8 characters';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: AppSpacing.xs),
-                                      AppTextField(
-                                        label: 'Confirm Password',
-                                        hint: 'Re-enter your password',
-                                        controller: _confirmCtrl,
-                                        isPassword: true,
-                                        prefixIcon: const Icon(Icons.lock_outline_rounded),
-                                        validator: (v) {
-                                          if (v == null || v.isEmpty) {
-                                            return 'Please confirm your password';
-                                          }
-                                          if (v != _passwordCtrl.text) {
-                                            return 'Passwords do not match';
-                                          }
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: AppSpacing.sm),
-                                    ],
+                                  const SizedBox(height: ForeSeeMeSpacing.xs),
+                                  AppTextField(
+                                    label: 'Email',
+                                    hint: 'you@example.com',
+                                    controller: _emailCtrl,
+                                    keyboardType: TextInputType.emailAddress,
+                                    prefixIcon: const Icon(Icons.mail_outline_rounded),
+                                    validator: (v) {
+                                      if (v == null || v.trim().isEmpty) {
+                                        return 'Email is required';
+                                      }
+                                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                                          .hasMatch(v.trim())) {
+                                        return 'Enter a valid email';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                ),
+                                  const SizedBox(height: ForeSeeMeSpacing.xs),
+                                  AppTextField(
+                                    label: 'Password',
+                                    hint: 'Min. 8 characters',
+                                    controller: _passwordCtrl,
+                                    isPassword: true,
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) {
+                                        return 'Password is required';
+                                      }
+                                      if (v.length < 8) {
+                                        return 'Password must be at least 8 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: ForeSeeMeSpacing.xs),
+                                  AppTextField(
+                                    label: 'Confirm Password',
+                                    hint: 'Re-enter your password',
+                                    controller: _confirmCtrl,
+                                    isPassword: true,
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                    validator: (v) {
+                                      if (v == null || v.isEmpty) {
+                                        return 'Please confirm your password';
+                                      }
+                                      if (v != _passwordCtrl.text) {
+                                        return 'Passwords do not match';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: ForeSeeMeSpacing.md),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.md),
-                          // Gradient CTA button
-                          _GradientCreateButton(
+                          const SizedBox(height: ForeSeeMeSpacing.xxl),
+                          // CTA button
+                          AppButton(
+                            text: 'Create Account',
                             isLoading: _isEmailLoading,
                             onPressed: _isLoading ? null : _submit,
                           ),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: ForeSeeMeSpacing.xxl),
                           // OR Divider
                           Row(
                             children: [
                               Expanded(
-                                child: Divider(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.12)
-                                      : AppColors.border,
-                                ),
+                                child: Divider(color: palette.outlineVariant),
                               ),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.md),
+                                    horizontal: ForeSeeMeSpacing.xxl),
                                 child: Text(
                                   'OR',
-                                  style: GoogleFonts.manrope(
+                                  style: context.fsmText.labelSmall?.copyWith(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.4,
@@ -306,22 +264,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                     // have an account?" secondary-text
                                     // treatment below rather than the fainter
                                     // tertiary tone, which fell to ~3.2:1 here.
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.55)
-                                        : AppColors.textSecondary,
+                                    color: palette.textSecondary,
                                   ),
                                 ),
                               ),
                               Expanded(
-                                child: Divider(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.12)
-                                      : AppColors.border,
-                                ),
+                                child: Divider(color: palette.outlineVariant),
                               ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: ForeSeeMeSpacing.xxl),
                           GoogleAuthButton(
                             isLoading: _isGoogleLoading,
                             onPressed: _isLoading ? null : _signInWithGoogle,
@@ -329,17 +281,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           const Spacer(),
                           Padding(
                             padding: const EdgeInsets.only(
-                                bottom: AppSpacing.xl, top: AppSpacing.lg),
+                                bottom: ForeSeeMeSpacing.xxxl, top: ForeSeeMeSpacing.huge),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
                                   'Already have an account?',
-                                  style: AppTextStyles.bodyText.copyWith(
+                                  style: context.fsmText.bodyMedium?.copyWith(
                                     fontSize: 14,
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.55)
-                                        : AppColors.textSecondary,
+                                    color: palette.textSecondary,
                                   ),
                                 ),
                                 AppButton(
@@ -367,11 +317,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 // ── Hero header ──────────────────────────────────────────────────────────────
 
 class _RegisterHeroHeader extends StatelessWidget {
-  final bool isDark;
-  const _RegisterHeroHeader({required this.isDark});
+  const _RegisterHeroHeader();
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -381,7 +332,7 @@ class _RegisterHeroHeader extends StatelessWidget {
         // brand to screen readers.
         ExcludeSemantics(
           child: SvgPicture.asset(
-            isDark
+            palette.isDark
                 ? 'assets/branding/logo/foreseeme-icon-white.svg'
                 : 'assets/branding/logo/foreseeme-icon-black.svg',
             width: 72,
@@ -389,117 +340,53 @@ class _RegisterHeroHeader extends StatelessWidget {
             fit: BoxFit.contain,
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          'ForeSeeMe',
-          style: AppTextStyles.heading2.copyWith(
-            color: isDark ? Colors.white : AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
+        Text('ForeSeeMe', style: text.titleLarge),
+        const SizedBox(height: ForeSeeMeSpacing.xs),
         Text(
           'AI-Powered Health Intelligence',
-          style: GoogleFonts.manrope(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            height: 1.4,
-            color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
-          ),
+          style: text.bodyMedium?.copyWith(color: palette.textSecondary),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: ForeSeeMeSpacing.huge),
         Semantics(
           header: true,
           child: Text(
             'Create Account',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 34,
-              fontWeight: FontWeight.w700,
-              height: 1.10,
-              letterSpacing: -0.5,
-              color: isDark ? Colors.white : AppColors.textPrimary,
-            ),
+            style: text.displayLarge?.copyWith(fontSize: 34),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: ForeSeeMeSpacing.sm),
         Text(
           'Sign up to start your health journey.',
-          style: GoogleFonts.manrope(
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
-            height: 1.55,
-            color: isDark ? const Color(0xFF8EA6BD) : AppColors.textSecondary,
-          ),
+          style: text.bodyLarge?.copyWith(color: palette.textSecondary),
         ),
       ],
     );
   }
 }
 
-// ── Gradient Create Account button ───────────────────────────────────────────
+// ── Glassmorphic form card ───────────────────────────────────────────────────
 
-class _GradientCreateButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback? onPressed;
-  const _GradientCreateButton({required this.isLoading, required this.onPressed});
+class _GlassFormCard extends StatelessWidget {
+  final Widget child;
+
+  const _GlassFormCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final isDisabled = onPressed == null || isLoading;
-
-    final button = AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.curve,
-      height: AppDimensions.buttonHeight,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
-        gradient: isDisabled
-            ? null
-            : const LinearGradient(
-                colors: [Color(0xFF006D77), Color(0xFF28DDE8)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-        color: isDisabled ? AppColors.surfaceHigh : null,
-        border: Border.all(
-          color: isDisabled
-              ? Colors.transparent
-              : Colors.white.withValues(alpha: 0.18),
-          width: 0.8,
+    // Reduced-transparency fallback (audit M4): under high contrast the blur
+    // drops and ForeSeeMeSurface makes the fill opaque with a stronger border.
+    final sigma = A11y.blurSigma(context, sigma: 24);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(ForeSeeMeRadius.xl),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.xl),
+          child: child,
         ),
-        boxShadow: isDisabled
-            ? []
-            : [
-                BoxShadow(
-                  color: const Color(0xFF28DDE8).withValues(alpha: 0.38),
-                  blurRadius: 32,
-                  spreadRadius: -6,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-      ),
-      child: Center(
-        child: isLoading
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  strokeCap: StrokeCap.round,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Text(
-                'Create Account',
-                style: GoogleFonts.manrope(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
-                  color: isDisabled ? AppColors.textTertiary : Colors.white,
-                ),
-              ),
       ),
     );
-
-    return isDisabled ? button : PressableScale(onTap: onPressed, child: button);
   }
 }

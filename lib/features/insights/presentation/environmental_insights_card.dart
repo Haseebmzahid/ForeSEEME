@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/environmental_insights.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_prioritizer.dart';
@@ -40,6 +42,8 @@ class _Card extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     final estimate = view.estimate!;
     final level = estimate.riskLevel.toJson();
     final maxMagnitude = view.drivers.isEmpty
@@ -51,52 +55,47 @@ class _Card extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.eco_outlined,
-                size: 18,
-                color: AppColorsV2.riskLow,
-              ),
-              const SizedBox(width: 8),
+              Icon(Icons.eco_outlined, size: 18, color: palette.primary),
+              const SizedBox(width: ForeSeeMeSpacing.sm),
               Expanded(
                 child: Text(
                   'Environmental drivers',
-                  style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                  style: text.titleMedium?.copyWith(fontSize: 16),
                 ),
               ),
             ],
           ),
           if (view.drivers.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
             Text(
               'The main factors shaping this week’s $level ${estimate.disease} '
               'estimate:',
-              style: AppTextStylesV2.body,
+              style: text.bodyLarge?.copyWith(color: palette.textSecondary),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: ForeSeeMeSpacing.md),
             for (final driver in view.drivers) ...[
               _DriverRow(driver: driver, maxMagnitude: maxMagnitude),
-              const SizedBox(height: 12),
+              const SizedBox(height: ForeSeeMeSpacing.md),
             ],
           ],
           if (guidance.isNotEmpty) ...[
             const SizedBox(height: 2),
-            const Divider(height: 1, color: AppColorsV2.stroke),
-            const SizedBox(height: 14),
-            Text('MOST RELEVANT GUIDANCE', style: AppTextStylesV2.microLabel),
-            const SizedBox(height: 10),
+            Divider(height: 1, color: palette.outlineVariant),
+            const SizedBox(height: ForeSeeMeSpacing.md),
+            Text(
+              'MOST RELEVANT GUIDANCE',
+              style: text.labelSmall?.copyWith(letterSpacing: 1.2),
+            ),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
             for (final item in guidance) ...[
               _GuidanceRow(item: item),
-              const SizedBox(height: 10),
+              const SizedBox(height: ForeSeeMeSpacing.sm),
             ],
           ],
         ],
@@ -114,8 +113,9 @@ class _DriverRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final increases = driver.direction == ContributionDirection.increases;
-    final color = increases ? AppColorsV2.riskHigh : AppColorsV2.riskLow;
+    final color = increases ? palette.error : palette.success;
     final icon = increases
         ? Icons.arrow_upward_rounded
         : Icons.arrow_downward_rounded;
@@ -131,12 +131,12 @@ class _DriverRow extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 15, color: color),
-              const SizedBox(width: 8),
+              const SizedBox(width: ForeSeeMeSpacing.sm),
               Expanded(
                 child: Text(
                   driver.label,
-                  style: AppTextStylesV2.body.copyWith(
-                    color: AppColorsV2.textPrimary,
+                  style: context.fsmText.bodyLarge?.copyWith(
+                    color: palette.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -146,10 +146,10 @@ class _DriverRow extends StatelessWidget {
           const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, constraints) => ClipRRect(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
               child: Stack(
                 children: [
-                  Container(height: 8, color: AppColorsV2.stroke),
+                  Container(height: 8, color: palette.outlineVariant),
                   Container(
                     height: 8,
                     width: constraints.maxWidth * fraction,
@@ -171,6 +171,9 @@ class _GuidanceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final accent = palette.secondary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -179,35 +182,31 @@ class _GuidanceRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             margin: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
-              color: AppColorsV2.teal.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.4)),
+              color: accent.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+              border: Border.all(color: accent.withValues(alpha: 0.4)),
             ),
             child: Text(
               'Most relevant',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.teal,
+              style: text.bodySmall?.copyWith(
+                color: accent,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
         Text(
           item.recommendation.text,
-          style: AppTextStylesV2.body.copyWith(color: AppColorsV2.textPrimary),
+          style: text.bodyLarge?.copyWith(color: palette.textPrimary),
         ),
         const SizedBox(height: 6),
         Row(
           children: [
-            const Icon(
-              Icons.verified_outlined,
-              size: 13,
-              color: AppColorsV2.textTertiary,
-            ),
+            Icon(Icons.verified_outlined, size: 13, color: palette.textTertiary),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 'Source: ${item.recommendation.source}',
-                style: AppTextStylesV2.caption,
+                style: text.bodySmall,
               ),
             ),
           ],

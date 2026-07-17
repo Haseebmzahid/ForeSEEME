@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
@@ -24,20 +26,21 @@ class WeeklyReportScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     final reportAsync = ref.watch(weeklyReportProvider);
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Weekly Report', style: AppTextStylesV2.cardTitle),
+        title: Text('Weekly Report', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: Column(
@@ -69,7 +72,12 @@ class WeeklyReportScreen extends ConsumerWidget {
               ),
             ),
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: EdgeInsets.fromLTRB(
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.sm,
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.lg,
+              ),
               child: MedicalDisclaimer.banner(),
             ),
           ],
@@ -87,30 +95,36 @@ class _Content extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.sm,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.xxl,
+      ),
       children: [
         AppReveal(child: _Header(weekOf: report.weekOf)),
-        const SizedBox(height: 18),
+        const SizedBox(height: ForeSeeMeSpacing.lg),
         AppReveal(
           delayMs: 60,
           child: _SectionCard(
             icon: Icons.public_rounded,
-            iconColor: AppColorsV2.blue,
+            iconColor: palette.info,
             section: report.riskSection,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: ForeSeeMeSpacing.md),
         AppReveal(
           delayMs: 120,
           child: _SectionCard(
             icon: Icons.favorite_outline_rounded,
-            iconColor: AppColorsV2.violet,
+            iconColor: palette.tertiary,
             section: report.adherenceSection,
           ),
         ),
         if (report.recommendationSection != null) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           AppReveal(
             delayMs: 180,
             child: _RecommendationCard(
@@ -130,19 +144,21 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('WEEK OF ${_formatWeek(weekOf)}', style: AppTextStylesV2.microLabel),
-        const SizedBox(height: 6),
         Text(
-          'Your weekly health report',
-          style: AppTextStylesV2.headline.copyWith(fontSize: 22),
+          'WEEK OF ${_formatWeek(weekOf)}',
+          style: text.labelSmall?.copyWith(letterSpacing: 1.2),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: ForeSeeMeSpacing.xs),
+        Text('Your weekly health report', style: text.headlineLarge),
+        const SizedBox(height: ForeSeeMeSpacing.xs),
         Text(
           'A calm summary of your environment, your routine, and what may help.',
-          style: AppTextStylesV2.body,
+          style: text.bodyLarge?.copyWith(color: palette.textSecondary),
         ),
       ],
     );
@@ -170,6 +186,8 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,25 +198,23 @@ class _SectionCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
                 ),
                 child: Icon(icon, size: 18, color: iconColor),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: ForeSeeMeSpacing.md),
               Expanded(
                 child: Text(
                   section.title,
-                  style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                  style: text.titleMedium?.copyWith(fontSize: 16),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           Text(
             section.body,
-            style: AppTextStylesV2.body.copyWith(
-              color: AppColorsV2.textPrimary,
-            ),
+            style: text.bodyLarge?.copyWith(color: palette.textPrimary),
           ),
         ],
       ),
@@ -216,50 +232,45 @@ class _RecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final accent = palette.secondary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColorsV2.teal.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.teal.withValues(alpha: 0.3)),
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
+        border: Border.all(color: accent.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.health_and_safety_outlined,
-                size: 18,
-                color: AppColorsV2.teal,
-              ),
-              const SizedBox(width: 8),
+              Icon(Icons.health_and_safety_outlined, size: 18, color: accent),
+              const SizedBox(width: ForeSeeMeSpacing.sm),
               Text(
                 section.title,
-                style: AppTextStylesV2.cardTitle.copyWith(
-                  color: AppColorsV2.teal,
-                  fontSize: 16,
-                ),
+                style: text.titleMedium?.copyWith(color: accent, fontSize: 16),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
           Text(
             section.body,
-            style: AppTextStylesV2.body.copyWith(color: AppColorsV2.textPrimary),
+            style: text.bodyLarge?.copyWith(color: palette.textPrimary),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
           Row(
             children: [
-              const Icon(
-                Icons.verified_outlined,
-                size: 13,
-                color: AppColorsV2.textTertiary,
-              ),
+              Icon(Icons.verified_outlined, size: 13, color: palette.textTertiary),
               const SizedBox(width: 6),
               Expanded(
-                child: Text('Source: $source', style: AppTextStylesV2.caption),
+                child: Text(
+                  'Source: $source',
+                  style: text.bodySmall?.copyWith(color: palette.textTertiary),
+                ),
               ),
             ],
           ),
@@ -280,11 +291,7 @@ class _GlassCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.lg),
       child: child,
     );
   }
@@ -297,7 +304,12 @@ class _ReportSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SingleChildScrollView(
       physics: NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: EdgeInsets.fromLTRB(
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.sm,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.xxl,
+      ),
       child: AppSkeleton(
         child: Column(
           children: [

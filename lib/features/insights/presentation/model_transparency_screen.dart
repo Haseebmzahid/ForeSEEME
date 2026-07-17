@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_content.dart';
@@ -18,37 +20,43 @@ class ModelTransparencyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Model Transparency', style: AppTextStylesV2.cardTitle),
+        title: Text('Model Transparency', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                padding: const EdgeInsets.fromLTRB(
+                  ForeSeeMeSpacing.gutter,
+                  ForeSeeMeSpacing.sm,
+                  ForeSeeMeSpacing.gutter,
+                  ForeSeeMeSpacing.xxl,
+                ),
                 children: [
                   const AppReveal(child: _NotClinicalBanner()),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: ForeSeeMeSpacing.lg),
                   for (var i = 0; i < kModelTransparencySections.length; i++) ...[
                     AppReveal(
                       delayMs: 40 + i * 30,
                       child: _SectionCard(section: kModelTransparencySections[i]),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: ForeSeeMeSpacing.md),
                   ],
                   const AppReveal(child: _CitationsCard()),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: ForeSeeMeSpacing.md),
                   const AppReveal(child: _FooterNote()),
                 ],
               ),
@@ -56,7 +64,12 @@ class ModelTransparencyScreen extends StatelessWidget {
             // Consistent non-diagnostic framing, as on every risk-/AI-facing
             // surface.
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: EdgeInsets.fromLTRB(
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.sm,
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.lg,
+              ),
               child: MedicalDisclaimer.banner(),
             ),
           ],
@@ -73,6 +86,9 @@ class _NotClinicalBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final accent = palette.tertiary;
     return Semantics(
       container: true,
       label: kNotClinicalStatement,
@@ -80,33 +96,27 @@ class _NotClinicalBanner extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: AppColorsV2.violet.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColorsV2.violet.withValues(alpha: 0.35)),
+          color: accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
+          border: Border.all(color: accent.withValues(alpha: 0.35)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              size: 20,
-              color: AppColorsV2.violet,
-            ),
-            const SizedBox(width: 12),
+            Icon(Icons.info_outline_rounded, size: 20, color: accent),
+            const SizedBox(width: ForeSeeMeSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'How ForeSeeMe works',
-                    style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
+                    style: text.titleMedium?.copyWith(fontSize: 16),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: ForeSeeMeSpacing.sm),
                   Text(
                     kNotClinicalStatement,
-                    style: AppTextStylesV2.body.copyWith(
-                      color: AppColorsV2.textPrimary,
-                    ),
+                    style: text.bodyLarge?.copyWith(color: palette.textPrimary),
                   ),
                 ],
               ),
@@ -126,22 +136,20 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = context.fsmText;
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            section.title,
-            style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
-          ),
-          const SizedBox(height: 10),
+          Text(section.title, style: text.titleMedium?.copyWith(fontSize: 16)),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
           for (final paragraph in section.paragraphs) ...[
-            Text(paragraph, style: AppTextStylesV2.body),
-            const SizedBox(height: 10),
+            Text(paragraph, style: text.bodyLarge),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
           ],
           for (final bullet in section.bullets) ...[
             _Bullet(text: bullet),
-            const SizedBox(height: 8),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
           ],
         ],
       ),
@@ -155,6 +163,7 @@ class _Bullet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -163,13 +172,10 @@ class _Bullet extends StatelessWidget {
           child: Container(
             width: 5,
             height: 5,
-            decoration: const BoxDecoration(
-              color: AppColorsV2.teal,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: palette.secondary, shape: BoxShape.circle),
           ),
         ),
-        Expanded(child: Text(text, style: AppTextStylesV2.body)),
+        Expanded(child: Text(text, style: context.fsmText.bodyLarge)),
       ],
     );
   }
@@ -182,28 +188,23 @@ class _CitationsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return _GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.menu_book_outlined,
-                size: 16,
-                color: AppColorsV2.textSecondary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Key sources',
-                style: AppTextStylesV2.cardTitle.copyWith(fontSize: 16),
-              ),
+              Icon(Icons.menu_book_outlined, size: 16, color: palette.textSecondary),
+              const SizedBox(width: ForeSeeMeSpacing.sm),
+              Text('Key sources', style: text.titleMedium?.copyWith(fontSize: 16)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           for (final citation in kTransparencyCitations) ...[
             _Bullet(text: citation),
-            const SizedBox(height: 8),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
           ],
         ],
       ),
@@ -216,21 +217,16 @@ class _FooterNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(
-          Icons.verified_outlined,
-          size: 13,
-          color: AppColorsV2.textFaint,
-        ),
-        const SizedBox(width: 8),
+        Icon(Icons.verified_outlined, size: 13, color: palette.textTertiary),
+        const SizedBox(width: ForeSeeMeSpacing.sm),
         Expanded(
           child: Text(
             kTransparencyFooter,
-            style: AppTextStylesV2.caption.copyWith(
-              color: AppColorsV2.textFaint,
-            ),
+            style: context.fsmText.bodySmall?.copyWith(color: palette.textTertiary),
           ),
         ),
       ],
@@ -249,11 +245,7 @@ class _GlassCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.lg),
       child: child,
     );
   }

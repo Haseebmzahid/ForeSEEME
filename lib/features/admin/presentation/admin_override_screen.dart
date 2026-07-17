@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/constants/cities_constants.dart';
@@ -50,6 +52,7 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     final isAdminAsync = ref.watch(isAdminProvider);
 
     // Surface submit/clear results without leaving the screen.
@@ -63,17 +66,17 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Risk Override', style: AppTextStylesV2.cardTitle),
+        title: Text('Risk Override', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: isAdminAsync.when(
@@ -91,15 +94,20 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
     final activeAsync = ref.watch(activeOverrideForCityProvider(_city));
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+      padding: const EdgeInsets.fromLTRB(
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.md,
+        ForeSeeMeSpacing.gutter,
+        ForeSeeMeSpacing.xxxl,
+      ),
       children: [
-        _InfoBanner(),
-        const SizedBox(height: 18),
+        const _InfoBanner(),
+        const SizedBox(height: ForeSeeMeSpacing.lg),
         activeAsync.maybeWhen(
           data: (o) => o == null
               ? const SizedBox.shrink()
               : Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
+                  padding: const EdgeInsets.only(bottom: ForeSeeMeSpacing.lg),
                   child: _ActiveOverrideCard(
                     riskOverride: o,
                     onClear: isBusy
@@ -116,22 +124,22 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
           value: _city,
           onChanged: (c) => setState(() => _city = c),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: ForeSeeMeSpacing.lg),
         _label('Risk level'),
         _LevelSelector(
           value: _level,
           onChanged: (l) => setState(() => _level = l),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: ForeSeeMeSpacing.lg),
         _label('Disease'),
         _DiseaseDropdown(
           value: _disease,
           onChanged: (d) => setState(() => _disease = d),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: ForeSeeMeSpacing.lg),
         _label('Reason (required, shown to users)'),
         _ReasonField(controller: _reasonController),
-        const SizedBox(height: 24),
+        const SizedBox(height: ForeSeeMeSpacing.xxl),
         AppButton(
           text: 'Apply override',
           isLoading: isBusy,
@@ -157,17 +165,26 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
 
   void _snack(String message, {bool isError = false}) {
     if (!mounted) return;
+    final palette = context.fsmPalette;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? AppColorsV2.riskHigh : AppColorsV2.teal,
+        content: Text(
+          message,
+          style: context.fsmText.bodyLarge?.copyWith(
+            color: isError ? palette.onError : palette.onSecondary,
+          ),
+        ),
+        backgroundColor: isError ? palette.error : palette.secondary,
       ),
     );
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: AppTextStylesV2.microLabel),
+        padding: const EdgeInsets.only(bottom: ForeSeeMeSpacing.sm),
+        child: Text(
+          text,
+          style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
+        ),
       );
 }
 
@@ -178,28 +195,30 @@ class _NotAuthorized extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(ForeSeeMeSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.lock_outline_rounded,
               size: 48,
-              color: AppColorsV2.textTertiary,
+              color: palette.textTertiary,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: ForeSeeMeSpacing.md),
             Text(
               'Not authorized',
-              style: AppTextStylesV2.cardTitle,
+              style: text.titleLarge,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: ForeSeeMeSpacing.sm),
             Text(
               'This area is restricted to operators. If you believe this is an '
               'error, contact an administrator.',
-              style: AppTextStylesV2.body,
+              style: text.bodyLarge?.copyWith(color: palette.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -210,30 +229,30 @@ class _NotAuthorized extends StatelessWidget {
 }
 
 class _InfoBanner extends StatelessWidget {
+  const _InfoBanner();
+
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final accent = palette.tertiary;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColorsV2.violet.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColorsV2.violet.withValues(alpha: 0.3)),
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+        border: Border.all(color: accent.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.info_outline_rounded,
-            size: 18,
-            color: AppColorsV2.violet,
-          ),
-          const SizedBox(width: 10),
+          Icon(Icons.info_outline_rounded, size: 18, color: accent),
+          const SizedBox(width: ForeSeeMeSpacing.sm),
           Expanded(
             child: Text(
               'An override transparently replaces the automated estimate for a '
               'city and is labelled to users. Use only when the pipeline is '
               'delayed or wrong; clear it once the pipeline recovers.',
-              style: AppTextStylesV2.caption.copyWith(
-                color: AppColorsV2.textSecondary,
+              style: context.fsmText.bodySmall?.copyWith(
+                color: palette.textSecondary,
               ),
             ),
           ),
@@ -251,36 +270,34 @@ class _ActiveOverrideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final a = RiskVisuals.forLevel(riskOverride.riskLevel);
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    final a = RiskVisuals.resolve(context, riskOverride.riskLevel);
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColorsV2.stroke),
-      ),
+      padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
+      decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ACTIVE OVERRIDE', style: AppTextStylesV2.microLabel),
-          const SizedBox(height: 10),
+          Text('ACTIVE OVERRIDE', style: text.labelSmall?.copyWith(letterSpacing: 1.2)),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
           Row(
             children: [
               Icon(a.icon, color: a.color, size: 20),
-              const SizedBox(width: 8),
+              const SizedBox(width: ForeSeeMeSpacing.sm),
               Text(
                 '${a.headline} · ${riskOverride.disease}',
-                style: AppTextStylesV2.body.copyWith(
-                  color: AppColorsV2.textPrimary,
+                style: text.bodyLarge?.copyWith(
+                  color: palette.textPrimary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Reason: ${riskOverride.reason}', style: AppTextStylesV2.caption),
-          Text('By: ${riskOverride.authorEmail}', style: AppTextStylesV2.caption),
-          const SizedBox(height: 12),
+          Text('Reason: ${riskOverride.reason}', style: text.bodySmall),
+          Text('By: ${riskOverride.authorEmail}', style: text.bodySmall),
+          const SizedBox(height: ForeSeeMeSpacing.md),
           AppButton(
             text: 'Clear override',
             isOutlined: true,
@@ -299,13 +316,15 @@ class _CityDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return _dropShell(
+      context,
       DropdownButton<String>(
         value: value,
         isExpanded: true,
         underline: const SizedBox.shrink(),
-        dropdownColor: AppColorsV2.shellRaised,
-        style: AppTextStylesV2.body.copyWith(color: AppColorsV2.textPrimary),
+        dropdownColor: palette.surfaceContainerHigh,
+        style: context.fsmText.bodyLarge?.copyWith(color: palette.textPrimary),
         items: [
           for (final c in kSupportedCities)
             DropdownMenuItem(value: c, child: Text(c)),
@@ -323,13 +342,15 @@ class _DiseaseDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
     return _dropShell(
+      context,
       DropdownButton<String>(
         value: value,
         isExpanded: true,
         underline: const SizedBox.shrink(),
-        dropdownColor: AppColorsV2.shellRaised,
-        style: AppTextStylesV2.body.copyWith(color: AppColorsV2.textPrimary),
+        dropdownColor: palette.surfaceContainerHigh,
+        style: context.fsmText.bodyLarge?.copyWith(color: palette.textPrimary),
         items: [
           for (final d in _kDiseases)
             DropdownMenuItem(value: d, child: Text(d)),
@@ -340,12 +361,12 @@ class _DiseaseDropdown extends StatelessWidget {
   }
 }
 
-Widget _dropShell(Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+Widget _dropShell(BuildContext context, Widget child) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColorsV2.glassFill,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColorsV2.stroke),
+        color: ForeSeeMeSurface.fill(context),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+        border: Border.all(color: ForeSeeMeSurface.stroke(context)),
       ),
       child: child,
     );
@@ -360,15 +381,17 @@ class _LevelSelector extends StatelessWidget {
     return Row(
       children: [
         for (final level in RiskLevel.values) ...[
-          Expanded(child: _chip(level)),
-          if (level != RiskLevel.values.last) const SizedBox(width: 10),
+          Expanded(child: _chip(context, level)),
+          if (level != RiskLevel.values.last)
+            const SizedBox(width: ForeSeeMeSpacing.sm),
         ],
       ],
     );
   }
 
-  Widget _chip(RiskLevel level) {
-    final a = RiskVisuals.forLevel(level);
+  Widget _chip(BuildContext context, RiskLevel level) {
+    final a = RiskVisuals.resolve(context, level);
+    final palette = context.fsmPalette;
     final selected = level == value;
     return Semantics(
       button: true,
@@ -377,22 +400,22 @@ class _LevelSelector extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onChanged(level),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: ForeSeeMeSpacing.md),
           decoration: BoxDecoration(
-            color: selected ? a.fill : AppColorsV2.glassFill,
-            borderRadius: BorderRadius.circular(12),
+            color: selected ? a.fill : ForeSeeMeSurface.fill(context),
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
             border: Border.all(
-              color: selected ? a.color : AppColorsV2.stroke,
+              color: selected ? a.color : ForeSeeMeSurface.stroke(context),
             ),
           ),
           child: Column(
             children: [
               Icon(a.icon, color: a.color, size: 18),
-              const SizedBox(height: 4),
+              const SizedBox(height: ForeSeeMeSpacing.xs),
               Text(
                 a.label,
-                style: AppTextStylesV2.caption.copyWith(
-                  color: selected ? a.color : AppColorsV2.textSecondary,
+                style: context.fsmText.bodySmall?.copyWith(
+                  color: selected ? a.color : palette.textSecondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -410,24 +433,26 @@ class _ReasonField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return TextField(
       controller: controller,
       maxLines: 3,
       maxLength: 200,
-      style: AppTextStylesV2.body.copyWith(color: AppColorsV2.textPrimary),
+      style: text.bodyLarge?.copyWith(color: palette.textPrimary),
       decoration: InputDecoration(
         hintText: 'e.g. Pipeline delayed; AQI spiked per PMD advisory 2026-07-02.',
-        hintStyle: AppTextStylesV2.caption,
+        hintStyle: text.bodySmall,
         filled: true,
-        fillColor: AppColorsV2.glassFill,
-        counterStyle: AppTextStylesV2.caption,
+        fillColor: ForeSeeMeSurface.fill(context),
+        counterStyle: text.bodySmall,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColorsV2.stroke),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          borderSide: BorderSide(color: ForeSeeMeSurface.stroke(context)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColorsV2.teal),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          borderSide: BorderSide(color: palette.secondary),
         ),
       ),
     );

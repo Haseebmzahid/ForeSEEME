@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/app_design_v2.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
@@ -22,116 +23,129 @@ class HealthInsightsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.fsmPalette;
     return Scaffold(
-      backgroundColor: AppColorsV2.shell,
+      backgroundColor: palette.background,
       appBar: AppBar(
-        backgroundColor: AppColorsV2.shell,
+        backgroundColor: palette.background,
         elevation: 0,
-        foregroundColor: AppColorsV2.textPrimary,
+        foregroundColor: palette.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
           onPressed: () => context.pop(),
         ),
-        title: Text('Health Insights', style: AppTextStylesV2.cardTitle),
+        title: Text('Health Insights', style: context.fsmText.titleLarge),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-          children: [
-            // Sections fade + rise in on open, gently staggered (reduced-motion
-            // aware via AppReveal). No layout change — only entrance motion.
-            AppReveal(
-              child: Text(
-                'A calm, at-a-glance look at your environment, what may help, '
-                'and how your routine is going.',
-                style: AppTextStylesV2.body,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            AppReveal(
-              delayMs: 70,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(
+                  ForeSeeMeSpacing.gutter,
+                  ForeSeeMeSpacing.sm,
+                  ForeSeeMeSpacing.gutter,
+                  ForeSeeMeSpacing.gutter,
+                ),
                 children: [
-                  _SectionLabel('ENVIRONMENTAL RISK'),
-                  const SizedBox(height: 10),
-                  const RiskCard(),
+                  // Sections fade + rise in on open, gently staggered (reduced-motion
+                  // aware via AppReveal). No layout change — only entrance motion.
+                  AppReveal(
+                    child: Text(
+                      'A calm, at-a-glance look at your environment, what may help, '
+                      'and how your routine is going.',
+                      style: context.fsmText.bodyLarge?.copyWith(
+                        color: palette.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.gutter),
+
+                  AppReveal(
+                    delayMs: 70,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionLabel('ENVIRONMENTAL RISK'),
+                        const SizedBox(height: ForeSeeMeSpacing.md),
+                        const RiskCard(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.xxl),
+
+                  // Genuine environmental drivers (from attributions) + most-relevant
+                  // cited guidance first (Sprint 5, Prompt 10). Hides itself when there
+                  // is no estimate/attributions, so no empty section shows.
+                  const AppReveal(delayMs: 120, child: EnvironmentalInsightsCard()),
+                  const SizedBox(height: ForeSeeMeSpacing.xxl),
+
+                  AppReveal(
+                    delayMs: 160,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionLabel('WHAT MAY HELP'),
+                        const SizedBox(height: ForeSeeMeSpacing.md),
+                        const RecommendationsCard(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.xxl),
+
+                  AppReveal(
+                    delayMs: 210,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SectionLabel('YOUR ROUTINE'),
+                        const SizedBox(height: ForeSeeMeSpacing.md),
+                        const AdherenceInsightsCard(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.xxl),
+
+                  // Entry point to the proactive Weekly Health Report (Sprint 5,
+                  // Prompt 8) — also delivered via the alert channel.
+                  AppReveal(
+                    delayMs: 260,
+                    child: _NavLink(
+                      icon: Icons.calendar_month_rounded,
+                      iconColor: palette.secondary,
+                      title: "This week's report",
+                      subtitle: 'Your risk, routine and cited guidance',
+                      route: '/weekly-report',
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.lg),
+
+                  // Entry point to the Model Transparency page — how risk is produced
+                  // and its limits (Sprint 5, Prompt 7).
+                  AppReveal(
+                    delayMs: 300,
+                    child: _NavLink(
+                      icon: Icons.info_outline_rounded,
+                      iconColor: palette.tertiary,
+                      title: 'How ForeSeeMe works',
+                      subtitle: 'Data, label methodology, and honest limits',
+                      route: '/model-transparency',
+                    ),
+                  ),
+                  const SizedBox(height: ForeSeeMeSpacing.xxl),
                 ],
-              ),
-            ),
-            const SizedBox(height: 22),
-
-            // Genuine environmental drivers (from attributions) + most-relevant
-            // cited guidance first (Sprint 5, Prompt 10). Hides itself when there
-            // is no estimate/attributions, so no empty section shows.
-            const AppReveal(delayMs: 120, child: EnvironmentalInsightsCard()),
-            const SizedBox(height: 22),
-
-            AppReveal(
-              delayMs: 160,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionLabel('WHAT MAY HELP'),
-                  const SizedBox(height: 10),
-                  const RecommendationsCard(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-
-            AppReveal(
-              delayMs: 210,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionLabel('YOUR ROUTINE'),
-                  const SizedBox(height: 10),
-                  const AdherenceInsightsCard(),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-
-            // Entry point to the proactive Weekly Health Report (Sprint 5,
-            // Prompt 8) — also delivered via the alert channel.
-            const AppReveal(
-              delayMs: 260,
-              child: _NavLink(
-                icon: Icons.calendar_month_rounded,
-                iconColor: AppColorsV2.teal,
-                title: 'This week’s report',
-                subtitle: 'Your risk, routine and cited guidance',
-                route: '/weekly-report',
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Entry point to the Model Transparency page — how risk is produced
-            // and its limits (Sprint 5, Prompt 7).
-            const AppReveal(
-              delayMs: 300,
-              child: _NavLink(
-                icon: Icons.info_outline_rounded,
-                iconColor: AppColorsV2.violet,
-                title: 'How ForeSeeMe works',
-                subtitle: 'Data, label methodology, and honest limits',
-                route: '/model-transparency',
-              ),
-            ),
-            const SizedBox(height: 24),
-          ],
               ),
             ),
             // Pinned non-diagnostic framing — always visible, consistent with
             // Risk Details and the alert inbox.
             const Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
+              padding: EdgeInsets.fromLTRB(
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.sm,
+                ForeSeeMeSpacing.gutter,
+                ForeSeeMeSpacing.lg,
+              ),
               child: MedicalDisclaimer.banner(),
             ),
           ],
@@ -147,7 +161,10 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: AppTextStylesV2.microLabel);
+    return Text(
+      text,
+      style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
+    );
   }
 }
 
@@ -170,43 +187,48 @@ class _NavLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
     return Semantics(
       button: true,
       label: '$title — $subtitle',
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
         onTap: () => context.push(route),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColorsV2.glassFill,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColorsV2.stroke),
+            color: palette.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
+            border: Border.all(color: palette.outlineVariant),
           ),
           child: Row(
             children: [
               Icon(icon, size: 18, color: iconColor),
-              const SizedBox(width: 12),
+              const SizedBox(width: ForeSeeMeSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: AppTextStylesV2.body.copyWith(
-                        color: AppColorsV2.textPrimary,
+                      style: text.bodyLarge?.copyWith(
+                        color: palette.textPrimary,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: AppTextStylesV2.caption),
+                    Text(
+                      subtitle,
+                      style: text.bodySmall?.copyWith(color: palette.textTertiary),
+                    ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 size: 20,
-                color: AppColorsV2.textTertiary,
+                color: palette.textTertiary,
               ),
             ],
           ),
