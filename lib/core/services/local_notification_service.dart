@@ -7,8 +7,6 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../../features/medication/domain/models/medication_model.dart';
-
 class LocalNotificationService {
   LocalNotificationService._();
 
@@ -98,38 +96,13 @@ class LocalNotificationService {
     return details.notificationResponse?.payload;
   }
 
-  static Future<void> scheduleMedicationReminder({
-    required int notificationId,
-    required String medicationName,
-    required String dosage,
-    required DateTime scheduledTime,
-  }) async {
-    await _ensureInitialized();
-
-    final scheduledDate = _nextDailyInstance(scheduledTime);
-    final title = '\u{1F48A} Time to take $medicationName';
-    final body = '$dosage • Scheduled Medication Reminder';
-
-    await _zonedScheduleDaily(
-      notificationId: notificationId,
-      medicationName: medicationName,
-      title: title,
-      body: body,
-      scheduledDate: scheduledDate,
-      payload: 'medication_reminder:$notificationId',
-      scheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      channelId: _medicationChannelId,
-      channelName: _medicationChannelName,
-      channelDescription: _medicationChannelDescription,
-    );
-  }
-
-  /// Reschedules the primary reminder at [notificationId] with coaching-aware
-  /// content and (optionally) an adaptively-recommended time — same daily
-  /// repeating alarm, upgraded in place. Used by the notification refresh
-  /// pipeline (Sprint UX-M2.5); never called for the very first scheduling
-  /// (that stays on [scheduleMedicationReminder]'s neutral baseline copy so a
-  /// reminder is guaranteed even before any adherence history exists).
+  /// Schedules (or reschedules in place) the primary daily reminder at
+  /// [notificationId] with coaching-aware content and an adaptively-tuned
+  /// [scheduledTime] — a repeating alarm, guaranteed to fire even if the app
+  /// is never reopened. [title]/[body]/[payload] always come from
+  /// `MedicationCoachingService` via `MedicationNotificationOrchestrator`
+  /// (Sprint UX-M2.5): it's the single source of truth for notification
+  /// content, used for the very first scheduling as well as every refresh.
   static Future<void> scheduleDailyWithContent({
     required int notificationId,
     required String title,
@@ -223,31 +196,6 @@ class LocalNotificationService {
       ),
       payload: payload,
     );
-  }
-
-  static Future<void> scheduleMedicationRemindersForMedication(
-    MedicationModel medication,
-  ) async {
-    await _ensureInitialized();
-
-    if (!medication.isActive) {
-      await cancelMedicationReminders(medication.id);
-      return;
-    }
-
-    await cancelMedicationReminders(medication.id);
-
-    for (var i = 0; i < medication.reminderTimes.length; i++) {
-      final scheduledTime = _parseReminderTime(medication.reminderTimes[i]);
-      if (scheduledTime == null) continue;
-
-      await scheduleMedicationReminder(
-        notificationId: generateMedicationNotificationId(medication.id, i),
-        medicationName: medication.name,
-        dosage: medication.dosage,
-        scheduledTime: scheduledTime,
-      );
-    }
   }
 
   static Future<void> cancelNotification(int notificationId) async {
@@ -444,18 +392,5 @@ class LocalNotificationService {
     }
 
     return scheduledDate;
-  }
-
-  static DateTime? _parseReminderTime(String value) {
-    final parts = value.split(':');
-    if (parts.length != 2) return null;
-
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return null;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, hour, minute);
   }
 }

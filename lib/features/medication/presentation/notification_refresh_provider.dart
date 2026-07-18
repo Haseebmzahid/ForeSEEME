@@ -57,8 +57,11 @@ final medicationNotificationTapHandlerProvider =
 /// [container] rather than a `Ref`: both `Ref` (providers) and `WidgetRef`
 /// (widgets) expose the same underlying [ProviderContainer] via `.container`
 /// (they're unrelated sealed types otherwise, so neither can be passed where
-/// the other is expected). This lets [refreshMedicationNotifications] be
-/// called from both a `Provider` (`notificationRefreshProvider`) and a
+/// the other is expected). This lets [refreshMedicationNotifications] be the
+/// single source of truth for scheduling — called directly from
+/// `MedicationNotifier.addMedication`/`updateMedication` for immediate
+/// coaching-content feedback, from a `Provider` (`notificationRefreshProvider`,
+/// on every medications-list change and cold start), and from a
 /// `ConsumerStatefulWidget` (`MedicationCardWidget`, after a check-in).
 ///
 /// Best-effort refresh of every medication-coaching notification for [uid].
@@ -177,15 +180,24 @@ DateTime nextSundayEvening(DateTime now) {
 }
 
 /// Auto-triggers a refresh whenever the medications list changes — covers
-/// app-open (the stream's first emission) and medication add/edit/archive
-/// (Phase 8: notifications never go stale after a CRUD change). Activated by
-/// watching it once from an always-mounted widget (`AppShell`); Riverpod
-/// keeps the underlying listener alive for the rest of the app session.
+/// medication add/edit/archive (Phase 8: notifications never go stale after
+/// a CRUD change) and cold app start. `fireImmediately: true` is required
+/// for the cold-start case: `ref.listen` only fires on *subsequent* state
+/// transitions by default, so without it, a medication that already existed
+/// before this listener attached (i.e. everything on a normal login, since
+/// `medicationsStreamProvider` may already be resolved elsewhere in the
+/// widget tree by the time `AppShell` builds) would never get refreshed
+/// until its next unrelated CRUD change. `addMedication`/`updateMedication`
+/// already call [refreshMedicationNotifications] directly for their own
+/// immediate feedback; this listener is what keeps *every other* medication
+/// current on every app open. Activated by watching it once from an
+/// always-mounted widget (`AppShell`); Riverpod keeps the underlying
+/// listener alive for the rest of the app session.
 final notificationRefreshProvider = Provider<void>((ref) {
   ref.listen(medicationsStreamProvider, (previous, next) {
     next.whenData((_) {
       final uid = ref.read(authStateProvider).value?.uid ?? '';
       unawaited(refreshMedicationNotifications(ref.container, uid));
     });
-  });
+  }, fireImmediately: true);
 });

@@ -3,14 +3,49 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
+import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/medication/data/repositories/firestore_medication_repository.dart';
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_log_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
+import 'package:fyp_foreseeme/features/medication/domain/repositories/adherence_log_repository.dart';
 import 'package:fyp_foreseeme/features/medication/domain/repositories/medication_repository.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/medication_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_detail_sheet.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+UserModel _testUser([String uid = 'user-1']) =>
+    UserModel(uid: uid, email: 'a@b.com', createdAt: DateTime.utc(2026, 1, 1));
+
+/// No adherence history — the notification-refresh pipeline (triggered by
+/// `MedicationNotifier.addMedication`/`updateMedication`) reads this via
+/// `adherenceLogRepositoryProvider`; faked here so it never touches real
+/// Firestore in these repository-fake-backed tests.
+class _FakeAdherenceLogRepository implements AdherenceLogRepository {
+  @override
+  Stream<List<AdherenceLogModel>> getLogsForDateRange(
+    String uid,
+    DateTime startDate,
+    DateTime endDate,
+  ) => Stream.value(const []);
+
+  @override
+  Stream<List<AdherenceLogModel>> getLogsForDate(String uid, DateTime date) =>
+      Stream.value(const []);
+
+  @override
+  Future<void> logDose(AdherenceLogModel log) async {}
+
+  @override
+  Future<void> updateLogStatus(
+    String uid,
+    String logId,
+    AdherenceStatus status,
+  ) async {}
+}
 
 MedicationModel _medication({
   String id = '',
@@ -129,9 +164,23 @@ void main() {
       repo.store['m1'] = _medication(id: 'm1', name: 'Paracetamol', dosage: '500mg');
 
       final container = ProviderContainer(
-        overrides: [medicationRepositoryProvider.overrideWithValue(repo)],
+        overrides: [
+          medicationRepositoryProvider.overrideWithValue(repo),
+          // updateMedication now routes through the notification-refresh
+          // pipeline directly (MedicationNotificationOrchestrator) — these
+          // keep it off real Firebase/Firestore in this repo-fake test.
+          authStateProvider.overrideWith((ref) => Stream.value(_testUser())),
+          adherenceLogRepositoryProvider.overrideWithValue(
+            _FakeAdherenceLogRepository(),
+          ),
+        ],
       );
       addTearDown(container.dispose);
+      // Keeps medicationsStreamProvider's subscription pumping for
+      // `container.read(...future)` below — in the real app `AppShell`'s
+      // permanent `ref.listen` (notificationRefreshProvider) plays this
+      // role; a bare test container has nothing else doing so.
+      container.listen(medicationsStreamProvider, (previous, next) {});
 
       final updated = repo.store['m1']!.copyWith(
         name: 'Paracetamol Extra',
