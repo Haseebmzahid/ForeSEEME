@@ -333,6 +333,12 @@ class TodaysMission {
   final String? rawDeadlineTime;
   final int currentStreak;
 
+  /// How many scheduled doses are still pending today, across every active
+  /// medication (0 when [state] is not [MissionState.pending]). Lets the
+  /// notification-coaching layer (Sprint UX-M2.5) phrase "only one
+  /// medication remains today" without re-deriving today's dose list.
+  final int pendingDosesToday;
+
   const TodaysMission({
     required this.state,
     required this.title,
@@ -340,6 +346,7 @@ class TodaysMission {
     required this.medicationName,
     required this.rawDeadlineTime,
     required this.currentStreak,
+    this.pendingDosesToday = 0,
   });
 }
 

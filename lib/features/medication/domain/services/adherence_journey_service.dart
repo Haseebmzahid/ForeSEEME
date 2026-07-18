@@ -5,6 +5,7 @@ import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_
 import 'package:fyp_foreseeme/features/medication/domain/models/daily_status.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/dose_state_engine.dart';
+import 'package:fyp_foreseeme/features/medication/domain/services/time_of_day_analysis.dart';
 
 /// Turns the already-computed [AdherenceStatsModel] list (+ the raw dose
 /// logs backing it) into an [AdherenceJourneyModel] — a supportive narrative
@@ -72,7 +73,11 @@ class AdherenceJourneyService {
     );
 
     final level = MedicationLevelX.forPercent(currentPercent);
-    final timeBuckets = _timeOfDayBreakdown(logs, today);
+    final timeBuckets = computeTimeOfDayBreakdown(
+      logs,
+      start: today.subtract(const Duration(days: 6)),
+      end: today,
+    );
 
     final medicationPerformance = meds.map((s) {
       final percent = (s.weeklyRate.clamp(0.0, 1.0) * 100).round();
@@ -190,7 +195,7 @@ class AdherenceJourneyService {
     required int weeklyRatePercent,
     required int longestStreakEver,
     required int comparedToLastWeek,
-    required _TimeBuckets timeBuckets,
+    required TimeOfDayBreakdown timeBuckets,
   }) {
     return [
       Achievement(
@@ -286,7 +291,7 @@ class AdherenceJourneyService {
     return null;
   }
 
-  String? _needsAttention(_TimeBuckets buckets) {
+  String? _needsAttention(TimeOfDayBreakdown buckets) {
     final morning = buckets.morningRate;
     final evening = buckets.eveningRate;
 
@@ -304,7 +309,7 @@ class AdherenceJourneyService {
   List<InsightCard> _buildInsights({
     required int currentStreak,
     required int comparedToLastWeek,
-    required _TimeBuckets timeBuckets,
+    required TimeOfDayBreakdown timeBuckets,
   }) {
     final insights = <InsightCard>[];
 
@@ -363,6 +368,10 @@ class AdherenceJourneyService {
 
   // ── Time-of-day breakdown (shared by achievements + insights) ────────────
   //
+  // Computation lives in `time_of_day_analysis.dart` — `computeTimeOfDayBreakdown`
+  // — shared with `MedicationCoachingService` (Sprint UX-M2.5) so the two
+  // services agree on exactly one definition of "morning" and "evening".
+  //
   // NOTE: `features/insights` already has a similar-shaped time-of-day
   // breakdown (`AdherenceInsightsUseCase.strongestBucket`/`focusBucket`,
   // Sprint 4). Deliberately not reused here: that use case buckets into 3
@@ -373,44 +382,6 @@ class AdherenceJourneyService {
   // otherwise have (insights already depends on medication, not the other
   // way round). Flagged as a candidate for future consolidation rather than
   // introducing a reverse cross-feature dependency for this sprint.
-
-  _TimeBuckets _timeOfDayBreakdown(List<AdherenceLogModel> logs, DateTime today) {
-    final start = today.subtract(const Duration(days: 6));
-    var morningTotal = 0;
-    var morningTaken = 0;
-    var eveningTotal = 0;
-    var eveningTaken = 0;
-
-    for (final log in logs) {
-      if (log.status == AdherenceStatus.pending) continue;
-      final date = _dateOnly(log.date);
-      if (date.isBefore(start) || date.isAfter(today)) continue;
-
-      final hour = _hourOf(log.scheduledTime);
-      if (hour == null) continue;
-
-      if (hour >= 5 && hour < 12) {
-        morningTotal++;
-        if (log.status == AdherenceStatus.taken) morningTaken++;
-      } else if (hour >= 17 && hour < 21) {
-        eveningTotal++;
-        if (log.status == AdherenceStatus.taken) eveningTaken++;
-      }
-    }
-
-    return _TimeBuckets(
-      morningTotal: morningTotal,
-      morningTaken: morningTaken,
-      eveningTotal: eveningTotal,
-      eveningTaken: eveningTaken,
-    );
-  }
-
-  int? _hourOf(String scheduledTime) {
-    final parts = scheduledTime.split(':');
-    if (parts.length != 2) return null;
-    return int.tryParse(parts[0]);
-  }
 
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -501,7 +472,7 @@ class AdherenceJourneyService {
         // Binary Morning/Evening split for this card's two rows — coarser
         // than `_timeOfDayBreakdown`'s 3-tier bucketing on purpose, matching
         // the two-row layout the timeline card actually renders.
-        final hour = _hourOf(time);
+        final hour = timeOfDayHourOf(time);
         final isEveningSlot = hour != null && hour >= 17;
         if (isEveningSlot) {
           eveningHasDose = true;
@@ -678,6 +649,7 @@ class AdherenceJourneyService {
         medicationName: next.medicationName,
         rawDeadlineTime: next.time,
         currentStreak: currentStreak,
+        pendingDosesToday: pendingDoses.length,
       );
     }
 
@@ -768,21 +740,3 @@ class _TodayDose {
   });
 }
 
-class _TimeBuckets {
-  final int morningTotal;
-  final int morningTaken;
-  final int eveningTotal;
-  final int eveningTaken;
-
-  const _TimeBuckets({
-    required this.morningTotal,
-    required this.morningTaken,
-    required this.eveningTotal,
-    required this.eveningTaken,
-  });
-
-  int get morningMissed => morningTotal - morningTaken;
-
-  double? get morningRate => morningTotal == 0 ? null : morningTaken / morningTotal;
-  double? get eveningRate => eveningTotal == 0 ? null : eveningTaken / eveningTotal;
-}

@@ -10,6 +10,7 @@ import 'core/theme/theme_provider.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/platform_config_service.dart';
 import 'features/alerts/presentation/alerts_providers.dart';
+import 'features/medication/presentation/notification_refresh_provider.dart';
 import 'features/resources/presentation/nearby_hospitals_providers.dart';
 // TODO: import 'firebase_options.dart'; once generated
 
@@ -56,6 +57,9 @@ class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
     // so a terminated-launch tap can be routed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(fcmMessageHandlerProvider).start();
+      // Same pattern for medication-notification taps (Sprint UX-M2.5,
+      // Phase 6) — a separate handler, its own deep-link vocabulary.
+      ref.read(medicationNotificationTapHandlerProvider).start();
     });
   }
 

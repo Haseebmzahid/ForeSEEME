@@ -9,8 +9,10 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/dose_state_engine.dart';
+import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 
 import '../adherence_notifier.dart';
+import '../notification_refresh_provider.dart';
 
 class MedicationCardWidget extends ConsumerStatefulWidget {
   final MedicationModel medication;
@@ -108,6 +110,7 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
             timeString: widget.timeString,
             status: newStatus,
           );
+      _refreshNotifications();
     } catch (e) {
       if (!mounted) return;
       setState(() => _optimisticStatus = previousStatus);
@@ -119,6 +122,16 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
         setState(() => _isUpdating = false);
       }
     }
+  }
+
+  /// Best-effort: a completed/missed dose can change Today's Mission and
+  /// today's escalation state (Phase 8 — cancel a nudge once a dose is
+  /// resolved), so the coaching notification pipeline is refreshed right
+  /// after every check-in. Never blocks or surfaces errors to the UI.
+  void _refreshNotifications() {
+    final uid = ref.read(authStateProvider).value?.uid;
+    if (uid == null || uid.isEmpty) return;
+    unawaited(refreshMedicationNotifications(ref.container, uid));
   }
 
   Future<void> _markMissedAutomatically() async {
@@ -142,6 +155,7 @@ class _MedicationCardWidgetState extends ConsumerState<MedicationCardWidget> {
             timeString: widget.timeString,
             status: AdherenceStatus.missed,
           );
+      _refreshNotifications();
     } catch (e) {
       if (!mounted) return;
       _autoMissedQueued = false;

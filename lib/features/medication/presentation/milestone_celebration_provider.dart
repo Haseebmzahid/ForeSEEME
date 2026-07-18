@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fyp_foreseeme/core/services/local_notification_service.dart';
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_journey_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/milestone_detector.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/notification_refresh_provider.dart';
 
 const _kHighestLevelKey = 'adherence_milestone_highest_level';
 const _kLongestStreakKey = 'adherence_milestone_longest_streak';
@@ -73,7 +75,29 @@ class MilestoneCelebrationNotifier extends Notifier<Milestone?> {
     );
     await store.write(updatedRecord);
 
-    if (milestone != null) state = milestone;
+    if (milestone != null) {
+      state = milestone;
+      await _notifyCelebration(milestone);
+    }
+  }
+
+  /// Best-effort push notification for the in-app overlay's milestone
+  /// (Phase 2.3) — reuses the same [Milestone] content, no new detection
+  /// logic. The in-app overlay (already shown via `state = milestone`)
+  /// remains the primary celebration surface even if this fails.
+  Future<void> _notifyCelebration(Milestone milestone) async {
+    try {
+      final scheduler = ref.read(notificationSchedulerProvider);
+      final coaching = ref.read(medicationCoachingServiceProvider);
+      await scheduler.showNow(
+        notificationId: LocalNotificationService.generateCoachingNotificationId(
+          'milestone_${milestone.type.name}_${DateTime.now().millisecondsSinceEpoch}',
+        ),
+        content: coaching.buildCelebrationContent(milestone),
+      );
+    } catch (_) {
+      // Non-fatal — see doc comment above.
+    }
   }
 
   void dismiss() {
