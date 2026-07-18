@@ -7,10 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state_widget.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/medication_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primitives.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_detail_sheet.dart';
 
 class MedicationScreen extends ConsumerWidget {
   const MedicationScreen({super.key});
@@ -25,7 +28,11 @@ class MedicationScreen extends ConsumerWidget {
     return '$readHour:$minute $suffix';
   }
 
-  Widget _buildMedicationTile(BuildContext context, MedicationModel medication) {
+  Widget _buildMedicationTile(
+    BuildContext context,
+    WidgetRef ref,
+    MedicationModel medication,
+  ) {
     final palette = context.fsmPalette;
     final text = context.fsmText;
 
@@ -33,159 +40,215 @@ class MedicationScreen extends ConsumerWidget {
         ? 'No reminders set'
         : medication.reminderTimes.map(_formatTime).join(', ');
 
-    final isActive = medication.isActive;
-
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: ForeSeeMeSpacing.gutter,
         vertical: 6.0,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: ForeSeeMeSurface.card(context),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Icon badge
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
-                    gradient: isActive
-                        ? LinearGradient(
-                            colors: [palette.primary, palette.secondary],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isActive ? null : palette.surfaceContainerHighest,
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: palette.primary.withValues(alpha: 0.30),
-                              blurRadius: 14,
-                              spreadRadius: -4,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : [],
-                  ),
-                  child: Icon(
-                    Icons.medication_rounded,
-                    color: isActive ? palette.onPrimary : palette.textTertiary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                // Text content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              medication.name,
-                              style: text.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Dosage pill
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.secondary.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(
-                                ForeSeeMeRadius.full,
-                              ),
-                              border: Border.all(
-                                color: palette.secondary.withValues(alpha: 0.24),
-                                width: ForeSeeMeBorderWidth.hairline,
-                              ),
-                            ),
-                            child: Text(
-                              medication.dosage,
-                              style: text.labelSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: palette.secondary,
-                              ),
-                            ),
+      child: PressableScale(
+        onTap: () => _showMedicationDetailSheet(context, ref, medication),
+        child: Semantics(
+          button: true,
+          label: '${medication.name}, ${medication.dosage}',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: ForeSeeMeSurface.card(context),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Icon badge
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+                        gradient: LinearGradient(
+                          colors: [palette.primary, palette.secondary],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: palette.primary.withValues(alpha: 0.30),
+                            blurRadius: 14,
+                            spreadRadius: -4,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        medication.frequency.label,
-                        style: text.bodyMedium?.copyWith(
-                          fontSize: 13,
-                          color: palette.textSecondary,
-                        ),
+                      child: Icon(
+                        Icons.medication_rounded,
+                        color: palette.onPrimary,
+                        size: 22,
                       ),
-                      if (reminderText.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 13,
-                              color: palette.secondary.withValues(alpha: 0.75),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                reminderText,
-                                style: text.bodySmall?.copyWith(
-                                  color: palette.secondary,
+                    ),
+                    const SizedBox(width: 14),
+                    // Text content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  medication.name,
+                                  style: text.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(width: 8),
+                              // Dosage pill
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.secondary.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(
+                                    ForeSeeMeRadius.full,
+                                  ),
+                                  border: Border.all(
+                                    color: palette.secondary.withValues(alpha: 0.24),
+                                    width: ForeSeeMeBorderWidth.hairline,
+                                  ),
+                                ),
+                                child: Text(
+                                  medication.dosage,
+                                  style: text.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.secondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            medication.frequency.label,
+                            style: text.bodyMedium?.copyWith(
+                              fontSize: 13,
+                              color: palette.textSecondary,
+                            ),
+                          ),
+                          if (reminderText.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 13,
+                                  color: palette.secondary.withValues(alpha: 0.75),
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    reminderText,
+                                    style: text.bodySmall?.copyWith(
+                                      color: palette.secondary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                      if (!isActive) ...[
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.error.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Inactive',
-                            style: text.labelSmall?.copyWith(
-                              color: palette.error,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: palette.textTertiary,
+                      size: 20,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _showMedicationDetailSheet(
+    BuildContext context,
+    WidgetRef ref,
+    MedicationModel medication,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => MedicationDetailSheet(
+        medication: medication,
+        onEdit: () {
+          Navigator.of(sheetContext).pop();
+          context.push('/medications/edit', extra: medication);
+        },
+        onArchive: () {
+          Navigator.of(sheetContext).pop();
+          _confirmArchive(context, ref, medication);
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmArchive(
+    BuildContext context,
+    WidgetRef ref,
+    MedicationModel medication,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Archive Medication?'),
+        content: const Text(
+          'This medication will no longer appear in your active medications.\n\n'
+          'Your adherence history will remain available.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: dialogContext.fsmPalette.error,
+            ),
+            child: const Text('Archive'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref
+          .read(medicationNotifierProvider.notifier)
+          .archiveMedication(medication.uid, medication.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Medication archived')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Archive failed: $e')),
+      );
+    }
   }
 
   @override
@@ -238,7 +301,13 @@ class MedicationScreen extends ConsumerWidget {
               icon: Icons.error_outline,
             ),
             data: (medications) {
-              if (medications.isEmpty) {
+              // Archived medications are excluded — they preserve adherence
+              // history but no longer appear in the active list.
+              final activeMedications = medications
+                  .where((m) => m.isActive)
+                  .toList();
+
+              if (activeMedications.isEmpty) {
                 return const _EmptyMedicationState();
               }
               return ListView.builder(
@@ -246,9 +315,9 @@ class MedicationScreen extends ConsumerWidget {
                   top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
                   bottom: 96.0,
                 ),
-                itemCount: medications.length + 1,
+                itemCount: activeMedications.length + 1,
                 itemBuilder: (context, index) {
-                  if (index == medications.length) {
+                  if (index == activeMedications.length) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(
                         ForeSeeMeSpacing.gutter,
@@ -263,7 +332,11 @@ class MedicationScreen extends ConsumerWidget {
                       ),
                     );
                   }
-                  return _buildMedicationTile(context, medications[index]);
+                  return _buildMedicationTile(
+                    context,
+                    ref,
+                    activeMedications[index],
+                  );
                 },
               );
             },

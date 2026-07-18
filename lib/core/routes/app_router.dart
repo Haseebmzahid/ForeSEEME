@@ -16,6 +16,7 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/profile_ready
 import 'package:fyp_foreseeme/features/dashboard/presentation/dashboard_screen.dart';
 import 'package:fyp_foreseeme/core/routes/splash_screen.dart';
 import 'package:fyp_foreseeme/core/routes/app_shell.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/medication_screen.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/add_medication_screen.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/check_in_screen.dart';
@@ -271,6 +272,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'add',
                     builder: (context, state) => const AddMedicationScreen(),
+                  ),
+                  GoRoute(
+                    path: 'edit',
+                    builder: (context, state) {
+                      final extra = state.extra;
+                      final medication = extra is MedicationModel
+                          ? extra
+                          : null;
+                      return AddMedicationScreen(medication: medication);
+                    },
                   ),
                 ],
               ),

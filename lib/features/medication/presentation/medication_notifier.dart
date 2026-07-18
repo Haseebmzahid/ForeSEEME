@@ -53,6 +53,69 @@ class MedicationNotifier extends AsyncNotifier<void> {
     }
   }
 
+  /// Validates the form data, updates the medication in Firestore, and
+  /// reschedules its local notifications (old reminders are cancelled first).
+  Future<MedicationModel> updateMedication(MedicationModel medication) async {
+    state = const AsyncValue.loading();
+    try {
+      final repository = ref.read(medicationRepositoryProvider);
+
+      await repository.updateMedication(medication);
+
+      try {
+        await _scheduleNotifications(medication);
+      } catch (e, st) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: e,
+            stack: st,
+            library: 'medication',
+            context: ErrorDescription('rescheduling medication notifications'),
+          ),
+        );
+      }
+
+      state = const AsyncValue.data(null);
+      return medication;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  /// Archives (soft-deletes) a medication: marks it inactive in Firestore and
+  /// cancels its pending reminders. Adherence history is preserved.
+  Future<void> archiveMedication(String uid, String medicationId) async {
+    state = const AsyncValue.loading();
+    try {
+      final repository = ref.read(medicationRepositoryProvider);
+
+      await repository.deactivateMedication(uid, medicationId);
+
+      try {
+        await LocalNotificationService.cancelMedicationReminders(
+          medicationId,
+        );
+      } catch (e, st) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: e,
+            stack: st,
+            library: 'medication',
+            context: ErrorDescription(
+              'cancelling reminders for archived medication',
+            ),
+          ),
+        );
+      }
+
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
   /// Triggers notification scheduling
   Future<void> _scheduleNotifications(MedicationModel medication) {
     return LocalNotificationService.scheduleMedicationRemindersForMedication(

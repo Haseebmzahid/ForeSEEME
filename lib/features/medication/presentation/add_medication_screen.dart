@@ -11,7 +11,11 @@ import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primi
 import 'medication_notifier.dart';
 
 class AddMedicationScreen extends ConsumerStatefulWidget {
-  const AddMedicationScreen({super.key});
+  /// When set, the screen opens in edit mode pre-populated with this
+  /// medication's values instead of creating a new one.
+  final MedicationModel? medication;
+
+  const AddMedicationScreen({super.key, this.medication});
 
   @override
   ConsumerState<AddMedicationScreen> createState() =>
@@ -28,6 +32,48 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
   bool _reminderToggle = true;
 
   List<TimeOfDay?> _reminderTimes = [null];
+
+  bool get _isEditMode => widget.medication != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final medication = widget.medication;
+    if (medication == null) return;
+
+    _nameController.text = medication.name;
+    _dosageController.text = medication.dosage;
+    _selectedType = medication.type;
+    _selectedFrequency = medication.frequency;
+    _reminderToggle = medication.reminderTimes.isNotEmpty;
+    _reminderTimes = _initialReminderTimes(medication);
+  }
+
+  /// Reminder times parsed from the medication, padded/truncated to match
+  /// its frequency's expected count (mirrors [_onFrequencyChanged]).
+  List<TimeOfDay?> _initialReminderTimes(MedicationModel medication) {
+    final expectedCount = medication.frequency.expectedReminderCount;
+    final parsed = medication.reminderTimes
+        .map(_parseTimeOfDay)
+        .toList(growable: true);
+
+    if (parsed.length > expectedCount) {
+      return parsed.sublist(0, expectedCount);
+    }
+    while (parsed.length < expectedCount) {
+      parsed.add(null);
+    }
+    return parsed;
+  }
+
+  TimeOfDay? _parseTimeOfDay(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
 
   @override
   void dispose() {
@@ -101,9 +147,10 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
       return;
     }
 
+    final existing = widget.medication;
     final medication = MedicationModel(
-      id: '',
-      uid: user.uid,
+      id: existing?.id ?? '',
+      uid: existing?.uid ?? user.uid,
       name: _nameController.text.trim(),
       dosage: _dosageController.text.trim(),
       type: _selectedType,
@@ -111,23 +158,35 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
       reminderTimes: _reminderToggle
           ? _reminderTimes.map((t) => _formatTimeForModel(t!)).toList()
           : [],
-      isActive: true,
-      createdAt: DateTime.now(),
+      isActive: existing?.isActive ?? true,
+      createdAt: existing?.createdAt ?? DateTime.now(),
     );
 
     try {
-      await ref
-          .read(medicationNotifierProvider.notifier)
-          .addMedication(medication);
+      if (_isEditMode) {
+        await ref
+            .read(medicationNotifierProvider.notifier)
+            .updateMedication(medication);
+      } else {
+        await ref
+            .read(medicationNotifierProvider.notifier)
+            .addMedication(medication);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Medication saved successfully')),
+        SnackBar(
+          content: Text(
+            _isEditMode
+                ? 'Medication updated successfully'
+                : 'Medication saved successfully',
+          ),
+        ),
       );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
+        SnackBar(content: Text('${_isEditMode ? 'Update' : 'Save'} failed: $e')),
       );
     }
   }
@@ -146,7 +205,7 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
         scrolledUnderElevation: 0,
         centerTitle: false,
         title: Text(
-          'Add Medication',
+          _isEditMode ? 'Edit Medication' : 'Add Medication',
           style: context.fsmText.titleLarge?.copyWith(
             fontSize: 22,
             letterSpacing: -0.2,
@@ -176,10 +235,11 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
                     // Main Search / Name Input
                     _buildNameInput(),
 
-                    const SizedBox(height: 12),
-
-                    // Quick Suggestions
-                    _buildSuggestionChips(),
+                    if (!_isEditMode) ...[
+                      const SizedBox(height: 12),
+                      // Quick Suggestions
+                      _buildSuggestionChips(),
+                    ],
 
                     const SizedBox(height: 24),
 
@@ -339,8 +399,10 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
             right: 16,
             bottom: 24,
             child: MedGradientButton(
-              icon: Icons.save_outlined,
-              label: 'Save Medication',
+              icon: _isEditMode
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.save_outlined,
+              label: _isEditMode ? 'Save Changes' : 'Save Medication',
               isLoading: isLoading,
               onPressed: _saveMedication,
             ),
