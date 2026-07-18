@@ -6,15 +6,17 @@ import 'package:go_router/go_router.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
-import 'package:fyp_foreseeme/features/insights/presentation/adherence_insights_card.dart';
-import 'package:fyp_foreseeme/features/insights/presentation/recommendations_card.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/health_snapshot_card.dart';
 import 'package:fyp_foreseeme/features/medication/domain/enums/medication_enums.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/todays_mission_card.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -93,6 +95,14 @@ String _formatDisplay(String hhmm) {
 }
 
 // ── Dashboard Screen ──────────────────────────────────────────────────────────
+//
+// Information architecture (Sprint UX-08): the screen answers one question,
+// "How am I today?", as a Daily Health Brief rather than a card dashboard.
+// Order: greeting → today's health (Risk Card, unchanged, the hero) → Today's
+// Mission → Next Medication → Health Snapshot → Quick Actions → Explore Your
+// Health. Every section below is either the pre-existing hero component or a
+// thin composition of already-shipped providers/widgets — no new business
+// logic, no new architecture.
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -150,69 +160,99 @@ class DashboardScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 16),
-                        // 1. HERO HEALTH OVERVIEW
+                        const SizedBox(height: 12),
+                        // COMPACT GREETING — a single identity line + status
+                        // chip, freeing vertical space for the brief below.
                         _HeroOverviewSection(displayName: displayName),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
 
-                        // 2. LIVE RISK CARD (tap → full Risk Details analytics)
-                        GestureDetector(
-                          onTap: () => context.push('/risk-details'),
-                          child: const RiskCard(),
+                        // SECTION 1 — TODAY'S HEALTH BRIEF (hero). The Risk
+                        // Card is untouched (visual hero); only the compact
+                        // inline disclaimer sits with it, per Rule 11 / the
+                        // Content Safety Policy checklist ("every risk-facing
+                        // surface carries a MedicalDisclaimer").
+                        AppReveal(
+                          child: PressableScale(
+                            onTap: () => context.push('/risk-details'),
+                            child: const RiskCard(),
+                          ),
                         ),
-
                         const SizedBox(height: 10),
-
-                        // 2a. NON-DIAGNOSTIC FRAMING — the risk reading is an
-                        // environmental estimate, never a clinical diagnosis.
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 2),
                           child: MedicalDisclaimer.inline(),
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
 
-                        // 2b. CITED RECOMMENDATION (deterministic, sourced)
-                        const RecommendationsCard(),
+                        // SECTION 2 — TODAY'S MISSION (reuses Module 2's
+                        // TodaysMissionCard + adherenceJourneyProvider — the
+                        // exact signal the Adherence Journey screen shows).
+                        AppReveal(
+                          delayMs: 60,
+                          child: _TodaysMissionSection(),
+                        ),
 
                         const SizedBox(height: 24),
 
-                        // 3. SUPPORTIVE ADHERENCE INSIGHTS (real, read-only —
-                        // streaks and taken-count computed from actual logs;
-                        // never a fabricated score).
-                        const AdherenceInsightsCard(),
-
-                        const SizedBox(height: 16),
-
-                        // 3c. HEALTH INSIGHTS SUMMARY ENTRY POINT
-                        const _HealthInsightsEntry(),
-
-                        const SizedBox(height: 32),
-
-                        // 4. TODAY'S MEDICATION CARD (dynamic)
-                        Text(
-                          'Upcoming Schedule',
-                          style: text.titleLarge?.copyWith(
-                            fontSize: 20,
-                            letterSpacing: -0.5,
+                        // SECTION 3 — NEXT MEDICATION (dynamic, unchanged
+                        // logic — just promoted above the fold).
+                        AppReveal(
+                          delayMs: 120,
+                          child: Text(
+                            'Next Medication',
+                            style: text.titleLarge?.copyWith(
+                              fontSize: 20,
+                              letterSpacing: -0.5,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        const _UpcomingMedicationCard(),
+                        const SizedBox(height: 14),
+                        AppReveal(
+                          delayMs: 120,
+                          child: const _UpcomingMedicationCard(),
+                        ),
 
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
 
-                        // 5. QUICK ACTIONS SECTION
-                        Text(
-                          'Quick Actions',
-                          style: text.titleLarge?.copyWith(
-                            fontSize: 20,
-                            letterSpacing: -0.5,
+                        // SECTION 4 — HEALTH SNAPSHOT (replaces the 4
+                        // large stat cards with one compact, tappable row).
+                        AppReveal(
+                          delayMs: 180,
+                          child: const HealthSnapshotCard(),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // SECTION 5 — QUICK ACTIONS (trimmed to the app's 4
+                        // primary workflows).
+                        AppReveal(
+                          delayMs: 220,
+                          child: Text(
+                            'Quick Actions',
+                            style: text.titleLarge?.copyWith(
+                              fontSize: 20,
+                              letterSpacing: -0.5,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        const _QuickActionsRow(),
+                        const SizedBox(height: 14),
+                        AppReveal(
+                          delayMs: 220,
+                          child: const _QuickActionsRow(),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // SECTION 6 — EXPLORE YOUR HEALTH (gateway to Module
+                        // M3: risk trends, environmental intelligence,
+                        // explainable AI, weekly reports — all already
+                        // composed inside Health Insights; Home only links).
+                        AppReveal(
+                          delayMs: 260,
+                          child: const _ExploreHealthEntry(),
+                        ),
 
                         const SizedBox(
                           height: 120,
@@ -238,38 +278,30 @@ class _HeroOverviewSection extends StatelessWidget {
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good Morning,';
-    if (hour < 17) return 'Good Afternoon,';
-    return 'Good Evening,';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
   }
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
     final colors = context.fsmColors;
     final text = context.fsmText;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _getGreeting(),
-                style: text.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: palette.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                displayName,
-                style: text.displayMedium,
+                '${_getGreeting()}, $displayName 👋',
+                style: text.headlineSmall,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -314,39 +346,10 @@ class _HeroOverviewSection extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(width: 12),
         const _InboxBellButton(),
         const SizedBox(width: 12),
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [palette.primary, palette.secondary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: palette.primary.withValues(alpha: 0.25),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(2),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: palette.surface,
-            ),
-            child: Icon(
-              Icons.person_outline_rounded,
-              color: palette.primary,
-              size: 24,
-            ),
-          ),
-        ),
+        const _ProfileAvatarButton(),
       ],
     );
   }
@@ -398,68 +401,96 @@ class _InboxBellButton extends ConsumerWidget {
   }
 }
 
-// ── Health Insights Entry ────────────────────────────────────────────────────
+// ── Profile Avatar Button ────────────────────────────────────────────────────
 
-/// Dashboard entry point to the unified Health Insights summary (Sprint 4, P8).
-class _HealthInsightsEntry extends StatelessWidget {
-  const _HealthInsightsEntry();
+/// Opens the Profile tab (a bottom-nav shell branch, so `go()` — see
+/// `AlertDeepLinkRouter.shellBranchRoutes` for why `push()` is unsafe here).
+class _ProfileAvatarButton extends StatelessWidget {
+  const _ProfileAvatarButton();
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
+    final p = context.fsmPalette;
+    return Semantics(
+      button: true,
+      label: 'Profile',
+      onTap: () => context.go('/profile'),
+      child: ExcludeSemantics(
+        child: PressableScale(
+          onTap: () => context.go('/profile'),
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [p.primary, p.secondary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: p.primary.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: p.surface,
+              ),
+              child: Icon(
+                Icons.person_outline_rounded,
+                color: p.primary,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => context.push('/health-insights'),
-        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
-        child: Ink(
-          padding: const EdgeInsets.all(16),
-          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
+// ── Today's Mission ──────────────────────────────────────────────────────────
+
+/// Home's entry for Module 2's Today's Mission — the single next actionable
+/// step. Pure composition: it watches the same [adherenceJourneyProvider] the
+/// Adherence Journey screen already shows, so Home never disagrees with it.
+class _TodaysMissionSection extends ConsumerWidget {
+  const _TodaysMissionSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final uid = ref.watch(authStateProvider).value?.uid ?? '';
+    final journeyAsync = ref.watch(adherenceJourneyProvider(uid));
+
+    return journeyAsync.when(
+      loading: () => _GlassContainer(
+        child: const AppSkeleton(
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: palette.secondary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
-                ),
-                child: Icon(
-                  Icons.insights_rounded,
-                  color: palette.secondary,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
+              SkeletonBox(width: 48, height: 48, radius: 24),
+              SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Health Insights',
-                      style: text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Risk, tips & your routine in one view',
-                      style: text.bodySmall?.copyWith(
-                        color: palette.textSecondary,
-                      ),
-                    ),
+                    SkeletonBar(width: 100, height: 12),
+                    SizedBox(height: 8),
+                    SkeletonBar(width: 160, height: 16),
                   ],
                 ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: palette.textTertiary,
               ),
             ],
           ),
         ),
       ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (journey) => TodaysMissionCard(mission: journey.todaysMission),
     );
   }
 }
@@ -725,7 +756,7 @@ class _MedicationActionButton extends StatelessWidget {
     final disabled = onTap == null;
     return Opacity(
       opacity: disabled ? 0.55 : 1,
-      child: GestureDetector(
+      child: PressableScale(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -765,6 +796,7 @@ class _MedicationActionButton extends StatelessWidget {
 
 // ── Quick Actions ────────────────────────────────────────────────────────────
 
+/// The app's 4 primary workflows, always one tap from Home.
 class _QuickActionsRow extends StatelessWidget {
   const _QuickActionsRow();
 
@@ -774,26 +806,33 @@ class _QuickActionsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _QuickActionCard(
-            icon: Icons.add_rounded,
-            label: 'Add Med',
-            // Correct path: nested under /medications
-            onTap: () => context.push('/medications/add'),
+            icon: Icons.check_circle_outline_rounded,
+            label: 'Check-In',
+            // Bottom-nav tab — a shell branch root, so go().
+            onTap: () => context.go('/check-in'),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child: _QuickActionCard(
-            icon: Icons.place_outlined,
-            label: 'Risk Map',
-            // National risk map (Sprint 3, Prompt 4).
-            onTap: () => context.push('/risk-map'),
+            icon: Icons.medication_rounded,
+            label: 'Medication',
+            onTap: () => context.go('/medications'),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _QuickActionCard(
+            icon: Icons.insights_rounded,
+            label: 'Insights',
+            onTap: () => context.push('/health-insights'),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: _QuickActionCard(
             icon: Icons.menu_book_rounded,
-            label: 'Resources',
+            label: 'Learn',
             onTap: () => context.go('/resources'),
           ),
         ),
@@ -816,12 +855,13 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
-    return GestureDetector(
+    return PressableScale(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: palette.primary, size: 24),
             const SizedBox(height: 8),
@@ -830,8 +870,78 @@ class _QuickActionCard extends StatelessWidget {
               style: context.fsmText.labelMedium?.copyWith(
                 color: palette.textPrimary,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Explore Your Health ──────────────────────────────────────────────────────
+
+/// Home's single gateway into Module M3 (risk trends, environmental
+/// intelligence, explainable AI, weekly reports, recommendations) — those
+/// destinations are already composed inside Health Insights; Home only links.
+class _ExploreHealthEntry extends StatelessWidget {
+  const _ExploreHealthEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.push('/health-insights'),
+        borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: palette.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+                ),
+                child: Icon(
+                  Icons.explore_outlined,
+                  color: palette.secondary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Explore Your Health',
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Risk trends, environmental intelligence & explainable AI',
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: palette.textTertiary,
+              ),
+            ],
+          ),
         ),
       ),
     );
