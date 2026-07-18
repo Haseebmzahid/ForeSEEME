@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_journey_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/daily_status.dart';
 
@@ -20,10 +21,16 @@ class MedicationAdherenceCard extends StatelessWidget {
         ? stat.last30DaysLog
         : stat.last30DaysLog.sublist(stat.last30DaysLog.length - 7);
     final percent = (stat.weeklyRate.clamp(0.0, 1.0) * 100).round();
+    final tier = PerformanceTierX.forPercent(percent);
+    final tierColor = switch (tier) {
+      PerformanceTier.excellent => context.fsmColors.success,
+      PerformanceTier.good => palette.secondary,
+      PerformanceTier.needsAttention => palette.error,
+    };
 
     return Semantics(
       container: true,
-      label: '${stat.medicationName}, ${stat.dosage}: $percent percent adherence',
+      label: '${stat.medicationName}, ${stat.dosage}: $percent percent adherence, ${tier.label}',
       child: ExcludeSemantics(
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 420),
@@ -67,6 +74,38 @@ class MedicationAdherenceCard extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: tierColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+                  border: Border.all(
+                    color: tierColor.withValues(alpha: 0.3),
+                    width: ForeSeeMeBorderWidth.hairline,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      tier == PerformanceTier.needsAttention
+                          ? Icons.info_outline_rounded
+                          : Icons.check_circle_outline_rounded,
+                      size: 14,
+                      color: tierColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      tier.label,
+                      style: text.labelSmall?.copyWith(
+                        color: tierColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 18),
               Row(

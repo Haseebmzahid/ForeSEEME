@@ -9,7 +9,9 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state_widget.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_analytics_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/medication_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primitives.dart';
@@ -186,12 +188,22 @@ class MedicationScreen extends ConsumerWidget {
     WidgetRef ref,
     MedicationModel medication,
   ) {
+    final stats = ref.read(adherenceAnalyticsProvider(medication.uid)).value;
+    AdherenceStatsModel? stat;
+    for (final s in stats ?? const <AdherenceStatsModel>[]) {
+      if (s.medicationId == medication.id) {
+        stat = s;
+        break;
+      }
+    }
+
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => MedicationDetailSheet(
         medication: medication,
+        stat: stat,
         onEdit: () {
           Navigator.of(sheetContext).pop();
           context.push('/medications/edit', extra: medication);

@@ -5,6 +5,12 @@ class AdherenceStatsModel {
   final String medicationName;
   final String dosage;
   final double weeklyRate;
+
+  /// The same dose-level rate computed for the 7 days immediately before the
+  /// current week (days 8-14 ago). Powers week-over-week storytelling
+  /// (Sprint UX-M2.2) without any extra Firestore fetch — it's derived from
+  /// the same 30-day window [last30DaysLog] already covers.
+  final double previousWeeklyRate;
   final int currentStreak;
   final int longestStreak;
   final List<DailyStatus> last30DaysLog;
@@ -16,6 +22,7 @@ class AdherenceStatsModel {
     required this.medicationName,
     required this.dosage,
     required this.weeklyRate,
+    this.previousWeeklyRate = 0.0,
     required this.currentStreak,
     required this.longestStreak,
     required this.last30DaysLog,
@@ -28,6 +35,7 @@ class AdherenceStatsModel {
     String? medicationName,
     String? dosage,
     double? weeklyRate,
+    double? previousWeeklyRate,
     int? currentStreak,
     int? longestStreak,
     List<DailyStatus>? last30DaysLog,
@@ -39,6 +47,7 @@ class AdherenceStatsModel {
       medicationName: medicationName ?? this.medicationName,
       dosage: dosage ?? this.dosage,
       weeklyRate: weeklyRate ?? this.weeklyRate,
+      previousWeeklyRate: previousWeeklyRate ?? this.previousWeeklyRate,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
       last30DaysLog: last30DaysLog ?? this.last30DaysLog,
@@ -54,6 +63,7 @@ class AdherenceStatsModel {
         'medicationId: $medicationId, '
         'medicationName: $medicationName, '
         'weeklyRate: $weeklyRate, '
+        'previousWeeklyRate: $previousWeeklyRate, '
         'currentStreak: $currentStreak, '
         'longestStreak: $longestStreak'
         ')';
@@ -67,6 +77,7 @@ class AdherenceStatsModel {
             other.medicationName == medicationName &&
             other.dosage == dosage &&
             other.weeklyRate == weeklyRate &&
+            other.previousWeeklyRate == previousWeeklyRate &&
             other.currentStreak == currentStreak &&
             other.longestStreak == longestStreak &&
             other.last30DaysLog == last30DaysLog &&
@@ -81,6 +92,7 @@ class AdherenceStatsModel {
       medicationName,
       dosage,
       weeklyRate,
+      previousWeeklyRate,
       currentStreak,
       longestStreak,
       Object.hashAll(last30DaysLog),

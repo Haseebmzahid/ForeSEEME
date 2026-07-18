@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
+import 'package:fyp_foreseeme/core/widgets/animated_count_text.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_journey_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 
-/// Weekly adherence hero: a donut of the real weekly rate plus streak chips.
-/// All colour is resolved from the ForeSeeMe design system for the ambient
-/// brightness.
+/// Storytelling hero (Feature 1): a supportive headline + message driven by
+/// [story], a donut of the real weekly rate, and streak chips. All colour is
+/// resolved from the ForeSeeMe design system for the ambient brightness.
 class AdherenceHeroCard extends StatelessWidget {
-  const AdherenceHeroCard({super.key, required this.stats});
+  const AdherenceHeroCard({super.key, required this.stats, required this.story});
 
   final List<AdherenceStatsModel> stats;
+  final HeroStory story;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +37,8 @@ class AdherenceHeroCard extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: "This week's adherence: $percent percent. "
+      label: '${story.emoji} ${story.headline} ${story.message} '
+          "This week's adherence: $percent percent. "
           'Current streak $streak days, best $best days.',
       child: ExcludeSemantics(
         child: AnimatedContainer(
@@ -54,7 +58,40 @@ class AdherenceHeroCard extends StatelessWidget {
             ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                child: Column(
+                  key: ValueKey(story.headline),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(story.emoji, style: const TextStyle(fontSize: 22)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            story.headline,
+                            style: text.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      story.message,
+                      style: text.bodyMedium?.copyWith(
+                        color: palette.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   _statChip(context, '🔥 $streak Day Streak'),
@@ -111,8 +148,9 @@ class AdherenceHeroCard extends StatelessWidget {
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          '$percent%',
+                        AnimatedCountText(
+                          value: percent,
+                          suffix: '%',
                           style: text.displayLarge?.copyWith(
                             fontSize: 36,
                             fontWeight: FontWeight.w800,

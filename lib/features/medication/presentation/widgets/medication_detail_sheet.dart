@@ -4,20 +4,27 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
+import 'package:fyp_foreseeme/features/medication/domain/services/adherence_journey_service.dart';
 
 /// Detail bottom sheet for a single medication: name, dosage, frequency,
-/// reminder times, start date and status, plus Edit / Archive / Cancel
-/// actions. Pure widget — [onEdit] and [onArchive] are injected so it is
-/// testable without a repository or router.
+/// reminder times, start date and status, a mini adherence dashboard
+/// (Feature 9 — current adherence, next reminder, current streak), plus
+/// Edit / Archive / Cancel actions. Pure widget — [onEdit] and [onArchive]
+/// are injected so it is testable without a repository or router. [stat] is
+/// optional: the dashboard section is simply omitted while adherence stats
+/// are still loading (never blocks opening the sheet).
 class MedicationDetailSheet extends StatelessWidget {
   final MedicationModel medication;
+  final AdherenceStatsModel? stat;
   final VoidCallback onEdit;
   final VoidCallback onArchive;
 
   const MedicationDetailSheet({
     super.key,
     required this.medication,
+    this.stat,
     required this.onEdit,
     required this.onArchive,
   });
@@ -85,6 +92,87 @@ class MedicationDetailSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniDashboard(BuildContext context, AdherenceStatsModel stat) {
+    final percent = (stat.weeklyRate.clamp(0.0, 1.0) * 100).round();
+    final nextReminder = AdherenceJourneyService.nextReminderFor(
+      medication,
+      DateTime.now(),
+    );
+
+    return Row(
+      children: [
+        _miniStatCard(
+          context,
+          icon: Icons.favorite_rounded,
+          label: 'Current Adherence',
+          value: '$percent%',
+        ),
+        const SizedBox(width: 10),
+        _miniStatCard(
+          context,
+          icon: Icons.notifications_active_rounded,
+          label: 'Next Reminder',
+          value: nextReminder == null ? '—' : _formatTime(nextReminder.rawTime),
+          subValue: nextReminder?.label,
+        ),
+        const SizedBox(width: 10),
+        _miniStatCard(
+          context,
+          icon: Icons.local_fire_department_rounded,
+          label: 'Current Streak',
+          value: '${stat.currentStreak} Days',
+        ),
+      ],
+    );
+  }
+
+  Widget _miniStatCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    String? subValue,
+  }) {
+    final palette = context.fsmPalette;
+    final text = context.fsmText;
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: palette.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+          border: Border.all(
+            color: palette.outlineVariant,
+            width: ForeSeeMeBorderWidth.hairline,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 16, color: palette.secondary),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              textAlign: TextAlign.center,
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            if (subValue != null)
+              Text(
+                subValue,
+                textAlign: TextAlign.center,
+                style: text.labelSmall?.copyWith(color: palette.textSecondary),
+              ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: text.labelSmall?.copyWith(color: palette.textTertiary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -243,6 +331,12 @@ class MedicationDetailSheet extends StatelessWidget {
                 label: 'Start Date',
                 value: _formatStartDate(medication.createdAt),
               ),
+              if (stat != null) ...[
+                const SizedBox(height: 8),
+                Divider(color: ForeSeeMeSurface.stroke(context)),
+                const SizedBox(height: 4),
+                _buildMiniDashboard(context, stat!),
+              ],
               const SizedBox(height: 16),
               _actionRow(
                 context,

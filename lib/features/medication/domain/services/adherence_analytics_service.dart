@@ -43,6 +43,8 @@ class AdherenceAnalyticsService {
     var overallTaken = 0;
     var overallSkipped = 0;
     var overallScheduled = 0;
+    var overallPreviousTaken = 0;
+    var overallPreviousScheduled = 0;
 
     for (final medication in medications) {
       final medicationStats = _computeMedicationStats(
@@ -55,12 +57,18 @@ class AdherenceAnalyticsService {
       overallTaken += medicationStats._last7ScheduledTakenCount;
       overallSkipped += medicationStats.model.last7DaysSkippedCount;
       overallScheduled += medicationStats._last7ScheduledDoseCount;
+      overallPreviousTaken += medicationStats._previousWeekScheduledTakenCount;
+      overallPreviousScheduled +=
+          medicationStats._previousWeekScheduledDoseCount;
       stats.add(medicationStats.model);
     }
 
     final overallWeeklyRate = overallScheduled == 0
         ? 0.0
         : overallTaken / overallScheduled;
+    final overallPreviousWeeklyRate = overallPreviousScheduled == 0
+        ? 0.0
+        : overallPreviousTaken / overallPreviousScheduled;
 
     return [
       AdherenceStatsModel(
@@ -68,6 +76,7 @@ class AdherenceAnalyticsService {
         medicationName: 'Overall',
         dosage: '',
         weeklyRate: overallWeeklyRate.clamp(0.0, 1.0),
+        previousWeeklyRate: overallPreviousWeeklyRate.clamp(0.0, 1.0),
         currentStreak: 0,
         longestStreak: 0,
         last30DaysLog: const [],
@@ -93,6 +102,8 @@ class AdherenceAnalyticsService {
     var last7SkippedCount = 0;
     var last7ScheduledDoseCount = 0;
     var last7ScheduledTakenCount = 0;
+    var previousWeekScheduledDoseCount = 0;
+    var previousWeekScheduledTakenCount = 0;
 
     for (var i = 0; i < 30; i++) {
       final date = startDate.add(Duration(days: i));
@@ -129,12 +140,22 @@ class AdherenceAnalyticsService {
         last7ScheduledTakenCount += takenDoses;
         last7TakenCount += takenDoses;
         last7SkippedCount += skippedDoses;
+      } else if (_isWithinPreviousWeek(date, today) &&
+          _isScheduled(date, createdDate)) {
+        final scheduledDoses = _scheduledDoseCount(medication);
+        final takenDoses = _takenDoseCount(dayLogs, scheduledDoses);
+
+        previousWeekScheduledDoseCount += scheduledDoses;
+        previousWeekScheduledTakenCount += takenDoses;
       }
     }
 
     final weeklyRate = last7ScheduledDoseCount == 0
         ? 0.0
         : last7ScheduledTakenCount / last7ScheduledDoseCount;
+    final previousWeeklyRate = previousWeekScheduledDoseCount == 0
+        ? 0.0
+        : previousWeekScheduledTakenCount / previousWeekScheduledDoseCount;
 
     return _MedicationStatsResult(
       model: AdherenceStatsModel(
@@ -142,6 +163,7 @@ class AdherenceAnalyticsService {
         medicationName: medication.name,
         dosage: medication.dosage,
         weeklyRate: weeklyRate.clamp(0.0, 1.0),
+        previousWeeklyRate: previousWeeklyRate.clamp(0.0, 1.0),
         currentStreak: runningStreak,
         longestStreak: longestStreak,
         last30DaysLog: last30DaysLog,
@@ -150,6 +172,8 @@ class AdherenceAnalyticsService {
       ),
       last7ScheduledDoseCount: last7ScheduledDoseCount,
       last7ScheduledTakenCount: last7ScheduledTakenCount,
+      previousWeekScheduledDoseCount: previousWeekScheduledDoseCount,
+      previousWeekScheduledTakenCount: previousWeekScheduledTakenCount,
     );
   }
 
@@ -226,6 +250,15 @@ class AdherenceAnalyticsService {
     return !date.isBefore(start) && !date.isAfter(today);
   }
 
+  /// The 7 days immediately before [_isWithinLast7Days]'s window (days 8-14
+  /// ago) — used to derive week-over-week comparisons from the same 30-day
+  /// fetch, with no extra Firestore read.
+  bool _isWithinPreviousWeek(DateTime date, DateTime today) {
+    final start = today.subtract(const Duration(days: 13));
+    final end = today.subtract(const Duration(days: 7));
+    return !date.isBefore(start) && !date.isAfter(end);
+  }
+
   bool _isScheduled(DateTime date, DateTime createdDate) {
     return !date.isBefore(createdDate);
   }
@@ -239,11 +272,17 @@ class _MedicationStatsResult {
   final AdherenceStatsModel model;
   final int _last7ScheduledDoseCount;
   final int _last7ScheduledTakenCount;
+  final int _previousWeekScheduledDoseCount;
+  final int _previousWeekScheduledTakenCount;
 
   const _MedicationStatsResult({
     required this.model,
     required int last7ScheduledDoseCount,
     required int last7ScheduledTakenCount,
+    required int previousWeekScheduledDoseCount,
+    required int previousWeekScheduledTakenCount,
   }) : _last7ScheduledDoseCount = last7ScheduledDoseCount,
-       _last7ScheduledTakenCount = last7ScheduledTakenCount;
+       _last7ScheduledTakenCount = last7ScheduledTakenCount,
+       _previousWeekScheduledDoseCount = previousWeekScheduledDoseCount,
+       _previousWeekScheduledTakenCount = previousWeekScheduledTakenCount;
 }
