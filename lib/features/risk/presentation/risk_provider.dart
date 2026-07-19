@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/constants/cities_constants.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_repository.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/location_comparison.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/domain/repositories/risk_repository.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/city_distance_service.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/explanation_templater.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_comparison_service.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_trend_service.dart';
@@ -136,3 +138,42 @@ final cityDiseaseSummaryProvider =
       final history = await ref.watch(riskHistoryProvider(city).future);
       return summarizeDiseasesForCity(history);
     });
+
+/// **Location Intelligence** (Geospatial Intelligence sprint): a real
+/// two-city comparison — the user's own profile city vs. the nearest OTHER
+/// supported city by true distance ([nearestOtherCity]). With only 5
+/// supported cities, this is the honest meaning of "nearby region" (no
+/// fabricated sub-city neighbourhood).
+///
+/// Pure composition of existing reads: [latestRiskForCityProvider] for each
+/// city's estimate, [riskHistoryProvider] + [computeTrend] for each city's own
+/// trend. Resolves to `null` when there is no profile city, no other supported
+/// city to compare against, or either side lacks an estimate yet — a clean
+/// "nothing to compare" state rather than a partial/misleading card.
+final locationComparisonProvider = FutureProvider<LocationComparison?>((
+  ref,
+) async {
+  final city = await ref.watch(userCityProvider.future);
+  if (city == null) return null;
+
+  final nearby = nearestOtherCity(city);
+  if (nearby == null) return null;
+
+  final yourEstimate = await ref.watch(latestRiskForCityProvider(city).future);
+  final nearbyEstimate = await ref.watch(
+    latestRiskForCityProvider(nearby).future,
+  );
+  if (yourEstimate == null || nearbyEstimate == null) return null;
+
+  final yourHistory = await ref.watch(riskHistoryProvider(city).future);
+  final nearbyHistory = await ref.watch(riskHistoryProvider(nearby).future);
+
+  return LocationComparison(
+    yourCity: city,
+    yourEstimate: yourEstimate,
+    yourTrend: computeTrend(yourHistory),
+    nearbyCity: nearby,
+    nearbyEstimate: nearbyEstimate,
+    nearbyTrend: computeTrend(nearbyHistory),
+  );
+});

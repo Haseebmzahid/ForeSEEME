@@ -5,16 +5,22 @@ import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
+import 'package:fyp_foreseeme/features/insights/domain/models/health_intelligence.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_recommendation.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/weekly_report.dart';
 import 'package:fyp_foreseeme/features/insights/domain/repositories/recommendation_repository.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/adherence_insights_use_case.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/environmental_insights.dart';
+import 'package:fyp_foreseeme/features/insights/domain/services/health_intelligence_service.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_mapper.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/recommendation_prioritizer.dart';
 import 'package:fyp_foreseeme/features/insights/domain/services/weekly_report_use_case.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/adherence_journey_model.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
+import 'package:fyp_foreseeme/features/risk/domain/services/risk_trend_service.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// The verified recommendation content library. Overridable with a fake in tests.
@@ -210,6 +216,141 @@ final weeklyReportProvider = FutureProvider<WeeklyReport>((ref) async {
     risk: risk,
     trend: trend,
     adherence: adherence,
+    recommendation: recommendation,
+  );
+});
+
+/// The stateless composer for the Explainable Health Intelligence view.
+/// Overridable in tests.
+final healthIntelligenceServiceProvider = Provider<HealthIntelligenceService>((
+  ref,
+) {
+  return const HealthIntelligenceService();
+});
+
+/// The composed **Explainable Health Intelligence** view (Sprint M-EHI).
+///
+/// Pure composition of EXISTING signals — the current estimate + its genuine
+/// attributions, the deterministic risk trend, the user's supportive adherence
+/// insights, and today's adherence journey (mission, weekly reflection, today's
+/// dose states) — via [HealthIntelligenceService]. It recomputes nothing and
+/// composes no advisory/medical text (recommendations stay behind the existing
+/// cited, guarded providers — Rule 11).
+///
+/// Degrades gracefully: a risk read that fails (offline/denied) is treated as
+/// "no estimate" rather than failing the whole view, mirroring
+/// [weeklyReportProvider].
+final healthIntelligenceProvider = FutureProvider<HealthIntelligenceView>((
+  ref,
+) async {
+  final city = await ref.watch(userCityProvider.future);
+
+  RiskEstimateModel? estimate;
+  try {
+    estimate = await ref.watch(currentCityRiskProvider.future);
+  } catch (_) {
+    estimate = null;
+  }
+
+  final trend = await ref.watch(riskTrendProvider.future);
+  final adherence = await ref.watch(adherenceInsightsProvider.future);
+
+  final uid = ref.watch(authStateProvider).value?.uid ?? '';
+  final journey = await ref.watch(adherenceJourneyProvider(uid).future);
+
+  // Today's card is the last chapter of the weekly timeline (oldest first,
+  // ending today). Prefer the flagged `isToday` card; fall back to the last.
+  DayJourneyCard? today;
+  for (final day in journey.weeklyTimeline) {
+    if (day.isToday) today = day;
+  }
+  today ??= journey.weeklyTimeline.isNotEmpty
+      ? journey.weeklyTimeline.last
+      : null;
+
+  final drivers = deriveEnvironmentalDrivers(estimate?.attributions);
+
+  return ref.watch(healthIntelligenceServiceProvider).compose(
+        city: city,
+        estimate: estimate,
+        trend: trend,
+        adherence: adherence,
+        reflection: journey.reflection,
+        mission: journey.todaysMission,
+        today: today,
+        drivers: drivers,
+      );
+});
+
+// ── Area Insight (Geospatial Intelligence sprint) ───────────────────────────
+
+/// The explanation shown when a user taps a city on the map — genuine
+/// composition of the tapped city's OWN stored signals, mirroring
+/// [EnvironmentalInsightsView]'s cross-feature composition (risk + cited
+/// guidance) at this same presentation layer.
+class AreaInsightView {
+  final RiskEstimateModel estimate;
+  final TrendDirection trend;
+
+  /// The single biggest genuine model driver for this city's estimate, or
+  /// `null` when the estimate predates the explainability layer.
+  final EnvironmentalDriver? primaryDriver;
+
+  /// A cited, guarded recommendation for this city's current risk — never
+  /// generated (Rule 11). Always present: [prioritizeRecommendations] falls
+  /// back to the cited default.
+  final HealthRecommendation recommendation;
+
+  const AreaInsightView({
+    required this.estimate,
+    required this.trend,
+    required this.primaryDriver,
+    required this.recommendation,
+  });
+}
+
+/// Area Insight for an arbitrary tapped [city] (Geospatial Intelligence
+/// sprint) — the map's "why does this area look like this?" explanation.
+///
+/// Pure composition, reusing exactly the same building blocks as the current
+/// user's own Health Intelligence: [latestRiskForCityProvider] +
+/// [riskHistoryProvider] + [computeTrend] for that CITY's own trend (not the
+/// user's), [deriveEnvironmentalDrivers] for its top driver, and
+/// [prioritizeRecommendations] (guarded by [ContentSafetyGuard]) for a cited
+/// recommendation reflecting the user's own conditions against that area's
+/// risk. Resolves to `null` when the tapped city has no estimate yet.
+final areaInsightProvider = FutureProvider.family<AreaInsightView?, String>((
+  ref,
+  city,
+) async {
+  final estimate = await ref.watch(latestRiskForCityProvider(city).future);
+  if (estimate == null) return null;
+
+  final history = await ref.watch(riskHistoryProvider(city).future);
+  final trend = computeTrend(history);
+  final drivers = deriveEnvironmentalDrivers(estimate.attributions, limit: 1);
+
+  final conditions = await ref.watch(userConditionsProvider.future);
+  final repository = ref.watch(recommendationRepositoryProvider);
+  final ranked = prioritizeRecommendations(
+    riskLevel: estimate.riskLevel,
+    disease: estimate.disease,
+    conditions: conditions,
+    repository: repository,
+  );
+  final recommendation = ranked.first.recommendation;
+
+  // Rule 11 guardrail: an area recommendation must be a cited lookup.
+  ContentSafetyGuard.requireCited(
+    label: 'area recommendation ${recommendation.id}',
+    source: recommendation.source,
+    sourceUrl: recommendation.sourceUrl,
+  );
+
+  return AreaInsightView(
+    estimate: estimate,
+    trend: trend,
+    primaryDriver: drivers.isNotEmpty ? drivers.first : null,
     recommendation: recommendation,
   );
 });

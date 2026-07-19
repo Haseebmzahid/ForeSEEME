@@ -19,8 +19,9 @@ import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/adherence_insights.dart';
 import 'package:fyp_foreseeme/features/insights/data/repositories/static_recommendation_repository.dart';
-import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
+import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 
@@ -70,12 +71,16 @@ Future<Widget> _inbox() async {
 
 Widget _healthInsights() => ProviderScope(
   overrides: [
+    // Signed out → empty adherence journey (no Firebase); the remaining
+    // upstreams are pinned so the composed view resolves deterministically.
+    authStateProvider.overrideWith((ref) => Stream.value(null)),
     userCityProvider.overrideWith((ref) async => 'Lahore'),
     currentCityRiskProvider.overrideWith((ref) async => null),
+    riskTrendProvider.overrideWith((ref) async => TrendDirection.insufficient),
     currentRecommendationProvider.overrideWith((ref) => _repo.lookup('*', '*')),
     adherenceInsightsProvider.overrideWith((ref) => AdherenceInsights.empty()),
   ],
-  child: const MaterialApp(home: HealthInsightsScreen()),
+  child: const MaterialApp(home: HealthIntelligenceScreen()),
 );
 
 void main() {

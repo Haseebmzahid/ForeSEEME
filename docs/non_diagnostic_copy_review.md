@@ -25,7 +25,7 @@ Canonical copy (single source of truth — do not fork per screen):
 |---|---|---|
 | Dashboard (risk) | `dashboard_screen.dart` | inline, under the risk card |
 | Risk details | `risk_details_screen.dart` | banner, pinned footer (all data states) |
-| Health insights (risk + recommendations) | `health_insights_screen.dart` | banner footer (replaced the old bespoke inline disclaimer) |
+| Explainable Health Intelligence (risk + why + contributors + recommendations) | `health_intelligence_screen.dart` | banner, pinned footer (all data states; superseded `health_insights_screen.dart`) |
 | Alert inbox (alert payloads) | `alert_inbox_screen.dart` | inline, pinned footer (present even when empty) |
 | Onboarding / consent | `notification_permission_screen.dart` | inline, at the consent point |
 

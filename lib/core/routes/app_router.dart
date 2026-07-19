@@ -31,7 +31,8 @@ import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_s
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_settings_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alert_inbox_screen.dart';
-import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
+import 'package:fyp_foreseeme/features/alerts/presentation/geospatial_timeline_screen.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
@@ -220,9 +221,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _motionPage(state, const AlertInboxScreen()),
       ),
       GoRoute(
+        // Pushed for a `String?` result (the tapped entry's city) — see
+        // RiskMapScreen._openRecentActivity. Part of the map's exploration
+        // experience, distinct from the operational /alerts inbox.
+        path: '/risk-activity',
+        pageBuilder: (context, state) =>
+            _motionPage(state, const GeospatialTimelineScreen()),
+      ),
+      GoRoute(
+        // Destination of "Explore Your Health" — the Explainable Health
+        // Intelligence screen (Sprint M-EHI) replaced the former Health Insights
+        // screen at this path, so existing links/deep-links keep working.
         path: '/health-insights',
         pageBuilder: (context, state) =>
-            _motionPage(state, const HealthInsightsScreen()),
+            _motionPage(state, const HealthIntelligenceScreen()),
       ),
       GoRoute(
         path: '/model-transparency',

@@ -10,7 +10,7 @@ import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
 import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
-import 'package:fyp_foreseeme/features/insights/presentation/health_insights_screen.dart';
+import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_details_screen.dart';
 
 UserModel _signedInUser() =>
@@ -102,13 +102,21 @@ void main() {
       expect(find.byType(MedicalDisclaimer), findsOneWidget);
     });
 
-    testWidgets('health insights screen (risk + recommendations)', (
+    testWidgets('health intelligence screen (risk + recommendations)', (
       tester,
     ) async {
+      // Signed out: userCityProvider → null, so every risk provider
+      // short-circuits to its safe empty state with no Firebase, and the
+      // composed view resolves to its no-data form.
+      tester.view.physicalSize = const Size(1200, 4000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [signedOut],
-          child: const MaterialApp(home: HealthInsightsScreen()),
+          child: const MaterialApp(home: HealthIntelligenceScreen()),
         ),
       );
       await tester.pumpAndSettle();
