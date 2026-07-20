@@ -62,3 +62,33 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+
+/// The lighter sibling of [SectionHeader]: a small icon + uppercase
+/// micro-caps label, no chip/circle background. For compact section framing
+/// inside dense reading/list screens (Health Intelligence, Resource Center)
+/// where [SectionHeader]'s larger icon-chip treatment would be too heavy.
+///
+/// One shared definition — previously reinvented per-screen (a private
+/// `_SectionHeader` in Health Intelligence, a hand-rolled icon-less label in
+/// the Resource Center); both now render identically from here.
+class EyebrowHeader extends StatelessWidget {
+  final String label;
+  final IconData icon;
+
+  const EyebrowHeader({super.key, required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: palette.textTertiary),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
+        ),
+      ],
+    );
+  }
+}

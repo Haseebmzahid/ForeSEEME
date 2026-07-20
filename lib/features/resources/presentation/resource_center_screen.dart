@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
+import 'package:fyp_foreseeme/core/widgets/section_header.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/article_bookmark_provider.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
@@ -72,12 +73,9 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
                   ),
                 ),
                 const SizedBox(height: 22),
-                Text(
-                  'PREPAREDNESS',
-                  style: text.labelSmall?.copyWith(
-                    letterSpacing: 1.2,
-                    color: palette.textTertiary,
-                  ),
+                const EyebrowHeader(
+                  icon: Icons.shield_outlined,
+                  label: 'PREPAREDNESS',
                 ),
                 const SizedBox(height: 12),
                 EmergencyCard(
@@ -97,12 +95,9 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
                   ),
                 ],
                 const SizedBox(height: 22),
-                Text(
-                  'SELF-CARE GUIDES',
-                  style: text.labelSmall?.copyWith(
-                    letterSpacing: 1.2,
-                    color: palette.textTertiary,
-                  ),
+                const EyebrowHeader(
+                  icon: Icons.menu_book_outlined,
+                  label: 'SELF-CARE GUIDES',
                 ),
                 const SizedBox(height: 12),
                 CategoryChipRow(

@@ -79,12 +79,31 @@ class _ArticleScreenState extends ConsumerState<ArticleScreen> {
                 title: 'Guide not found',
                 description: 'This self-care guide is no longer available.',
               )
-            : NotificationListener<ScrollNotification>(
-                onNotification: (n) {
-                  _onScroll(n);
-                  return false;
-                },
-                child: _ArticleBody(article: article),
+            : Column(
+                children: [
+                  Expanded(
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (n) {
+                        _onScroll(n);
+                        return false;
+                      },
+                      child: _ArticleBody(article: article),
+                    ),
+                  ),
+                  // Persistent non-diagnostic framing — always visible while
+                  // reading, matching Risk Details / Health Intelligence /
+                  // Model Transparency's detail-screen convention (never
+                  // scrolled away with the content).
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      ForeSeeMeSpacing.gutter,
+                      ForeSeeMeSpacing.sm,
+                      ForeSeeMeSpacing.gutter,
+                      ForeSeeMeSpacing.lg,
+                    ),
+                    child: MedicalDisclaimer.banner(),
+                  ),
+                ],
               ),
       ),
     );
@@ -173,8 +192,6 @@ class _ArticleBody extends ConsumerWidget {
           onOpenSource: () =>
               ref.read(launcherServiceProvider).openExternalUrl(article.sourceUrl),
         ),
-        const SizedBox(height: ForeSeeMeSpacing.lg),
-        const MedicalDisclaimer.inline(),
       ],
     );
   }

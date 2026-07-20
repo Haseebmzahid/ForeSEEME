@@ -10,6 +10,7 @@ import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
+import 'package:fyp_foreseeme/core/widgets/section_header.dart';
 import 'package:fyp_foreseeme/core/widgets/timeline_row.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_intelligence.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
@@ -149,7 +150,7 @@ class _Content extends StatelessWidget {
         const SizedBox(height: ForeSeeMeSpacing.xxl),
 
         // 3 — Health Contributors
-        _SectionHeader(
+        EyebrowHeader(
           icon: Icons.tune_rounded,
           label: 'WHAT AFFECTS YOU',
         ),
@@ -165,7 +166,7 @@ class _Content extends StatelessWidget {
         const SizedBox(height: ForeSeeMeSpacing.xxl),
 
         // 4 — Recommendations (cited, guarded — reuses the existing surfaces).
-        _SectionHeader(
+        EyebrowHeader(
           icon: Icons.recommend_outlined,
           label: 'RECOMMENDED TODAY',
         ),
@@ -193,7 +194,7 @@ class _Content extends StatelessWidget {
 
         // 7 — Environmental Context
         if (view.environment.hasData && view.estimate != null) ...[
-          _SectionHeader(icon: Icons.eco_outlined, label: 'ENVIRONMENT'),
+          EyebrowHeader(icon: Icons.eco_outlined, label: 'ENVIRONMENT'),
           const SizedBox(height: ForeSeeMeSpacing.md),
           AppReveal(
             delayMs: 340,
@@ -206,7 +207,7 @@ class _Content extends StatelessWidget {
         ],
 
         // 8 — Learn More (reuses existing educational destinations).
-        _SectionHeader(icon: Icons.school_outlined, label: 'LEARN MORE'),
+        EyebrowHeader(icon: Icons.school_outlined, label: 'LEARN MORE'),
         const SizedBox(height: ForeSeeMeSpacing.md),
         const AppReveal(
           delayMs: 380,
@@ -643,28 +644,6 @@ class _EnvironmentContextCard extends StatelessWidget {
 }
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: palette.textTertiary),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
-        ),
-      ],
-    );
-  }
-}
 
 /// A tappable navigation row (glass card) for the Learn More sub-pages. Mirrors
 /// the app's shell-branch routing: a tab route (`/resources`) is reached with
