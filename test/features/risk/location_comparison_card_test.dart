@@ -104,4 +104,31 @@ void main() {
     await tester.pump();
     expect(dismissed, isTrue);
   });
+
+  testWidgets('dismiss button is independently reachable for screen readers', (
+    tester,
+  ) async {
+    tallSurface(tester);
+    final handle = tester.ensureSemantics();
+    final comparison = LocationComparison(
+      yourCity: 'Islamabad',
+      yourEstimate: _est('Islamabad', RiskLevel.low, 60),
+      yourTrend: TrendDirection.stable,
+      nearbyCity: 'Rawalpindi',
+      nearbyEstimate: _est('Rawalpindi', RiskLevel.low, 62),
+      nearbyTrend: TrendDirection.stable,
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        LocationComparisonCard(comparison: comparison, onDismiss: () {}),
+      ),
+    );
+
+    expect(
+      find.bySemanticsLabel('Dismiss location comparison'),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
 }

@@ -754,39 +754,51 @@ class _MedicationActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onTap == null;
-    return Opacity(
-      opacity: disabled ? 0.55 : 1,
-      child: PressableScale(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isPrimary ? null : color,
-            borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
-            gradient: isPrimary ? context.fsmColors.gradients.primary : null,
-            boxShadow: isPrimary
-                ? [
-                    BoxShadow(
-                      color: context.fsmPalette.primary.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: textColor, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: context.fsmText.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: textColor,
-                ),
+    return Semantics(
+      button: true,
+      enabled: !disabled,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: disabled ? 0.55 : 1,
+          child: PressableScale(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: isPrimary ? null : color,
+                borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+                gradient: isPrimary
+                    ? context.fsmColors.gradients.primary
+                    : null,
+                boxShadow: isPrimary
+                    ? [
+                        BoxShadow(
+                          color: context.fsmPalette.primary.withValues(
+                            alpha: 0.2,
+                          ),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : [],
               ),
-            ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: textColor, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: context.fsmText.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -855,25 +867,38 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
-    return PressableScale(
+    // `PressableScale` is a bare GestureDetector — it supplies the press
+    // animation but no accessible activation action, so screen readers need
+    // an explicit Semantics wrapper (mirrors `_ProfileAvatarButton`).
+    return Semantics(
+      button: true,
+      label: label,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: palette.primary, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: context.fsmText.labelMedium?.copyWith(
-                color: palette.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      child: ExcludeSemantics(
+        child: PressableScale(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: ForeSeeMeSurface.card(
+              context,
+              radius: ForeSeeMeRadius.md,
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: palette.primary, size: 24),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: context.fsmText.labelMedium?.copyWith(
+                    color: palette.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

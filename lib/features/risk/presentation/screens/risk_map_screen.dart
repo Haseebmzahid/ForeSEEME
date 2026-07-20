@@ -168,7 +168,9 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
             alignment: Alignment.topLeft,
             child: Padding(
               padding: const EdgeInsets.only(left: 16, top: 8),
-              child: const CollapsibleRiskLegend(initiallyExpanded: false),
+              child: const AppReveal(
+                child: CollapsibleRiskLegend(initiallyExpanded: false),
+              ),
             ),
           ),
         ),
@@ -187,16 +189,12 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
         Align(
           alignment: Alignment.bottomCenter,
           child: AnimatedSwitcher(
-            duration: AppMotion.medium,
-            switchInCurve: AppMotion.curve,
-            switchOutCurve: AppMotion.curve,
-            transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.15),
-                end: Offset.zero,
-              ).animate(animation),
-              child: FadeTransition(opacity: animation, child: child),
-            ),
+            // Collapses to an instant swap under reduced motion, mirroring
+            // AppMotion.stateSwitcher.
+            duration: AppMotion.reduceMotion(context)
+                ? Duration.zero
+                : AppMotion.medium,
+            transitionBuilder: AppMotion.sheetTransition,
             child: selected == null
                 ? const SizedBox.shrink(key: ValueKey('no-selection'))
                 : CityDetailSheet(
@@ -296,11 +294,17 @@ class _LocationComparisonSlot extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(locationComparisonProvider);
     return async.maybeWhen(
+      // The reveal lives here, not at the call site: the card is gated
+      // behind this async read, so an outer AppReveal would finish its
+      // clock while the slot was still an invisible SizedBox and the card
+      // would just snap in once the data arrived.
       data: (comparison) => comparison == null
           ? const SizedBox.shrink()
-          : LocationComparisonCard(
-              comparison: comparison,
-              onDismiss: onDismiss,
+          : AppReveal(
+              child: LocationComparisonCard(
+                comparison: comparison,
+                onDismiss: onDismiss,
+              ),
             ),
       orElse: () => const SizedBox.shrink(),
     );

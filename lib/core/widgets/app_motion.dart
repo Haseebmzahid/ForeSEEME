@@ -59,6 +59,23 @@ class AppMotion {
       ),
     );
   }
+
+  /// A soft upward slide + fade for a surface that **swaps** based on
+  /// selection (e.g. the map's tapped-city sheet) via
+  /// [AnimatedSwitcher.transitionBuilder] — the same house feel as
+  /// [pageTransition], reused instead of a one-off inline recipe. Pair with
+  /// an [AnimatedSwitcher.duration] of [medium] (or `Duration.zero` under
+  /// reduced motion — see [reduceMotion] — mirroring [stateSwitcher]).
+  static Widget sheetTransition(Widget child, Animation<double> animation) {
+    final curved = CurvedAnimation(parent: animation, curve: curve);
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.15),
+        end: Offset.zero,
+      ).animate(curved),
+      child: FadeTransition(opacity: curved, child: child),
+    );
+  }
 }
 
 /// A tap target that scales down slightly while pressed — the premium

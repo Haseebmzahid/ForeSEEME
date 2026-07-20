@@ -6,8 +6,10 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
-import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
+import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
+import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
+import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
 import 'package:fyp_foreseeme/core/widgets/timeline_row.dart';
 import 'package:fyp_foreseeme/features/insights/domain/models/health_intelligence.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/insights_providers.dart';
@@ -56,10 +58,28 @@ class HealthIntelligenceScreen extends ConsumerWidget {
         child: Column(
           children: [
             Expanded(
-              child: async.when(
-                loading: () => const _LoadingState(),
-                error: (_, _) => const _ErrorState(),
-                data: (view) => _Content(view: view),
+              child: AppMotion.stateSwitcher(
+                context,
+                async.when(
+                  loading: () => const BrandLoading(
+                    message: 'Loading your health intelligence…',
+                  ),
+                  error: (error, _) => isOfflineError(error)
+                      ? OfflineState(
+                          onRetry: () =>
+                              ref.invalidate(healthIntelligenceProvider),
+                        )
+                      : ErrorState(
+                          title: "Couldn't load your health intelligence",
+                          explanation:
+                              'Something went wrong loading this. Please '
+                              'try again.',
+                          onRetry: () =>
+                              ref.invalidate(healthIntelligenceProvider),
+                          detail: '$error',
+                        ),
+                  data: (view) => _Content(view: view),
+                ),
               ),
             ),
             // Pinned non-diagnostic framing — always visible, consistent with
@@ -717,73 +737,3 @@ class _NavLink extends StatelessWidget {
   }
 }
 
-// ── Async states ─────────────────────────────────────────────────────────────
-
-class _LoadingState extends StatelessWidget {
-  const _LoadingState();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        ForeSeeMeSpacing.gutter,
-        ForeSeeMeSpacing.lg,
-        ForeSeeMeSpacing.gutter,
-        ForeSeeMeSpacing.gutter,
-      ),
-      children: const [
-        AppSkeleton(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SkeletonBar(width: 220, height: 14),
-              SizedBox(height: 20),
-              SkeletonBox(height: 140, radius: 20),
-              SizedBox(height: 20),
-              SkeletonBox(height: 180, radius: 20),
-              SizedBox(height: 20),
-              SkeletonBox(height: 120, radius: 20),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(ForeSeeMeSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 40,
-              color: palette.textTertiary,
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Your health intelligence is unavailable right now',
-              textAlign: TextAlign.center,
-              style: text.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Check your connection and try again shortly.',
-              textAlign: TextAlign.center,
-              style: text.bodyMedium?.copyWith(color: palette.textSecondary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

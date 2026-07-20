@@ -33,11 +33,23 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.da
 /// entry with a known city pops that city back to the caller (the map, which
 /// then glides its camera there and opens the Area Insight sheet) instead of
 /// pushing a second map instance.
-class GeospatialTimelineScreen extends ConsumerWidget {
+class GeospatialTimelineScreen extends ConsumerStatefulWidget {
   const GeospatialTimelineScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GeospatialTimelineScreen> createState() =>
+      _GeospatialTimelineScreenState();
+}
+
+class _GeospatialTimelineScreenState
+    extends ConsumerState<GeospatialTimelineScreen> {
+  // Latches true the first time the list renders real rows, so the entrance
+  // stagger plays once per screen open — never again on a new alert
+  // streaming in (mirrors AlertInboxScreen's `_hasRevealedOnce`).
+  bool _hasRevealedOnce = false;
+
+  @override
+  Widget build(BuildContext context) {
     final palette = context.fsmPalette;
     final async = ref.watch(userAlertsStreamProvider);
 
@@ -86,7 +98,15 @@ class GeospatialTimelineScreen extends ConsumerWidget {
                             'appear here — tap any entry to see it on the map.',
                       );
                     }
-                    return _Timeline(alerts: alerts);
+                    // Captured before the flip, so only *this* build — the
+                    // first one to render real rows — gets the entrance
+                    // stagger.
+                    final animateEntrance = !_hasRevealedOnce;
+                    _hasRevealedOnce = true;
+                    return _Timeline(
+                      alerts: alerts,
+                      animateEntrance: animateEntrance,
+                    );
                   },
                 ),
               ),
@@ -105,21 +125,37 @@ class GeospatialTimelineScreen extends ConsumerWidget {
 }
 
 class _Timeline extends StatelessWidget {
-  const _Timeline({required this.alerts});
+  const _Timeline({required this.alerts, required this.animateEntrance});
 
   final List<UserAlertModel> alerts;
+
+  /// Whether this build should play the staggered entrance — true only for
+  /// the screen's first real render (mirrors AlertInboxScreen's `_AlertList`).
+  final bool animateEntrance;
+
+  /// Wraps [child] in [AppReveal] when [animateEntrance] is set; otherwise
+  /// returns it unwrapped, so a non-first render never re-mounts the reveal
+  /// machinery at all.
+  Widget _reveal(int index, Widget child) {
+    if (!animateEntrance) return child;
+    return AppReveal(delayMs: (index * 30).clamp(0, 300), child: child);
+  }
 
   @override
   Widget build(BuildContext context) {
     final groups = groupAlertsByDate(alerts, now: DateTime.now());
     final items = <Widget>[];
+    var index = 0;
     for (final group in groups) {
-      items.add(_DateHeader(text: group.header));
+      items.add(_reveal(index++, _DateHeader(text: group.header)));
       for (var i = 0; i < group.alerts.length; i++) {
         items.add(
-          _AlertTimelineRow(
-            alert: group.alerts[i],
-            isLast: i == group.alerts.length - 1,
+          _reveal(
+            index++,
+            _AlertTimelineRow(
+              alert: group.alerts[i],
+              isLast: i == group.alerts.length - 1,
+            ),
           ),
         );
       }

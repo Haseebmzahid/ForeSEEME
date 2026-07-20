@@ -42,88 +42,116 @@ class LocationComparisonCard extends StatelessWidget {
         ? 'AQI +$delta there'
         : 'AQI $delta there';
 
-    return Semantics(
-      container: true,
-      label:
-          'Location intelligence. Your area, ${comparison.yourCity}: '
-          '${yourAppearance.label} risk. Nearby, ${comparison.nearbyCity}: '
-          '${nearbyAppearance.label} risk. $deltaLabel.',
-      child: ExcludeSemantics(
-        child: Container(
-          // Wide enough for the longest trend label ("Insufficient data")
-          // inside TrendBadge's own padding without crowding it.
-          width: 300,
-          padding: const EdgeInsets.all(16),
-          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    // The dismiss button needs its OWN accessible action, so it can't sit
+    // inside the informational ExcludeSemantics below — it's a Positioned
+    // overlay instead, outside that exclusion boundary.
+    return Stack(
+      children: [
+        Semantics(
+          container: true,
+          label:
+              'Location intelligence. Your area, ${comparison.yourCity}: '
+              '${yourAppearance.label} risk. Nearby, ${comparison.nearbyCity}: '
+              '${nearbyAppearance.label} risk. $deltaLabel.',
+          child: ExcludeSemantics(
+            child: Container(
+              // Wide enough for the longest trend label ("Insufficient data")
+              // inside TrendBadge's own padding without crowding it.
+              width: 300,
+              padding: const EdgeInsets.all(16),
+              decoration: ForeSeeMeSurface.card(
+                context,
+                radius: ForeSeeMeRadius.lg,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.my_location_rounded,
-                    size: 16,
-                    color: palette.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'LOCATION INTELLIGENCE',
-                      style: text.labelSmall?.copyWith(
-                        letterSpacing: 1.0,
-                        color: palette.textTertiary,
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.my_location_rounded,
+                        size: 16,
+                        color: palette.primary,
                       ),
-                    ),
-                  ),
-                  if (onDismiss != null)
-                    InkWell(
-                      onTap: onDismiss,
-                      borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: palette.textTertiary,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'LOCATION INTELLIGENCE',
+                          style: text.labelSmall?.copyWith(
+                            letterSpacing: 1.0,
+                            color: palette.textTertiary,
+                          ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _AreaRow(
-                label: 'Your Area',
-                city: comparison.yourCity,
-                appearance: yourAppearance,
-                trend: comparison.yourTrend,
-              ),
-              const SizedBox(height: 10),
-              _AreaRow(
-                label: 'Nearby Region',
-                city: comparison.nearbyCity,
-                appearance: nearbyAppearance,
-                trend: comparison.nearbyTrend,
-              ),
-              const SizedBox(height: 10),
-              Divider(height: 1, color: palette.outlineVariant),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(Icons.air_rounded, size: 14, color: palette.textTertiary),
-                  const SizedBox(width: 6),
-                  Text(
-                    deltaLabel,
-                    style: text.bodySmall?.copyWith(
-                      color: palette.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                      // Reserves the corner so the overlay button below never
+                      // covers the label text.
+                      if (onDismiss != null) const SizedBox(width: 20),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _AreaRow(
+                    label: 'Your Area',
+                    city: comparison.yourCity,
+                    appearance: yourAppearance,
+                    trend: comparison.yourTrend,
+                  ),
+                  const SizedBox(height: 10),
+                  _AreaRow(
+                    label: 'Nearby Region',
+                    city: comparison.nearbyCity,
+                    appearance: nearbyAppearance,
+                    trend: comparison.nearbyTrend,
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(height: 1, color: palette.outlineVariant),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.air_rounded,
+                        size: 14,
+                        color: palette.textTertiary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        deltaLabel,
+                        style: text.bodySmall?.copyWith(
+                          color: palette.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+        if (onDismiss != null)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Semantics(
+              button: true,
+              label: 'Dismiss location comparison',
+              onTap: onDismiss,
+              child: ExcludeSemantics(
+                child: InkWell(
+                  onTap: onDismiss,
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: palette.textTertiary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
