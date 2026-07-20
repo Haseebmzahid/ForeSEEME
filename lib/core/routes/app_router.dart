@@ -28,7 +28,9 @@ import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart'
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_details_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/comparison_screen.dart';
+import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospitals_map_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_settings_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alert_inbox_screen.dart';
@@ -205,6 +207,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/nearby-hospitals',
         pageBuilder: (context, state) =>
             _motionPage(state, const NearbyHospitalsScreen()),
+        routes: [
+          GoRoute(
+            path: 'map',
+            pageBuilder: (context, state) => _motionPage(
+              state,
+              HospitalsMapScreen(
+                hospitals: state.extra! as List<Hospital>,
+              ),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/notifications/permission',

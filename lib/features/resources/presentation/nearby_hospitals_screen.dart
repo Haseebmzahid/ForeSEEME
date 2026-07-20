@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
@@ -13,21 +14,65 @@ import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_except
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
-import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/services/hospital_actions.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_detail_sheet.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_list.dart';
-import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospitals_map_screen.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// Nearby hospitals — a live Google Places lookup centred on the user's device
 /// location (or, on their choice after a denial, their profile city). Every
 /// visible state maps to a real runtime condition: loading, permission denied,
-/// no results, network error, API error, or a successful list.
-class NearbyHospitalsScreen extends ConsumerWidget {
+/// no results, network error, API error, or a successful list — searchable and
+/// filterable **over the real fetched set** (no new API calls, nothing invented).
+class NearbyHospitalsScreen extends ConsumerStatefulWidget {
   const NearbyHospitalsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NearbyHospitalsScreen> createState() =>
+      _NearbyHospitalsScreenState();
+}
+
+class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
+  // Owned here (not recreated per build) so typing keeps focus/cursor
+  // position; the listener re-renders on every keystroke via setState.
+  final TextEditingController _searchController = TextEditingController();
+  bool _openNowOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() => setState(() {});
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() => _openNowOnly = false);
+  }
+
+  List<Hospital> _visible(List<Hospital> all) {
+    final q = _searchController.text.trim().toLowerCase();
+    return [
+      for (final h in all)
+        if ((q.isEmpty ||
+                h.name.toLowerCase().contains(q) ||
+                h.address.toLowerCase().contains(q)) &&
+            (!_openNowOnly || h.openNow == true))
+          h,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final palette = context.fsmPalette;
     final async = ref.watch(nearbyHospitalsProvider);
     final isHigh =
@@ -93,6 +138,9 @@ class NearbyHospitalsScreen extends ConsumerWidget {
       );
     }
 
+    final visible = _visible(result.hospitals);
+    final anyOpenNowData = result.hospitals.any((h) => h.openNow != null);
+
     return RefreshIndicator(
       color: context.fsmPalette.primary,
       backgroundColor: context.fsmPalette.surfaceContainerHigh,
@@ -102,15 +150,27 @@ class NearbyHospitalsScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
           if (isHigh) ...[const _HighRiskBanner(), const SizedBox(height: 16)],
-          _ViewOnMapButton(
-            onTap: () => _openMap(context, ref, result.hospitals),
-          ),
+          _SearchField(controller: _searchController),
+          if (anyOpenNowData) ...[
+            const SizedBox(height: 10),
+            _OpenNowFilterChip(
+              selected: _openNowOnly,
+              onSelected: (v) => setState(() => _openNowOnly = v),
+            ),
+          ],
           const SizedBox(height: 16),
-          HospitalList(
-            hospitals: result.hospitals,
-            onCall: (h) => _call(context, ref, h),
-            onDirections: (h) => _directions(ref, h),
-          ),
+          if (visible.isEmpty)
+            _FilteredEmptyState(onClear: _clearFilters)
+          else ...[
+            _ViewOnMapButton(onTap: () => _openMap(context, visible)),
+            const SizedBox(height: 16),
+            HospitalList(
+              hospitals: visible,
+              onTap: (h) => _openDetail(context, ref, h),
+              onCall: (h) => callHospital(context, ref, h),
+              onDirections: (h) => openHospitalDirections(ref, h),
+            ),
+          ],
           const SizedBox(height: 8),
           Center(
             child: Text(
@@ -219,33 +279,21 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     _retry(ref);
   }
 
-  void _openMap(BuildContext context, WidgetRef ref, List<Hospital> hospitals) {
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        builder: (_) => HospitalsMapScreen(
-          hospitals: hospitals,
-          onDirections: (h) => _directions(ref, h),
-        ),
+  void _openMap(BuildContext context, List<Hospital> hospitals) {
+    context.push('/nearby-hospitals/map', extra: hospitals);
+  }
+
+  void _openDetail(BuildContext context, WidgetRef ref, Hospital hospital) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => HospitalDetailSheet(
+        hospital: hospital,
+        onCall: () => callHospital(context, ref, hospital),
+        onDirections: () => openHospitalDirections(ref, hospital),
       ),
     );
-  }
-
-  Future<void> _call(BuildContext context, WidgetRef ref, Hospital h) async {
-    final phone = h.phoneNumber;
-    if (phone == null) return;
-    final ok = await ref.read(launcherServiceProvider).dialPhone(phone);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the dialer.')),
-      );
-    }
-  }
-
-  void _directions(WidgetRef ref, Hospital h) {
-    final url =
-        'https://www.google.com/maps/dir/?api=1&destination='
-        '${h.latitude},${h.longitude}';
-    ref.read(launcherServiceProvider).openExternalUrl(url);
   }
 
   String _freshnessLabel(NearbyHospitalsResult result) {
@@ -253,6 +301,161 @@ class NearbyHospitalsScreen extends ConsumerWidget {
     final mins = DateTime.now().difference(result.fetchedAt).inMinutes;
     if (mins <= 0) return 'Cached just now';
     return 'Cached $mins min ago';
+  }
+}
+
+// ── Search + filter ───────────────────────────────────────────────────────────
+
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  const _SearchField({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    return Semantics(
+      textField: true,
+      label: 'Search hospitals by name or address',
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.sm),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, size: 20, color: palette.textTertiary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                style: context.fsmText.bodyMedium?.copyWith(
+                  color: palette.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: 'Search hospitals…',
+                  hintStyle: context.fsmText.bodyMedium?.copyWith(
+                    color: palette.textTertiary,
+                  ),
+                ),
+              ),
+            ),
+            if (controller.text.isNotEmpty)
+              Semantics(
+                button: true,
+                label: 'Clear search',
+                child: InkWell(
+                  onTap: controller.clear,
+                  borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: palette.textTertiary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenNowFilterChip extends StatelessWidget {
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+  const _OpenNowFilterChip({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final accent = context.fsmColors.success;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Filter: open now',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => onSelected(!selected),
+          borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? accent.withValues(alpha: 0.16) : Colors.transparent,
+              borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
+              border: Border.all(
+                color: selected ? accent.withValues(alpha: 0.5) : palette.outlineVariant,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                  size: 15,
+                  color: selected ? accent : palette.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Open now',
+                  style: context.fsmText.labelMedium?.copyWith(
+                    color: selected ? accent : palette.textSecondary,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilteredEmptyState extends StatelessWidget {
+  final VoidCallback onClear;
+  const _FilteredEmptyState({required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Column(
+        children: [
+          Icon(Icons.filter_alt_off_outlined, size: 40, color: palette.textTertiary),
+          const SizedBox(height: 12),
+          Text(
+            'No hospitals match your search',
+            style: context.fsmText.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Try a different name, or clear your filters.',
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: palette.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 14),
+          TextButton(
+            onPressed: onClear,
+            style: TextButton.styleFrom(foregroundColor: palette.primary),
+            child: const Text('Clear filters'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

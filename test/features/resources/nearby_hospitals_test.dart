@@ -14,6 +14,7 @@ import 'package:fyp_foreseeme/features/resources/domain/repositories/places_repo
 import 'package:fyp_foreseeme/features/resources/domain/services/location_service.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_detail_sheet.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_list.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/nearby_hospitals_entry.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -381,6 +382,7 @@ void main() {
               ],
               onCall: (h) => called = h,
               onDirections: (h) => directed = h,
+              onTap: (_) {},
             ),
           ),
         ),
@@ -397,6 +399,38 @@ void main() {
       expect(directed?.name, 'Mayo Hospital');
     });
 
+    testWidgets(
+      'tapping the card info area opens details without also firing Call',
+      (tester) async {
+        Hospital? tapped;
+        var called = false;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(splashFactory: NoSplash.splashFactory),
+            home: Scaffold(
+              body: HospitalList(
+                hospitals: [_hospital('Mayo Hospital', phone: '042111')],
+                onCall: (_) => called = true,
+                onDirections: (_) {},
+                onTap: (h) => tapped = h,
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Mayo Hospital'));
+        expect(tapped?.name, 'Mayo Hospital');
+        expect(called, isFalse);
+
+        // Then tapping Call fires only Call, not another onTap.
+        tapped = null;
+        await tester.tap(find.text('Call'));
+        expect(called, isTrue);
+        expect(tapped, isNull);
+      },
+    );
+
     testWidgets('Call is disabled when the hospital has no phone', (
       tester,
     ) async {
@@ -408,6 +442,7 @@ void main() {
               hospitals: [_hospital('No Phone Clinic', phone: null)],
               onCall: (_) => called = true,
               onDirections: (_) {},
+              onTap: (_) {},
             ),
           ),
         ),
@@ -440,6 +475,7 @@ void main() {
               ],
               onCall: (_) {},
               onDirections: (_) {},
+              onTap: (_) {},
             ),
           ),
         ),
@@ -447,6 +483,92 @@ void main() {
 
       expect(find.textContaining('4.3'), findsOneWidget);
       expect(find.text('Open now'), findsOneWidget);
+    });
+  });
+
+  group('HospitalDetailSheet', () {
+    testWidgets('shows name, distance, address, rating and open-now', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HospitalDetailSheet(
+              hospital: const Hospital(
+                id: 'a',
+                name: 'Mayo Hospital',
+                address: 'Anarkali, Lahore',
+                latitude: 31.58,
+                longitude: 74.31,
+                distanceKm: 1.2,
+                phoneNumber: '042111',
+                rating: 4.3,
+                userRatingCount: 210,
+                openNow: true,
+              ),
+              onCall: () {},
+              onDirections: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Mayo Hospital'), findsOneWidget);
+      expect(find.text('Anarkali, Lahore'), findsOneWidget);
+      expect(find.textContaining('1.2 km'), findsOneWidget);
+      expect(find.textContaining('4.3'), findsOneWidget);
+      expect(find.text('Open now'), findsOneWidget);
+      expect(find.text('042111'), findsOneWidget);
+    });
+
+    testWidgets('omits rating, open-now and phone when Places has none', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: HospitalDetailSheet(
+              hospital: const Hospital(
+                id: 'b',
+                name: 'Clinic',
+                address: '',
+                latitude: 31.5,
+                longitude: 74.3,
+                distanceKm: 3.4,
+              ),
+              onCall: () {},
+              onDirections: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Open now'), findsNothing);
+      expect(find.text('Closed'), findsNothing);
+      expect(find.byIcon(Icons.star_rounded), findsNothing);
+      expect(find.byIcon(Icons.call_outlined), findsNothing);
+    });
+
+    testWidgets('Call and Directions fire their callbacks', (tester) async {
+      var called = false;
+      var directed = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(splashFactory: NoSplash.splashFactory),
+          home: Scaffold(
+            body: HospitalDetailSheet(
+              hospital: _hospital('Mayo Hospital', phone: '042111'),
+              onCall: () => called = true,
+              onDirections: () => directed = true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Call'));
+      expect(called, isTrue);
+      await tester.tap(find.text('Directions'));
+      expect(directed, isTrue);
     });
   });
 
@@ -467,7 +589,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Nearby hospitals'), findsOneWidget);
+      expect(find.text('Nearest Care'), findsOneWidget);
       expect(
         find.text('Surfaced because risk is High in your area'),
         findsOneWidget,
@@ -486,7 +608,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Nearby hospitals'), findsOneWidget);
+      expect(find.text('Hospital Directory'), findsOneWidget);
       expect(
         find.text('Surfaced because risk is High in your area'),
         findsNothing,
@@ -585,6 +707,173 @@ void main() {
 
       expect(find.text('Mayo Hospital'), findsOneWidget);
       expect(find.text('View on map'), findsOneWidget);
+    });
+
+    testWidgets('search filters the real fetched list, never fabricates', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) async => null),
+            nearbyHospitalsProvider.overrideWith(
+              (ref) async => NearbyHospitalsResult(
+                hospitals: [
+                  _hospital('Mayo Hospital', phone: '042111'),
+                  _hospital('Services Hospital', phone: '042222'),
+                ],
+                fetchedAt: DateTime.utc(2026, 6, 30),
+                servedFromCache: false,
+              ),
+            ),
+          ],
+          child: app,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mayo Hospital'), findsOneWidget);
+      expect(find.text('Services Hospital'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'services');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mayo Hospital'), findsNothing);
+      expect(find.text('Services Hospital'), findsOneWidget);
+    });
+
+    testWidgets(
+      'a search with no matches shows the filtered-empty state, distinct '
+      'from true-empty, with a clear-filters action',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentCityRiskProvider.overrideWith((ref) async => null),
+              nearbyHospitalsProvider.overrideWith(
+                (ref) async => NearbyHospitalsResult(
+                  hospitals: [_hospital('Mayo Hospital', phone: '042111')],
+                  fetchedAt: DateTime.utc(2026, 6, 30),
+                  servedFromCache: false,
+                ),
+              ),
+            ],
+            child: app,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), 'no such clinic');
+        await tester.pumpAndSettle();
+
+        expect(find.text('No hospitals match your search'), findsOneWidget);
+        expect(find.text('No hospitals found nearby'), findsNothing);
+
+        await tester.tap(find.text('Clear filters'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Mayo Hospital'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'Open-now filter only appears when Places actually reported it, and '
+      'filters correctly when used',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentCityRiskProvider.overrideWith((ref) async => null),
+              nearbyHospitalsProvider.overrideWith(
+                (ref) async => NearbyHospitalsResult(
+                  hospitals: const [
+                    Hospital(
+                      id: 'a',
+                      name: 'Open Clinic',
+                      address: '',
+                      latitude: 31.5,
+                      longitude: 74.3,
+                      distanceKm: 1.0,
+                      openNow: true,
+                    ),
+                    Hospital(
+                      id: 'b',
+                      name: 'Closed Clinic',
+                      address: '',
+                      latitude: 31.5,
+                      longitude: 74.3,
+                      distanceKm: 2.0,
+                      openNow: false,
+                    ),
+                  ],
+                  fetchedAt: DateTime.utc(2026, 6, 30),
+                  servedFromCache: false,
+                ),
+              ),
+            ],
+            child: app,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Open now'), findsWidgets); // filter chip + card chip
+        await tester.tap(find.text('Open now').first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('Open Clinic'), findsOneWidget);
+        expect(find.text('Closed Clinic'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the Open-now filter is absent when no result carries opening-hours '
+      'data (never a filter over data that does not exist)',
+      (tester) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentCityRiskProvider.overrideWith((ref) async => null),
+              nearbyHospitalsProvider.overrideWith(
+                (ref) async => NearbyHospitalsResult(
+                  hospitals: [_hospital('Mayo Hospital', phone: '042111')],
+                  fetchedAt: DateTime.utc(2026, 6, 30),
+                  servedFromCache: false,
+                ),
+              ),
+            ],
+            child: app,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Open now'), findsNothing);
+      },
+    );
+
+    testWidgets('tapping a hospital card opens its detail sheet', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentCityRiskProvider.overrideWith((ref) async => null),
+            nearbyHospitalsProvider.overrideWith(
+              (ref) async => NearbyHospitalsResult(
+                hospitals: [_hospital('Mayo Hospital', phone: '042111')],
+                fetchedAt: DateTime.utc(2026, 6, 30),
+                servedFromCache: false,
+              ),
+            ),
+          ],
+          child: app,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mayo Hospital'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HospitalDetailSheet), findsOneWidget);
     });
   });
 }

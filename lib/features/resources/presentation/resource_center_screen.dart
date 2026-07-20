@@ -71,16 +71,24 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
                     color: palette.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
+                Text(
+                  'PREPAREDNESS',
+                  style: text.labelSmall?.copyWith(
+                    letterSpacing: 1.2,
+                    color: palette.textTertiary,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 EmergencyCard(
                   contact: contact,
                   onCall: () => _dial(context, ref, contact.number),
                 ),
-                // High risk: lift the hospitals entry to the top, prominently.
-                if (isHighRisk) ...[
-                  const SizedBox(height: 14),
-                  NearbyHospitalsEntry(prominent: true, onTap: openHospitals),
-                ],
+                const SizedBox(height: 12),
+                // One cohesive Preparedness block: the same risk signal used
+                // everywhere else (isHighRisk) simply lifts the tone here too —
+                // no second business rule.
+                NearbyHospitalsEntry(prominent: isHighRisk, onTap: openHospitals),
                 if (featured != null && _selectedTopic == null) ...[
                   const SizedBox(height: 22),
                   FeaturedArticleCard(
@@ -112,11 +120,6 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
                       onTap: () => _openArticle(context, article),
                     ),
                   ),
-                // Otherwise a calm teaser at the bottom.
-                if (!isHighRisk) ...[
-                  const SizedBox(height: 6),
-                  NearbyHospitalsEntry(prominent: false, onTap: openHospitals),
-                ],
                 const SizedBox(height: 22),
                 const MedicalDisclaimer.inline(),
               ],

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'package:fyp_foreseeme/core/maps/dark_map_style.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
@@ -152,7 +153,7 @@ class _RiskMapScreenState extends ConsumerState<RiskMapScreen> {
             initialCameraPosition: _initialCamera,
             onMapCreated: (controller) => _controller = controller,
             // Deep-space style in dark mode; the default light map otherwise.
-            style: context.fsmPalette.isDark ? _kDarkMapStyle : null,
+            style: context.fsmPalette.isDark ? kDarkMapStyle : null,
             circles: _circlesFor(estimates),
             markers: _markersFor(estimates),
             // The Maps SDK owns its own permission prompt for the blue dot —
@@ -603,19 +604,3 @@ class _LearnMoreLink extends StatelessWidget {
     );
   }
 }
-
-// A dark Google Map style so the map matches the v2 deep-space shell (dark mode).
-const String _kDarkMapStyle = '''
-[
-  {"elementType":"geometry","stylers":[{"color":"#0b1120"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#8b96b1"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#0b1120"}]},
-  {"featureType":"administrative","elementType":"geometry","stylers":[{"color":"#2a3247"}]},
-  {"featureType":"administrative.country","elementType":"labels.text.fill","stylers":[{"color":"#a4aecb"}]},
-  {"featureType":"poi","stylers":[{"visibility":"off"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#172033"}]},
-  {"featureType":"road","elementType":"labels","stylers":[{"visibility":"off"}]},
-  {"featureType":"transit","stylers":[{"visibility":"off"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#05070f"}]}
-]
-''';
