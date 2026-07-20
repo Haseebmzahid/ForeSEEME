@@ -36,3 +36,13 @@ class ResourceTopicVisual {
     };
   }
 }
+
+/// Short display label for a [ResourceTopic] — the one place this mapping
+/// lives, reused by the category filter row and anywhere else a topic needs a
+/// human name.
+String resourceTopicLabel(ResourceTopic topic) => switch (topic) {
+  ResourceTopic.lungs => 'Lungs',
+  ResourceTopic.asthma => 'Asthma',
+  ResourceTopic.airQuality => 'Air Quality',
+  ResourceTopic.heat => 'Heat',
+};

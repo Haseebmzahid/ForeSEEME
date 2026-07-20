@@ -6,16 +6,19 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_visuals.dart';
 
-/// A self-care guide row: topic icon, title, and a visible **source citation**
-/// (`Source: … · verified`). Tapping opens the full article.
+/// A self-care guide row: topic icon, title, reading time, a visible
+/// **source citation** (`Source: … · verified`), and a bookmark indicator when
+/// saved. Tapping opens the full article.
 class ResourceArticleCard extends StatelessWidget {
   final ResourceArticle article;
+  final bool bookmarked;
   final VoidCallback onTap;
 
   const ResourceArticleCard({
     super.key,
     required this.article,
     required this.onTap,
+    this.bookmarked = false,
   });
 
   @override
@@ -62,6 +65,7 @@ class ResourceArticleCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
+                        Text('${article.readingMinutes} min · ', style: caption),
                         Flexible(
                           child: Text(
                             'Source: ${article.sourceName}',
@@ -88,10 +92,16 @@ class ResourceArticleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: palette.textTertiary,
-              ),
+              if (bookmarked) ...[
+                Icon(
+                  Icons.bookmark_rounded,
+                  size: 18,
+                  color: palette.secondary,
+                  semanticLabel: 'Bookmarked',
+                ),
+                const SizedBox(width: 4),
+              ],
+              Icon(Icons.chevron_right_rounded, color: palette.textTertiary),
             ],
           ),
         ),

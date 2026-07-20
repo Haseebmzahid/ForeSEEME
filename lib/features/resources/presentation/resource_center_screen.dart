@@ -3,28 +3,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
+import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/article_bookmark_provider.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
-import 'package:fyp_foreseeme/features/resources/presentation/widgets/article_detail_sheet.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/category_chip_row.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/emergency_card.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/featured_article_card.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/nearby_hospitals_entry.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_article_card.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
-/// Health Resource Center (Sprint 3, Prompt 5): one-tap emergency dial plus
-/// verified, sourced self-care guides. Content is static (no backend); dialing
-/// and source links go through [launcherServiceProvider].
-class ResourceCenterScreen extends ConsumerWidget {
+/// Health Resource Center: one-tap emergency dial, a context-aware featured
+/// guide, browsable categories, and verified self-care guides. Content is
+/// static (no backend); dialing, sharing and source links go through injected
+/// services. Guides open in a routed [ArticleScreen], not a sheet.
+class ResourceCenterScreen extends ConsumerStatefulWidget {
   const ResourceCenterScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final articles = ref.watch(resourceArticlesProvider);
+  ConsumerState<ResourceCenterScreen> createState() =>
+      _ResourceCenterScreenState();
+}
+
+class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
+  ResourceTopic? _selectedTopic;
+
+  @override
+  Widget build(BuildContext context) {
+    final articles = ref.watch(orderedResourceArticlesProvider);
+    final featured = ref.watch(featuredResourceArticleProvider);
     final contact = ref.watch(emergencyContactProvider);
+    final bookmarks = ref.watch(bookmarkedArticleIdsProvider);
     // Nearby hospitals are surfaced prominently when the user's city risk is High.
     final isHighRisk =
         ref.watch(currentCityRiskProvider).value?.riskLevel == RiskLevel.high;
+
+    final topics = articles.map((a) => a.topic).toSet().toList();
+    final visibleArticles = _selectedTopic == null
+        ? articles
+        : articles.where((a) => a.topic == _selectedTopic).toList();
 
     void openHospitals() => context.push('/nearby-hospitals');
 
@@ -62,6 +81,13 @@ class ResourceCenterScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   NearbyHospitalsEntry(prominent: true, onTap: openHospitals),
                 ],
+                if (featured != null && _selectedTopic == null) ...[
+                  const SizedBox(height: 22),
+                  FeaturedArticleCard(
+                    article: featured,
+                    onTap: () => _openArticle(context, featured),
+                  ),
+                ],
                 const SizedBox(height: 22),
                 Text(
                   'SELF-CARE GUIDES',
@@ -71,12 +97,19 @@ class ResourceCenterScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                for (final article in articles)
+                CategoryChipRow(
+                  topics: topics,
+                  selected: _selectedTopic,
+                  onSelected: (topic) => setState(() => _selectedTopic = topic),
+                ),
+                const SizedBox(height: 14),
+                for (final article in visibleArticles)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: ResourceArticleCard(
                       article: article,
-                      onTap: () => _openArticle(context, ref, article),
+                      bookmarked: bookmarks.contains(article.id),
+                      onTap: () => _openArticle(context, article),
                     ),
                   ),
                 // Otherwise a calm teaser at the bottom.
@@ -84,6 +117,8 @@ class ResourceCenterScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                   NearbyHospitalsEntry(prominent: false, onTap: openHospitals),
                 ],
+                const SizedBox(height: 22),
+                const MedicalDisclaimer.inline(),
               ],
             ),
           ),
@@ -101,22 +136,8 @@ class ResourceCenterScreen extends ConsumerWidget {
     }
   }
 
-  void _openArticle(
-    BuildContext context,
-    WidgetRef ref,
-    ResourceArticle article,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => ArticleDetailSheet(
-        article: article,
-        onOpenSource: () => ref
-            .read(launcherServiceProvider)
-            .openExternalUrl(article.sourceUrl),
-      ),
-    );
+  void _openArticle(BuildContext context, ResourceArticle article) {
+    context.push('/resources/article/${article.id}');
   }
 }
 

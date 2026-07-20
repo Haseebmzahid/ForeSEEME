@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
@@ -101,12 +103,16 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
 
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
               currentCityRiskProvider.overrideWith(
                 (ref) => at('Lahore', 5, RiskLevel.high),
               ),
+              sharedPreferencesProvider.overrideWithValue(prefs),
             ],
             child: const MaterialApp(home: ResourceCenterScreen()),
           ),
