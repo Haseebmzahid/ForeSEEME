@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from ml.pipelines import paths
+from ml.pipelines.quality_report import from_merge, new_report
 
 logger = logging.getLogger("foreseeme.ml.merge")
 
@@ -205,10 +206,15 @@ def render_summary(base: pd.DataFrame) -> str:
 
 def main() -> None:
     """Build the weekly base table, write it and the merge summary."""
+    import time
+
     from app.logging_config import configure_logging
 
     configure_logging("INFO")
+
+    start = time.perf_counter()
     base = merge_all()
+    duration = time.perf_counter() - start
 
     out_path = paths.DATA_DIR / "interim" / "weekly_base.parquet"
     paths.ensure_dir(out_path.parent)
@@ -225,6 +231,20 @@ def main() -> None:
           f"duplicate_keys={n_dupes}")
     print(f"table  -> {out_path}")
     print(f"report -> {paths.REPORTS_DIR / 'merge_summary.md'}")
+
+    missingness = column_missingness(base)  # reused, not recomputed by quality_report
+    quality = new_report("weekly_base")
+    quality.add_stage(
+        from_merge(
+            rows=len(base),
+            cities=int(base["city"].nunique()),
+            duplicate_keys=n_dupes,
+            column_missing_pct={col: pct for col, (_, pct) in missingness.items()},
+            duration_seconds=duration,
+        )
+    )
+    quality.save(paths.REPORTS_DIR / "quality_weekly_base.json")
+    print(quality.render_text())
 
 
 if __name__ == "__main__":

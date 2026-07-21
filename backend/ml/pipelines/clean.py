@@ -43,6 +43,7 @@ import yaml
 from ml.pipelines import paths
 from ml.pipelines.acquisition_base import Window, load_pipeline_config
 from ml.pipelines.acquisition_common import read_raw_json
+from ml.pipelines.quality_report import from_cleaning, new_report
 
 logger = logging.getLogger("foreseeme.ml.clean")
 
@@ -460,12 +461,17 @@ def render_data_quality(
 
 def main() -> None:
     """Clean all sources, write interim parquet tables, and the quality report."""
+    import time
+
     from app.logging_config import configure_logging
 
     config = load_pipeline_config()
     configure_logging(config.log_level)
     cleaning = load_cleaning_config()
+
+    start = time.perf_counter()
     stats = clean_all(window=config.window, cleaning=cleaning)
+    duration = time.perf_counter() - start  # combined weather+AQI cleaning duration
 
     report = render_data_quality(stats, config.window, cleaning)
     paths.ensure_dir(paths.REPORTS_DIR)
@@ -476,6 +482,13 @@ def main() -> None:
             total_missing = sum(v.missing for v in cs.variables)
             print(f"{source_key:24} {cs.city:11} days={cs.days} missing_cells={total_missing}")
     print(f"report -> {paths.REPORTS_DIR / 'data_quality.md'}")
+
+    for source_key, all_stats in stats.items():
+        quality_path = paths.REPORTS_DIR / f"quality_{source_key}.json"
+        quality = new_report(source_key)
+        quality.add_stage(from_cleaning(all_stats, duration_seconds=duration))
+        quality.save(quality_path)
+        print(quality.render_text())
 
 
 if __name__ == "__main__":

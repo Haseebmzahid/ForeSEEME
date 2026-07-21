@@ -52,6 +52,7 @@ from ml.pipelines.acquisition_common import (
 )
 from ml.pipelines.acquisition_common import load_yaml as _load_yaml
 from ml.pipelines.acquisition_common import variable_specs as _shared_variable_specs
+from ml.pipelines.quality_report import PIPELINE_VERSION, from_acquisition, new_report
 
 logger = logging.getLogger("foreseeme.ml.acquire_weather")
 
@@ -165,6 +166,8 @@ def _write_sidecar(
         ],
         "missing_variables": missing,
         "structural_issues": structural_issues,
+        "pipeline_version": PIPELINE_VERSION,
+        "quality_report_path": str(paths.REPORTS_DIR / f"quality_{SOURCE_KEY}.json"),
         "note": (
             "Raw, unaggregated Open-Meteo response. Hourly humidity "
             "(relative_humidity_2m) is aggregated to a daily mean in the "
@@ -265,11 +268,17 @@ def acquire_all(
 
 def main() -> None:
     """Acquire all cities' weather and print a one-line-per-city summary."""
+    import time
+
     from app.logging_config import configure_logging
 
     client = AcquisitionBase()
     configure_logging(client.config.log_level)
+
+    start = time.perf_counter()
     results = acquire_all(client)
+    duration = time.perf_counter() - start
+
     for r in results:
         state = "cache" if r.from_cache else "downloaded"
         missing = f" missing={r.missing_variables}" if r.missing_variables else ""
@@ -278,6 +287,13 @@ def main() -> None:
             f"{r.city:11} {state:10} {r.effective_window[0]}..{r.effective_window[1]}"
             f" vars={r.present_variables}{missing}{issues}"
         )
+
+    report_path = paths.REPORTS_DIR / f"quality_{SOURCE_KEY}.json"
+    report = new_report(SOURCE_KEY)
+    report.add_stage(from_acquisition(results, duration_seconds=duration))
+    paths.ensure_dir(paths.REPORTS_DIR)
+    report.save(report_path)
+    print(report.render_text())
 
 
 if __name__ == "__main__":
