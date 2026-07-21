@@ -31,7 +31,6 @@ Run (from ``backend/``)::
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,6 +42,7 @@ import yaml
 
 from ml.pipelines import paths
 from ml.pipelines.acquisition_base import Window, load_pipeline_config
+from ml.pipelines.acquisition_common import read_raw_json
 
 logger = logging.getLogger("foreseeme.ml.clean")
 
@@ -336,7 +336,7 @@ def clean_source(
     all_stats: list[CityStats] = []
     for city in cities:
         raw_path = data_dir / "raw" / subdir / f"{city['name']}.json"
-        raw = json.loads(raw_path.read_text(encoding="utf-8"))
+        raw = read_raw_json(raw_path)
         frame, stats = clean_city(
             raw, source_key, city["name"], window, specs, max_gap, aliases, add_aqi_flag
         )

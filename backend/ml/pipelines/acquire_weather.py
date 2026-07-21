@@ -36,16 +36,22 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-import yaml
-
 from ml.pipelines import paths
 from ml.pipelines.acquisition_base import (
     AcquisitionBase,
     FetchResult,
     Window,
-    sha256_bytes,
     write_raw_atomic,
 )
+from ml.pipelines.acquisition_common import (
+    VariableSpec,
+    check_variables,
+    clip_to_coverage,
+    read_raw_json,
+    validate_payload_structure,
+)
+from ml.pipelines.acquisition_common import load_yaml as _load_yaml
+from ml.pipelines.acquisition_common import variable_specs as _shared_variable_specs
 
 logger = logging.getLogger("foreseeme.ml.acquire_weather")
 
@@ -55,11 +61,6 @@ SUBDIR = "weather"
 
 
 # --- Config loading --------------------------------------------------------
-
-
-def _load_yaml(path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
 
 
 def load_weather_source(path=paths.SOURCES_PATH) -> dict[str, Any]:
@@ -75,34 +76,14 @@ def load_cities(path=paths.CITIES_PATH) -> list[dict[str, Any]]:
 # --- Variable model --------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class VariableSpec:
-    """One retained weather variable and how it is acquired."""
-
-    name: str
-    api_param: str
-    granularity: str  # "daily" | "hourly"
-    units: str
-
-
 def variable_specs(source: dict[str, Any]) -> list[VariableSpec]:
-    """Build the acquisition variable list from a source spec.
+    """Build the acquisition variable list, defaulting to daily granularity.
 
     Reads ``acquire_param`` / ``acquire_granularity`` per variable, defaulting to
-    ``api_param`` at the source-level granularity.
+    ``api_param`` at the source-level granularity. Thin wrapper over the shared
+    :func:`ml.pipelines.acquisition_common.variable_specs`.
     """
-    default_granularity = source.get("granularity", "daily")
-    specs: list[VariableSpec] = []
-    for name, var in source["variables"].items():
-        specs.append(
-            VariableSpec(
-                name=name,
-                api_param=var.get("acquire_param", var["api_param"]),
-                granularity=var.get("acquire_granularity", default_granularity),
-                units=var.get("units", ""),
-            )
-        )
-    return specs
+    return _shared_variable_specs(source, default_granularity="daily")
 
 
 # --- Result model ----------------------------------------------------------
@@ -120,24 +101,7 @@ class CityWeatherResult:
     clipped: bool
     present_variables: list[str]
     missing_variables: list[str]
-
-
-# --- Window clipping -------------------------------------------------------
-
-
-def clip_to_coverage(window: Window, coverage: dict[str, Any]) -> tuple[Window, bool]:
-    """Clip a requested window to the source's confirmed coverage.
-
-    Never request dates the source cannot serve. Returns the (possibly clipped)
-    window and a flag indicating whether clipping occurred. ISO ``YYYY-MM-DD``
-    strings sort lexicographically, so plain string min/max is correct.
-    """
-    earliest = coverage.get("earliest_confirmed")
-    latest = coverage.get("latest_confirmed")
-    start = max(window.start, earliest) if earliest else window.start
-    end = min(window.end, latest) if latest else window.end
-    clipped = (start != window.start) or (end != window.end)
-    return Window(start=start, end=end), clipped
+    structural_issues: list[str]
 
 
 # --- Request building ------------------------------------------------------
@@ -165,28 +129,6 @@ def build_params(
     return params
 
 
-# --- Variable presence check ----------------------------------------------
-
-
-def check_variables(
-    payload: dict[str, Any], specs: list[VariableSpec]
-) -> tuple[list[str], list[str]]:
-    """Split the expected variables into (present, missing) for one response.
-
-    A variable is *present* when its parameter key appears in the matching
-    (daily/hourly) block. Absence is recorded, never silently dropped.
-    """
-    present: list[str] = []
-    missing: list[str] = []
-    for spec in specs:
-        block = payload.get(spec.granularity, {}) or {}
-        if spec.api_param in block:
-            present.append(spec.name)
-        else:
-            missing.append(spec.name)
-    return present, missing
-
-
 # --- Sidecar ---------------------------------------------------------------
 
 
@@ -199,6 +141,7 @@ def _write_sidecar(
     specs: list[VariableSpec],
     present: list[str],
     missing: list[str],
+    structural_issues: list[str],
     result: FetchResult,
 ) -> None:
     """Write the human-readable ``<city>.meta.json`` sidecar next to the raw file."""
@@ -221,6 +164,7 @@ def _write_sidecar(
             for s in specs
         ],
         "missing_variables": missing,
+        "structural_issues": structural_issues,
         "note": (
             "Raw, unaggregated Open-Meteo response. Hourly humidity "
             "(relative_humidity_2m) is aggregated to a daily mean in the "
@@ -270,7 +214,7 @@ def acquire_city(
         subdir=SUBDIR,
     )
 
-    payload = json.loads(result.path.read_text(encoding="utf-8"))
+    payload = read_raw_json(result.path)
     present, missing = check_variables(payload, specs)
     for name in missing:
         logger.warning(
@@ -278,8 +222,18 @@ def acquire_city(
             extra={"city": city["name"], "variable": name},
         )
 
+    issues = validate_payload_structure(payload, specs)
+    for issue in issues:
+        logger.warning(
+            "weather_payload_structural_issue",
+            extra={"city": city["name"], "variable": issue.variable, "kind": issue.kind,
+                   "detail": issue.detail},
+        )
+    structural_issues = [str(issue) for issue in issues]
+
     _write_sidecar(
-        client, city, window, effective, clipped, specs, present, missing, result
+        client, city, window, effective, clipped, specs, present, missing,
+        structural_issues, result,
     )
 
     return CityWeatherResult(
@@ -291,6 +245,7 @@ def acquire_city(
         clipped=clipped,
         present_variables=present,
         missing_variables=missing,
+        structural_issues=structural_issues,
     )
 
 
@@ -318,9 +273,10 @@ def main() -> None:
     for r in results:
         state = "cache" if r.from_cache else "downloaded"
         missing = f" missing={r.missing_variables}" if r.missing_variables else ""
+        issues = f" issues={r.structural_issues}" if r.structural_issues else ""
         print(
             f"{r.city:11} {state:10} {r.effective_window[0]}..{r.effective_window[1]}"
-            f" vars={r.present_variables}{missing}"
+            f" vars={r.present_variables}{missing}{issues}"
         )
 
 

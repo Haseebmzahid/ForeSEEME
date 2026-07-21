@@ -34,8 +34,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-import yaml
-
 from ml.pipelines import paths
 from ml.pipelines.acquisition_base import (
     AcquisitionBase,
@@ -43,6 +41,15 @@ from ml.pipelines.acquisition_base import (
     Window,
     write_raw_atomic,
 )
+from ml.pipelines.acquisition_common import (
+    VariableSpec,
+    check_variables,
+    clip_to_coverage,
+    read_raw_json,
+    validate_payload_structure,
+)
+from ml.pipelines.acquisition_common import load_yaml as _load_yaml
+from ml.pipelines.acquisition_common import variable_specs as _shared_variable_specs
 
 logger = logging.getLogger("foreseeme.ml.acquire_aqi")
 
@@ -51,11 +58,6 @@ SUBDIR = "aqi"
 
 
 # --- Config loading --------------------------------------------------------
-
-
-def _load_yaml(path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
 
 
 def load_aqi_source(path=paths.SOURCES_PATH) -> dict[str, Any]:
@@ -71,28 +73,13 @@ def load_cities(path=paths.CITIES_PATH) -> list[dict[str, Any]]:
 # --- Variable model --------------------------------------------------------
 
 
-@dataclass(frozen=True)
-class VariableSpec:
-    """One retained AQI variable and how it is acquired."""
-
-    name: str
-    api_param: str
-    granularity: str
-    units: str
-
-
 def variable_specs(source: dict[str, Any]) -> list[VariableSpec]:
-    """Build the acquisition variable list, defaulting to the source granularity."""
-    default_granularity = source.get("granularity", "hourly")
-    return [
-        VariableSpec(
-            name=name,
-            api_param=var.get("acquire_param", var["api_param"]),
-            granularity=var.get("acquire_granularity", default_granularity),
-            units=var.get("units", ""),
-        )
-        for name, var in source["variables"].items()
-    ]
+    """Build the acquisition variable list, defaulting to hourly granularity.
+
+    Thin wrapper over the shared
+    :func:`ml.pipelines.acquisition_common.variable_specs`.
+    """
+    return _shared_variable_specs(source, default_granularity="hourly")
 
 
 # --- Result model ----------------------------------------------------------
@@ -112,23 +99,7 @@ class CityAqiResult:
     missing_variables: list[str]
     covered_window: tuple[str | None, str | None]
     partial_coverage: bool
-
-
-# --- Window clipping -------------------------------------------------------
-
-
-def clip_to_coverage(window: Window, coverage: dict[str, Any]) -> tuple[Window, bool]:
-    """Clip a requested window to the source's confirmed coverage.
-
-    Forbidden to request dates the source cannot serve. ISO ``YYYY-MM-DD``
-    strings sort lexicographically, so plain string min/max is correct.
-    """
-    earliest = coverage.get("earliest_confirmed")
-    latest = coverage.get("latest_confirmed")
-    start = max(window.start, earliest) if earliest else window.start
-    end = min(window.end, latest) if latest else window.end
-    clipped = (start != window.start) or (end != window.end)
-    return Window(start=start, end=end), clipped
+    structural_issues: list[str]
 
 
 # --- Request building ------------------------------------------------------
@@ -152,19 +123,7 @@ def build_params(
     return params
 
 
-# --- Variable presence + coverage inspection -------------------------------
-
-
-def check_variables(
-    payload: dict[str, Any], specs: list[VariableSpec]
-) -> tuple[list[str], list[str]]:
-    """Split expected variables into (present, missing); absence is recorded."""
-    present: list[str] = []
-    missing: list[str] = []
-    for spec in specs:
-        block = payload.get(spec.granularity, {}) or {}
-        (present if spec.api_param in block else missing).append(spec.name)
-    return present, missing
+# --- Coverage inspection -----------------------------------------------------
 
 
 def _first_nonnull_date(times: list[str], values: list[Any]) -> str | None:
@@ -230,6 +189,7 @@ def _write_sidecar(
     per_variable: dict[str, dict[str, Any]],
     covered: tuple[str | None, str | None],
     partial: bool,
+    structural_issues: list[str],
     result: FetchResult,
 ) -> None:
     """Write ``<city>.meta.json`` recording the exact AQI coverage limits."""
@@ -255,6 +215,7 @@ def _write_sidecar(
             for s in specs
         ],
         "missing_variables": missing,
+        "structural_issues": structural_issues,
         "note": (
             "Raw, unaggregated Open-Meteo air-quality response. AQI is the "
             "scarcest source; earlier values are NOT back-filled. The "
@@ -304,12 +265,21 @@ def acquire_city(
         subdir=SUBDIR,
     )
 
-    payload = json.loads(result.path.read_text(encoding="utf-8"))
+    payload = read_raw_json(result.path)
     present, missing = check_variables(payload, specs)
     for name in missing:
         logger.warning(
             "aqi_variable_missing", extra={"city": city["name"], "variable": name}
         )
+
+    issues = validate_payload_structure(payload, specs)
+    for issue in issues:
+        logger.warning(
+            "aqi_payload_structural_issue",
+            extra={"city": city["name"], "variable": issue.variable, "kind": issue.kind,
+                   "detail": issue.detail},
+        )
+    structural_issues = [str(issue) for issue in issues]
 
     per_variable, cov_start, cov_end = variable_coverage(payload, specs)
     partial = _is_partial(effective, cov_start, cov_end)
@@ -325,7 +295,7 @@ def acquire_city(
 
     _write_sidecar(
         client, city, window, effective, clipped, specs, present, missing,
-        per_variable, (cov_start, cov_end), partial, result,
+        per_variable, (cov_start, cov_end), partial, structural_issues, result,
     )
 
     return CityAqiResult(
@@ -339,6 +309,7 @@ def acquire_city(
         missing_variables=missing,
         covered_window=(cov_start, cov_end),
         partial_coverage=partial,
+        structural_issues=structural_issues,
     )
 
 
@@ -382,6 +353,8 @@ def main() -> None:
             flags.append("partial")
         if r.missing_variables:
             flags.append(f"missing={r.missing_variables}")
+        if r.structural_issues:
+            flags.append(f"issues={r.structural_issues}")
         suffix = f"  [{', '.join(flags)}]" if flags else ""
         print(
             f"{r.city:11} {state:10} covered={r.covered_window[0]}..{r.covered_window[1]}"
