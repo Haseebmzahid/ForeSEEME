@@ -52,7 +52,12 @@ from ml.pipelines.acquisition_common import (
 )
 from ml.pipelines.acquisition_common import load_yaml as _load_yaml
 from ml.pipelines.acquisition_common import variable_specs as _shared_variable_specs
-from ml.pipelines.quality_report import PIPELINE_VERSION, from_acquisition, new_report
+from ml.pipelines.quality_report import (
+    PIPELINE_VERSION,
+    from_acquisition,
+    new_report,
+    record_pipeline_stage,
+)
 
 logger = logging.getLogger("foreseeme.ml.acquire_weather")
 
@@ -294,6 +299,11 @@ def main() -> None:
     paths.ensure_dir(paths.REPORTS_DIR)
     report.save(report_path)
     print(report.render_text())
+
+    record_pipeline_stage(
+        paths.REPORTS_DIR / "pipeline_run.json", "weather_acquisition",
+        duration_seconds=duration, warnings=report.warning_count,
+    )
 
 
 if __name__ == "__main__":

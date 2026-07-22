@@ -32,6 +32,7 @@ observed today.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,7 +41,24 @@ from typing import Any, Protocol
 from ml.pipelines.acquisition_base import write_raw_atomic
 
 #: Bumped when the report's shape changes; recorded in every report and sidecar.
-PIPELINE_VERSION = "m5.2"
+PIPELINE_VERSION = "m5.5"
+
+#: Source name for the shared, cross-stage pipeline-run summary (M5.4/M5.5) —
+#: distinct from the per-source reports ("open_meteo_weather", ...) that each
+#: stage also writes; see :func:`record_pipeline_stage`.
+PIPELINE_RUN_SOURCE = "pipeline_run"
+
+_pipeline_logger = logging.getLogger("foreseeme.ml.pipeline")
+
+#: Display names for known pipeline-run stages (Goal 3's exact casing, e.g.
+#: "AQI" not "Aqi"). Falls back to title-casing an unknown stage name.
+_STAGE_DISPLAY_NAMES = {
+    "weather_acquisition": "Weather Acquisition",
+    "aqi_acquisition": "AQI Acquisition",
+    "disease_reference": "Disease Reference",
+    "cleaning": "Cleaning",
+    "merge": "Merge",
+}
 
 
 # --- Duck-typed views onto existing result objects (no import-cycle risk) ---
@@ -165,7 +183,7 @@ class QualityReport:
     def render_text(self) -> str:
         """Render the console/report summary block (Goal 3)."""
         bar = "=" * 44
-        lines = [bar, f"{self.source} — Data Quality Report", bar]
+        lines = [bar, f"{self.source} - Data Quality Report", bar]
         lines.append(f"Generated: {self.generated_at}")
         lines.append(f"Rows processed: {self.rows_processed}")
         lines.append(f"Warnings: {self.warning_count}")
@@ -176,6 +194,46 @@ class QualityReport:
                          f"warnings={stage.warnings}")
             for key, value in stage.detail.items():
                 lines.append(f"  {key}: {value}")
+        lines.append(bar)
+        return "\n".join(lines)
+
+    def render_pipeline_summary(
+        self,
+        *,
+        output_dataset: str | None = None,
+        metadata_file: str | None = None,
+        quality_report_path: str | None = None,
+        extra_checks: dict[str, bool] | None = None,
+    ) -> str:
+        """Render the Goal-3 cross-stage pipeline summary (M5.4/M5.5).
+
+        Reuses ``self.stages``' already-recorded durations (never re-times
+        anything). ``extra_checks`` are boolean-only completion flags for
+        concerns that aren't independently-timed stages (quality reporting,
+        lineage, output generation) — printed with a completion marker and no
+        duration, exactly as requested, rather than fabricating a fake stage
+        timing for them.
+
+        Markers are plain ASCII (``OK``/``FAIL``, not Unicode checkmarks) —
+        this prints to a console, and Windows' default ``cp1252`` terminal
+        encoding cannot encode ``✓``/``✗`` and would crash on print.
+        """
+        bar = "=" * 44
+        lines = [bar, "Pipeline Summary", bar]
+        for stage in self.stages:
+            label = _STAGE_DISPLAY_NAMES.get(stage.stage, stage.stage.replace("_", " ").title())
+            lines.append(f"{label:24} OK   {stage.duration_seconds:.2f}s")
+        for label, ok in (extra_checks or {}).items():
+            mark = "OK" if ok else "FAIL"
+            lines.append(f"{label:24} {mark}")
+        lines.append(bar)
+        lines.append(f"Total Runtime: {self.total_duration_seconds:.2f}s")
+        if output_dataset:
+            lines.append(f"Output Dataset: {output_dataset}")
+        if metadata_file:
+            lines.append(f"Metadata File: {metadata_file}")
+        if quality_report_path:
+            lines.append(f"Quality Report: {quality_report_path}")
         lines.append(bar)
         return "\n".join(lines)
 
@@ -207,6 +265,44 @@ def _utcnow_iso() -> str:
 def new_report(source: str) -> QualityReport:
     """Start a fresh in-memory report for ``source`` (before any stage is added)."""
     return QualityReport(source=source, generated_at=_utcnow_iso())
+
+
+def record_pipeline_stage(
+    report_path: Path,
+    stage_label: str,
+    *,
+    duration_seconds: float,
+    rows: int | None = None,
+    warnings: int = 0,
+    detail: dict[str, Any] | None = None,
+) -> QualityReport:
+    """Append one stage's already-measured timing to the shared, cross-stage
+    pipeline-run report (Goal 3/4 of M5.4/M5.5).
+
+    This is separate from each stage's own per-source report (M5.2) — a stage
+    like ``cleaning`` touches both weather and AQI, so it gets one entry here
+    representing the whole pipeline's view, in addition to its per-source
+    entries. Reuses the same idempotent stage-merge persistence as
+    :meth:`QualityReport.save` (no duplicate measurement: callers pass in a
+    duration/row count they already computed) and logs one milestone per
+    stage (Goal 5) — never a second log line for what a stage already logged.
+
+    Like the per-source reports, this file accumulates across separate
+    process runs (no orchestrator ties acquisition/cleaning/merge together),
+    so it reflects the most recent run of each stage, which may span multiple
+    invocations over time.
+    """
+    report = QualityReport.load(report_path) or new_report(PIPELINE_RUN_SOURCE)
+    report.add_stage(StageQuality(
+        stage=stage_label, duration_seconds=duration_seconds, warnings=warnings,
+        rows=rows, detail=detail or {},
+    ))
+    report.save(report_path)
+    _pipeline_logger.info(
+        "pipeline_stage_complete",
+        extra={"stage": stage_label, "duration_seconds": round(duration_seconds, 3)},
+    )
+    return report
 
 
 # --- Stage aggregators (pure aggregation of already-computed data) -----------

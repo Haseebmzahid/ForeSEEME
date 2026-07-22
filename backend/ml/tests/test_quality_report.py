@@ -12,12 +12,14 @@ import json
 from dataclasses import dataclass, field
 
 from ml.pipelines.quality_report import (
+    PIPELINE_RUN_SOURCE,
     PIPELINE_VERSION,
     QualityReport,
     StageQuality,
     from_acquisition,
     from_cleaning,
     from_merge,
+    record_pipeline_stage,
     new_report,
 )
 
@@ -252,3 +254,88 @@ def test_save_replaces_stage_on_rerun_without_duplicating(tmp_path) -> None:
 
 def test_load_returns_none_for_missing_file(tmp_path) -> None:
     assert QualityReport.load(tmp_path / "does_not_exist.json") is None
+
+
+# --- M5.4/M5.5: cross-stage pipeline-run recording --------------------------
+
+
+def test_record_pipeline_stage_creates_report_with_correct_source(tmp_path) -> None:
+    path = tmp_path / "pipeline_run.json"
+    report = record_pipeline_stage(path, "weather_acquisition", duration_seconds=0.84)
+    assert report.source == PIPELINE_RUN_SOURCE
+    assert report.stages[0].stage == "weather_acquisition"
+    assert report.stages[0].duration_seconds == 0.84
+
+
+def test_record_pipeline_stage_accumulates_across_separate_calls(tmp_path) -> None:
+    path = tmp_path / "pipeline_run.json"
+    record_pipeline_stage(path, "weather_acquisition", duration_seconds=0.84)
+    record_pipeline_stage(path, "aqi_acquisition", duration_seconds=1.02)
+    report = record_pipeline_stage(path, "cleaning", duration_seconds=0.41, rows=7120)
+
+    assert {s.stage for s in report.stages} == {
+        "weather_acquisition", "aqi_acquisition", "cleaning",
+    }
+    assert report.rows_processed == 7120
+
+
+def test_record_pipeline_stage_rerun_replaces_not_duplicates(tmp_path) -> None:
+    path = tmp_path / "pipeline_run.json"
+    record_pipeline_stage(path, "cleaning", duration_seconds=1.0, warnings=5)
+    report = record_pipeline_stage(path, "cleaning", duration_seconds=0.5, warnings=0)
+
+    assert len(report.stages) == 1
+    assert report.stages[0].duration_seconds == 0.5
+    assert report.warning_count == 0
+
+
+def test_record_pipeline_stage_carries_detail_references(tmp_path) -> None:
+    path = tmp_path / "pipeline_run.json"
+    report = record_pipeline_stage(
+        path, "merge", duration_seconds=0.18, rows=1000,
+        detail={"lineage_ledger": "data/interim/lineage.json",
+                "quality_report": "reports/quality_weekly_base.json"},
+    )
+    assert report.stages[0].detail["lineage_ledger"] == "data/interim/lineage.json"
+
+
+# --- M5.4/M5.5: pipeline summary rendering ----------------------------------
+
+
+def test_render_pipeline_summary_shows_display_names_and_durations() -> None:
+    report = new_report(PIPELINE_RUN_SOURCE)
+    report.add_stage(StageQuality(stage="weather_acquisition", duration_seconds=0.84, warnings=0, rows=None))
+    report.add_stage(StageQuality(stage="aqi_acquisition", duration_seconds=1.02, warnings=0, rows=None))
+    report.add_stage(StageQuality(stage="cleaning", duration_seconds=0.41, warnings=0, rows=7120))
+    report.add_stage(StageQuality(stage="merge", duration_seconds=0.18, warnings=0, rows=1000))
+
+    text = report.render_pipeline_summary(
+        output_dataset="data/interim/weekly_base.parquet",
+        metadata_file="data/interim/lineage.json",
+        quality_report_path="reports/quality_weekly_base.json",
+        extra_checks={"Quality Report": True, "Dataset Lineage": True, "Output Generated": True},
+    )
+    assert "Pipeline Summary" in text
+    assert "Weather Acquisition" in text
+    assert "AQI Acquisition" in text  # correct casing, not "Aqi"
+    assert "0.84s" in text
+    assert "Total Runtime:" in text
+    assert "Output Dataset: data/interim/weekly_base.parquet" in text
+    assert "Metadata File: data/interim/lineage.json" in text
+
+
+def test_render_pipeline_summary_extra_checks_have_no_fabricated_duration() -> None:
+    report = new_report(PIPELINE_RUN_SOURCE)
+    report.add_stage(StageQuality(stage="merge", duration_seconds=0.18, warnings=0, rows=1000))
+    text = report.render_pipeline_summary(extra_checks={"Dataset Lineage": True})
+    lineage_line = next(line for line in text.splitlines() if "Dataset Lineage" in line)
+    assert lineage_line.strip().endswith("OK")  # no duration suffix on a boolean check
+
+
+def test_render_pipeline_summary_marks_failed_check_with_ascii_fail_marker() -> None:
+    report = new_report(PIPELINE_RUN_SOURCE)
+    text = report.render_pipeline_summary(extra_checks={"Output Generated": False})
+    assert "FAIL" in text
+    # Must never emit a Unicode checkmark/cross: Windows' default cp1252
+    # console encoding cannot print them and would crash the pipeline.
+    assert "✓" not in text and "✗" not in text

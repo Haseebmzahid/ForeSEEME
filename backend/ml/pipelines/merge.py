@@ -43,8 +43,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ml.pipelines import paths
-from ml.pipelines.quality_report import from_merge, new_report
+from ml.pipelines import lineage, paths
+from ml.pipelines.quality_report import (
+    PIPELINE_VERSION,
+    from_merge,
+    new_report,
+    record_pipeline_stage,
+)
 
 logger = logging.getLogger("foreseeme.ml.merge")
 
@@ -260,6 +265,7 @@ def main() -> None:
     print(f"report -> {paths.REPORTS_DIR / 'merge_summary.md'}")
 
     missingness = column_missingness(base)  # reused, not recomputed by quality_report
+    quality_path = paths.REPORTS_DIR / "quality_weekly_base.json"
     quality = new_report("weekly_base")
     quality.add_stage(
         from_merge(
@@ -270,8 +276,52 @@ def main() -> None:
             duration_seconds=duration,
         )
     )
-    quality.save(paths.REPORTS_DIR / "quality_weekly_base.json")
+    quality.save(quality_path)
     print(quality.render_text())
+
+    # --- Dataset lineage: reuses the row/column counts and duration already
+    # computed above; the only new work is one checksum of the file just written.
+    lineage_path = paths.INTERIM_DIR / "lineage.json"
+    weather_inputs = sorted((paths.DATA_DIR / "interim" / "weather").glob("*.parquet"))
+    aqi_inputs = sorted((paths.DATA_DIR / "interim" / "aqi").glob("*.parquet"))
+    lineage.record_lineage(
+        lineage_path,
+        lineage.build_record(
+            dataset="weekly_base",
+            output_path=out_path,
+            data_dir=paths.DATA_DIR,
+            sources=["open_meteo_weather", "open_meteo_air_quality"],
+            input_artifacts=[*weather_inputs, *aqi_inputs],
+            row_count=len(base),
+            column_count=len(base.columns),
+            pipeline_version=PIPELINE_VERSION,
+            quality_report_path=quality_path,
+            consumed_by="features.py (Module 6)",
+        ),
+    )
+    print(f"lineage -> {lineage_path}")
+
+    # --- Cross-stage pipeline summary: reuses this run's own duration/warning
+    # count; other stages' entries (if run) already live in pipeline_run.json.
+    pipeline_report = record_pipeline_stage(
+        paths.REPORTS_DIR / "pipeline_run.json", "merge",
+        duration_seconds=duration, rows=len(base), warnings=quality.warning_count,
+        detail={
+            "lineage_ledger": str(lineage_path),
+            "quality_report": str(quality_path),
+            "output_artifact": str(out_path),
+        },
+    )
+    print(pipeline_report.render_pipeline_summary(
+        output_dataset=str(out_path),
+        metadata_file=str(lineage_path),
+        quality_report_path=str(quality_path),
+        extra_checks={
+            "Quality Report": quality_path.exists(),
+            "Dataset Lineage": lineage_path.exists(),
+            "Output Generated": out_path.exists(),
+        },
+    ))
 
 
 if __name__ == "__main__":

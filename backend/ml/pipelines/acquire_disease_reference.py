@@ -426,10 +426,15 @@ def render_notes(document: dict[str, Any]) -> str:
 
 def main() -> None:
     """Write the reference dataset, sidecar, and notes; print a summary."""
+    import time
+
     from app.logging_config import configure_logging
+    from ml.pipelines.quality_report import record_pipeline_stage
 
     configure_logging("INFO")
+    start = time.perf_counter()
     written = write_reference()
+    duration = time.perf_counter() - start
     document = _reference_document()
     logger.info(
         "disease_reference_written",
@@ -438,6 +443,11 @@ def main() -> None:
     for label, path in written.items():
         print(f"{label:8} -> {path}")
     print(f"entries: {len(document['entries'])} (all {CLASSIFICATION})")
+
+    record_pipeline_stage(
+        paths.REPORTS_DIR / "pipeline_run.json", "disease_reference",
+        duration_seconds=duration,
+    )
 
 
 if __name__ == "__main__":

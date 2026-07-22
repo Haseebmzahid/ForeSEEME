@@ -47,10 +47,15 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from ml.pipelines import paths
+from ml.pipelines import lineage, paths
 from ml.pipelines.acquisition_base import Window, load_pipeline_config
 from ml.pipelines.acquisition_common import read_raw_json
-from ml.pipelines.quality_report import from_cleaning, new_report
+from ml.pipelines.quality_report import (
+    PIPELINE_VERSION,
+    from_cleaning,
+    new_report,
+    record_pipeline_stage,
+)
 
 logger = logging.getLogger("foreseeme.ml.clean")
 
@@ -383,7 +388,8 @@ def clean_source(
         frame, stats = clean_city(
             raw, source_key, city["name"], window, specs, max_gap, aliases, add_aqi_flag
         )
-        frame.to_parquet(out_dir / f"{stats.city}.parquet", index=False)
+        out_path = out_dir / f"{stats.city}.parquet"
+        frame.to_parquet(out_path, index=False)
         all_stats.append(stats)
         logger.info(
             "cleaned",
@@ -393,6 +399,21 @@ def clean_source(
                 "days": stats.days,
                 "aqi_available_days": stats.aqi_available_days,
             },
+        )
+        lineage.record_lineage(
+            data_dir / "interim" / "lineage.json",
+            lineage.build_record(
+                dataset=f"interim/{subdir}/{stats.city}",
+                output_path=out_path,
+                data_dir=data_dir,
+                sources=[source_key],
+                input_artifacts=[raw_path],
+                row_count=len(frame),
+                column_count=len(frame.columns),
+                pipeline_version=PIPELINE_VERSION,
+                quality_report_path=paths.REPORTS_DIR / f"quality_{source_key}.json",
+                consumed_by="merge.py",
+            ),
         )
     return all_stats
 
@@ -525,12 +546,20 @@ def main() -> None:
             print(f"{source_key:24} {cs.city:11} days={cs.days} missing_cells={total_missing}")
     print(f"report -> {paths.REPORTS_DIR / 'data_quality.md'}")
 
+    total_warnings = 0
     for source_key, all_stats in stats.items():
         quality_path = paths.REPORTS_DIR / f"quality_{source_key}.json"
         quality = new_report(source_key)
         quality.add_stage(from_cleaning(all_stats, duration_seconds=duration))
         quality.save(quality_path)
         print(quality.render_text())
+        total_warnings += quality.warning_count
+
+    rows_total = sum(cs.days for all_stats in stats.values() for cs in all_stats)
+    record_pipeline_stage(
+        paths.REPORTS_DIR / "pipeline_run.json", "cleaning",
+        duration_seconds=duration, rows=rows_total, warnings=total_warnings,
+    )
 
 
 if __name__ == "__main__":
