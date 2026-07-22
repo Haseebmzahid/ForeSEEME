@@ -24,6 +24,13 @@ What it does, per source / per city:
 Outputs: ``data/interim/<source>/<city>.parquet`` and
 ``reports/data_quality.md``.
 
+Pipeline stages (M5.3, see ``PREPROCESSING.md``): this module owns Validation
+(:func:`_require_raw_file`, on top of M5.1's structural validation upstream in
+``acquisition_common.py`` — never re-checked here), Normalization
+(:func:`normalize_city`, :func:`aggregate_daily`), and Cleaning
+(:func:`enforce_range`, :func:`interpolate_short_gaps`). Merge Preparation and
+Merge are ``merge.py``'s responsibility.
+
 Run (from ``backend/``)::
 
     python -m ml.pipelines.clean
@@ -101,6 +108,9 @@ def normalize_city(name: str, aliases: dict[str, str]) -> str:
 
     Trims/space-collapses and case-folds; raises on a genuinely unknown city
     rather than guessing (undocumented coercion would hide bad input).
+
+    Both Normalization (alias → canonical mapping) and Validation (the raise on
+    an unrecognised city is an allowed-values check) — see ``PREPROCESSING.md``.
     """
     key = " ".join(str(name).split()).lower()
     if key in aliases:
@@ -190,7 +200,10 @@ def _raw_series(raw: dict[str, Any], granularity: str, raw_key: str) -> pd.Serie
 
 
 def aggregate_daily(series: pd.Series, granularity: str, method: str | None) -> pd.Series:
-    """Reduce an hourly series to daily; pass a daily series through (normalised)."""
+    """Reduce an hourly series to daily; pass a daily series through (normalised).
+
+    Normalization stage: granularity/unit consistency (see ``PREPROCESSING.md``).
+    """
     if series.empty:
         return series
     if granularity == "hourly" and method:
@@ -204,7 +217,10 @@ def aggregate_daily(series: pd.Series, granularity: str, method: str | None) -> 
 def enforce_range(
     series: pd.Series, lo: float | None, hi: float | None
 ) -> tuple[pd.Series, int]:
-    """Drop out-of-range values to NaN; return (cleaned, n_flagged)."""
+    """Drop out-of-range values to NaN; return (cleaned, n_flagged).
+
+    Cleaning stage: physical-range enforcement (see ``PREPROCESSING.md``).
+    """
     if lo is None and hi is None:
         return series, 0
     mask = pd.Series(False, index=series.index)
@@ -223,6 +239,8 @@ def interpolate_short_gaps(
     Longer runs and edge (leading/trailing) NaNs are left untouched — this is the
     hard guard against imputing across a long absence. Returns (series, imputed
     boolean mask, n_interpolated).
+
+    Cleaning stage: missing-value / gap policy (see ``PREPROCESSING.md``).
     """
     values = series.to_numpy(dtype="float64")
     isna = np.isnan(values)
@@ -265,7 +283,12 @@ def clean_city(
     aliases: dict[str, str],
     add_aqi_flag: bool = False,
 ) -> tuple[pd.DataFrame, CityStats]:
-    """Clean one city's raw response into a daily DataFrame + stats."""
+    """Clean one city's raw response into a daily DataFrame + stats.
+
+    Stage composition (see ``PREPROCESSING.md``): Normalization
+    (:func:`normalize_city`, :func:`aggregate_daily`) then Cleaning
+    (:func:`enforce_range`, :func:`interpolate_short_gaps`), per variable.
+    """
     canonical = normalize_city(city_name, aliases)
     daily_index = pd.date_range(window.start, window.end, freq="D")
     frame = pd.DataFrame({"city": canonical, "date": daily_index})
@@ -313,6 +336,24 @@ def clean_city(
     return frame, stats
 
 
+# --- Validation stage (precondition check, mirrors merge.load_source_daily) --
+
+
+def _require_raw_file(path: Path, source_key: str, city_name: str) -> None:
+    """Fail with a clear, structured error if a city's raw acquisition file is
+    missing, instead of a bare traceback from ``Path.read_text()``.
+
+    Mirrors the precondition check :func:`merge.load_source_daily` already
+    performs for interim files — the same "validation" responsibility, applied
+    one stage earlier. The success path (file present) is unchanged.
+    """
+    if not path.exists():
+        raise FileNotFoundError(
+            f"missing raw file for source={source_key!r} city={city_name!r}: "
+            f"{path} (run the matching acquire_* pipeline first)"
+        )
+
+
 # --- Source-level orchestration --------------------------------------------
 
 
@@ -337,6 +378,7 @@ def clean_source(
     all_stats: list[CityStats] = []
     for city in cities:
         raw_path = data_dir / "raw" / subdir / f"{city['name']}.json"
+        _require_raw_file(raw_path, source_key, city["name"])
         raw = read_raw_json(raw_path)
         frame, stats = clean_city(
             raw, source_key, city["name"], window, specs, max_gap, aliases, add_aqi_flag

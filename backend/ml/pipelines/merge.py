@@ -18,6 +18,18 @@ inner join. No feature engineering and no labels happen here.
 
 Outputs: ``data/interim/weekly_base.parquet`` and ``reports/merge_summary.md``.
 
+Pipeline stages (M5.3, see ``PREPROCESSING.md``): this module owns Merge
+Preparation (:func:`with_iso_week`, :func:`aggregate_weekly_weather`,
+:func:`aggregate_weekly_aqi`) and Merge proper (:func:`merge_sources`).
+:func:`load_source_daily` already carries this module's Validation
+responsibility — a clear precondition error if the expected interim files are
+absent — unchanged here, just named.
+
+Module 5 / Module 6 handoff: ``data/interim/weekly_base.parquet``, with
+exactly the columns in :data:`COLUMNS`, is the entire contract Module 6's
+``features.py`` reads. This module has no knowledge of feature engineering,
+labels, training, or FastAPI, and must stay that way.
+
 Run (from ``backend/``)::
 
     python -m ml.pipelines.merge
@@ -58,7 +70,10 @@ COLUMNS = [
 
 
 def with_iso_week(daily: pd.DataFrame) -> pd.DataFrame:
-    """Add ``iso_year`` / ``week_of_year`` columns from the daily ``date``."""
+    """Add ``iso_year`` / ``week_of_year`` columns from the daily ``date``.
+
+    Merge Preparation stage: temporal key derivation (see ``PREPROCESSING.md``).
+    """
     iso = daily["date"].dt.isocalendar()
     return daily.assign(
         iso_year=iso["year"].astype("int64"),
@@ -70,7 +85,10 @@ def with_iso_week(daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_weekly_weather(daily: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate daily weather to weekly: temp/humidity mean, rainfall sum."""
+    """Aggregate daily weather to weekly: temp/humidity mean, rainfall sum.
+
+    Merge Preparation stage (see ``PREPROCESSING.md``).
+    """
     df = with_iso_week(daily)
     grouped = df.groupby(KEY, sort=True)
     weekly = grouped.agg(
@@ -85,7 +103,10 @@ def aggregate_weekly_weather(daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate_weekly_aqi(daily: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate daily AQI to weekly means; carry the availability flag forward."""
+    """Aggregate daily AQI to weekly means; carry the availability flag forward.
+
+    Merge Preparation stage (see ``PREPROCESSING.md``).
+    """
     df = with_iso_week(daily)
     grouped = df.groupby(KEY, sort=True)
     weekly = grouped.agg(
@@ -107,6 +128,8 @@ def merge_sources(
 
     Outer join: a week present in either source survives. AQI-missing weeks keep
     NaN AQI columns and ``aqi_available = False`` (never dropped).
+
+    Merge stage proper (see ``PREPROCESSING.md``).
     """
     base = weather_weekly.merge(aqi_weekly, on=KEY, how="outer")
     # Weeks absent from AQI come through as NaN; treat as not-available. Use numpy
@@ -122,7 +145,11 @@ def merge_sources(
 
 
 def load_source_daily(data_dir: Path, subdir: str) -> pd.DataFrame:
-    """Concatenate all cleaned per-city daily parquet files for one source."""
+    """Concatenate all cleaned per-city daily parquet files for one source.
+
+    Validation stage: fails clearly (not with a silent empty frame) if the
+    expected interim files are absent — see ``PREPROCESSING.md``.
+    """
     source_dir = data_dir / "interim" / subdir
     frames = [pd.read_parquet(p) for p in sorted(source_dir.glob("*.parquet"))]
     if not frames:
