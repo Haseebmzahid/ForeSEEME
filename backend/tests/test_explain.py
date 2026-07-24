@@ -23,7 +23,12 @@ import pytest
 from app import explain
 from app.explain import AttributionSet, compute_attributions
 from app.feature_builder import engineer_serving_features
-from app.predict import classify_dominant, load_bundle, resolve_artifact_path
+from app.predict import (
+    classify_dominant,
+    load_bundle,
+    resolve_artifact_path,
+    resolve_low_confidence_threshold,
+)
 
 BUNDLE = load_bundle(resolve_artifact_path())
 FEATURES = BUNDLE["feature_names"]
@@ -164,7 +169,26 @@ def test_confidence_rationale_margin_and_agreement() -> None:
     assert 0.0 <= r.confidence <= 1.0
     assert r.runner_up_confidence <= r.confidence
     assert r.strength in {"strong", "moderate", "weak"}
-    assert r.low_confidence == (r.confidence < explain.LOW_CONFIDENCE_THRESHOLD)
+    assert r.low_confidence == (r.confidence < resolve_low_confidence_threshold(BUNDLE))
+
+
+def test_low_confidence_tracks_the_bundle_threshold_not_a_constant() -> None:
+    """Sprint M6.1: `compute_attributions` must read the threshold off `bundle`,
+    not a module-level constant — varying it (as a retrain with a different
+    `config/model.yaml` value would) must change `lowConfidence` accordingly."""
+    disease, feats = _dominant(_base())
+
+    permissive = dict(BUNDLE)
+    permissive["low_confidence_threshold"] = 0.0
+    strict = dict(BUNDLE)
+    strict["low_confidence_threshold"] = 1.0
+
+    r_permissive = compute_attributions(permissive, disease, feats).confidence_rationale
+    r_strict = compute_attributions(strict, disease, feats).confidence_rationale
+
+    assert r_permissive.low_confidence is False
+    assert r_strict.low_confidence is True
+    assert r_permissive.confidence == r_strict.confidence  # unaffected by the threshold
 
 
 def test_strength_bucketing_is_mechanical() -> None:

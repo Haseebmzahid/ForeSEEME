@@ -558,6 +558,10 @@ def build_bundle(
 
     Storing a dict (not a bespoke object) means ``joblib.load`` works anywhere
     without importing this module, which keeps Prompt 14's serving load trivial.
+
+    Carries ``low_confidence_threshold`` from ``config/model.yaml`` (Sprint M6.1,
+    the single source of truth) so every inference component reads the value the
+    model was actually evaluated against, instead of a locally hardcoded copy.
     """
     return {
         "schema_version": 1,
@@ -567,6 +571,7 @@ def build_bundle(
         "diseases": [r.disease for r in runs],
         "classes": cfg.get("classes", DEFAULT_CLASSES),
         "feature_names": feature_names,
+        "low_confidence_threshold": float(cfg["evaluation"]["low_confidence_threshold"]),
         "models": {r.disease: r.pipeline for r in runs},
         "best_params": {r.disease: r.best_params for r in runs},
         "reproducibility": {
@@ -579,6 +584,14 @@ def build_bundle(
     }
 
 
+#: Fallback ``low_confidence_threshold`` for a bundle built before Sprint M6.1
+#: (which did not yet stamp the config value into the artifact). Reproduces the
+#: threshold every such artifact was actually evaluated/served against; new
+#: bundles always carry their own value via :func:`build_bundle`, so this is
+#: only ever reached for a pre-M6.1 artifact.
+_LEGACY_LOW_CONFIDENCE_THRESHOLD = 0.55
+
+
 def predict_risk(
     bundle: dict[str, Any], disease: str, X: pd.DataFrame
 ) -> list[dict[str, Any]]:
@@ -586,13 +599,17 @@ def predict_risk(
 
     Returns one dict per input row with the Sprint 1 contract fields. Operates on
     the plain bundle dict, so it works after a bare ``joblib.load`` without
-    importing the training internals.
+    importing the training internals. The low-confidence threshold is read from
+    the bundle (``low_confidence_threshold``, Sprint M6.1) — never hardcoded —
+    so this stays consistent with whatever the model was configured with.
     """
     pipeline: Pipeline = bundle["models"][disease]
     feats = X[bundle["feature_names"]].astype(float)
     proba = pipeline.predict_proba(feats)
     classes = pipeline.classes_
-    threshold = 0.55
+    threshold = float(
+        bundle.get("low_confidence_threshold", _LEGACY_LOW_CONFIDENCE_THRESHOLD)
+    )
     out: list[dict[str, Any]] = []
     for row in proba:
         idx = int(np.argmax(row))

@@ -28,9 +28,13 @@ CLASSES = {"Low", "Medium", "High"}
 
 
 def _model_path() -> Path:
-    found = sorted(ARTIFACTS.glob("model_*.joblib"))
+    # Sprint M6.2: reuses the same semver-aware selection production uses
+    # (previously this duplicated the old, non-semver-safe `sorted(glob)[-1]`
+    # logic locally, so this test could silently drift from what
+    # `app.predict.resolve_artifact_path` actually loads).
+    found = paths.latest_model_artifact(ARTIFACTS)
     assert found, "no model_<version>.joblib present — run `python -m ml.training.persist`"
-    return found[-1]
+    return found
 
 
 def _metrics() -> dict:
@@ -56,6 +60,15 @@ def test_artifact_version_is_semver() -> None:
     bundle = load(_model_path())
     assert persist.is_semver(bundle["version"])
     assert persist.is_semver(_metrics()["version"])
+
+
+def test_persist_semver_is_the_same_definition_as_paths_not_a_copy() -> None:
+    """Sprint M6.2: `persist.is_semver`/`persist.SEMVER_RE` are re-exports of
+    `ml.pipelines.paths`, not a second, independently-maintained definition —
+    the same rules validate a version on write (promote) and on read
+    (resolve_artifact_path)."""
+    assert persist.is_semver is paths.is_semver
+    assert persist.SEMVER_RE is paths.SEMVER_RE
 
 
 # --- Loads & predicts contract-shaped output --------------------------------
@@ -115,6 +128,45 @@ def test_reproducibility_record_complete() -> None:
     assert len(repro["config_sha256"]) == 64
     # The bundle carries the same record.
     assert load(_model_path())["reproducibility"]["config_sha256"] == repro["config_sha256"]
+
+
+# --- Configuration propagation through promotion (Sprint M6.1) --------------
+
+
+def test_promotion_preserves_the_configured_low_confidence_threshold() -> None:
+    """`persist.promote()` must not drop the candidate's artifact-carried
+    threshold — it is inherited via `dict(candidate)` in
+    `build_production_bundle`, not re-derived or reset. A synthetic candidate is
+    used so this is a fast, isolated check of that one propagation step."""
+    candidate = {
+        "model_version": "rf-candidate-test",
+        "low_confidence_threshold": 0.42,
+        "diseases": ["dengue"],
+        "best_params": {"dengue": {}},
+    }
+    evaluation = {
+        "model_version": "rf-candidate-test",
+        "per_disease": {
+            "dengue": {
+                "metrics": {"accuracy": 0.9, "f1_macro": 0.9,
+                            "roc_auc_ovr_macro": 0.9, "brier_multiclass": 0.1},
+                "label_seasonality": {"lift": 2.0},
+            }
+        },
+    }
+    cfg = {"release": {"version": "9.9.9", "model_version": "rf-9.9.9"}}
+
+    bundle = persist.build_production_bundle(cfg, candidate, evaluation, repro={})
+    assert bundle["low_confidence_threshold"] == 0.42
+
+
+def test_real_promoted_artifact_carries_the_threshold_field() -> None:
+    """The currently-shipped artifact was promoted before Sprint M6.1 introduced
+    this field, so it legitimately may be absent — but if present it must be a
+    real, in-range float, never a stale/invalid leftover."""
+    bundle = load(_model_path())
+    if "low_confidence_threshold" in bundle:
+        assert 0.0 <= bundle["low_confidence_threshold"] <= 1.0
 
 
 # --- Model Card is honest and complete --------------------------------------

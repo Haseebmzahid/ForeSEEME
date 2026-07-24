@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import platform
-import re
 from pathlib import Path
 from typing import Any
 
@@ -40,18 +39,12 @@ import yaml
 from joblib import dump, load
 
 from ml.pipelines import paths
+from ml.pipelines.paths import SEMVER_RE, is_semver  # noqa: F401 — re-exported for
+# existing callers (e.g. ml.tests.test_artifact) that reference persist.is_semver /
+# persist.SEMVER_RE. Sprint M6.2: the definition now lives in paths.py, the single
+# place both promotion (validates on write) and serving (parses on read,
+# app.predict.resolve_artifact_path) agree on what a valid version looks like.
 from ml.training import train as T
-
-#: Strict semver (major.minor.patch with optional pre-release/build), so the
-#: promoted version is auditable and machine-checkable.
-SEMVER_RE = re.compile(
-    r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
-    r"(?:-(?P<prerelease>[0-9A-Za-z-.]+))?(?:\+(?P<build>[0-9A-Za-z-.]+))?$"
-)
-
-
-def is_semver(version: str) -> bool:
-    return bool(SEMVER_RE.match(version))
 
 
 # --- Inputs -----------------------------------------------------------------

@@ -42,11 +42,11 @@ from app.explain import AttributionSet, compute_attributions
 from app.feature_builder import engineer_serving_features
 from app.jobs import observability
 from app.predict import (
-    LOW_CONFIDENCE_THRESHOLD,
     classify_dominant,
     display_disease,
     load_bundle,
     resolve_artifact_path,
+    resolve_low_confidence_threshold,
 )
 from app.schemas import RiskEstimateResponse
 from ml.pipelines import clean, merge, paths
@@ -160,7 +160,7 @@ def estimate_for_city_full(
         aqi=round(aqi, 2) if aqi is not None else 0.0,  # contract requires aqi >= 0
         generated_at=generated_at,
         model_version=bundle["model_version"],
-        low_confidence=confidence < LOW_CONFIDENCE_THRESHOLD,
+        low_confidence=confidence < resolve_low_confidence_threshold(bundle),
     )
     attributions = compute_attributions(bundle, disease, latest_features)
     return CityEstimate(response=response, attributions=attributions)

@@ -20,7 +20,7 @@ import pytest
 
 from app.feature_builder import engineer_serving_features
 from app.jobs import compute_risk as job
-from app.predict import load_bundle, resolve_artifact_path
+from app.predict import load_bundle, resolve_artifact_path, resolve_low_confidence_threshold
 from app.schemas import RiskEstimateResponse
 
 BUNDLE = load_bundle(resolve_artifact_path())
@@ -103,7 +103,9 @@ def test_writes_one_contract_valid_doc_per_city() -> None:
         assert 0.0 <= body["confidence"] <= 1.0
         assert body["aqi"] >= 0.0
         assert body["modelVersion"] == BUNDLE["model_version"]
-        assert body["lowConfidence"] == (body["confidence"] < 0.55)
+        assert body["lowConfidence"] == (
+            body["confidence"] < resolve_low_confidence_threshold(BUNDLE)
+        )
 
 
 # --- Idempotency ------------------------------------------------------------
@@ -128,6 +130,24 @@ def test_different_dates_make_distinct_documents() -> None:
 
     assert len(repo.docs) == 2 * len(CITIES)      # one per (city, date)
     assert "Lahore_2026-06-29" in repo.docs and "Lahore_2026-06-30" in repo.docs
+
+
+# --- Artifact-driven low-confidence configuration (Sprint M6.1) -------------
+
+
+def test_batch_job_low_confidence_tracks_the_bundle_not_a_constant() -> None:
+    """The batch job must derive `lowConfidence` from `bundle`, the same object
+    it already threads through `estimate_for_city_full` — proving there is no
+    second, locally-hardcoded threshold living in compute_risk.py."""
+    strict_bundle = dict(BUNDLE)
+    strict_bundle["low_confidence_threshold"] = 1.0  # anything short of certainty
+
+    repo = FakeRepository()
+    outcomes = job.run(_all_present(), repo, bundle=strict_bundle, cities=CITIES,
+                       generated_at=GENERATED_AT)
+
+    assert all(o.status == "written" for o in outcomes)
+    assert all(repo.docs[o.doc_id]["lowConfidence"] is True for o in outcomes)
 
 
 # --- Graceful per-city handling ---------------------------------------------

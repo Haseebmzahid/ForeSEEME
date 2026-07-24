@@ -177,6 +177,54 @@ def test_train_fits_persists_reloads_and_predicts(tmp_path) -> None:
         assert isinstance(p["low_confidence"], bool)
 
 
+def test_bundle_carries_the_configured_low_confidence_threshold() -> None:
+    """Sprint M6.1: the artifact must carry `low_confidence_threshold` sourced
+    from `cfg["evaluation"]["low_confidence_threshold"]` — the single source of
+    truth every inference component reads instead of a hardcoded constant."""
+    df = _tiny_df()
+    cfg = _tiny_cfg()
+    cfg["evaluation"]["low_confidence_threshold"] = 0.72
+    bundle, _runs, _feats = train.train_all(df, cfg)
+    assert bundle["low_confidence_threshold"] == 0.72
+
+
+def test_predict_risk_uses_the_bundles_configured_threshold() -> None:
+    """Changing `evaluation.low_confidence_threshold` and retraining changes the
+    `low_confidence` flag `predict_risk` reports — proving it is artifact-driven,
+    not the old hardcoded `0.55`."""
+    df = _tiny_df()
+
+    cfg_permissive = _tiny_cfg()
+    cfg_permissive["evaluation"]["low_confidence_threshold"] = 0.0
+    bundle_permissive, _runs, _feats = train.train_all(df, cfg_permissive)
+
+    cfg_strict = _tiny_cfg()
+    cfg_strict["evaluation"]["low_confidence_threshold"] = 1.0
+    bundle_strict, _runs, _feats = train.train_all(df, cfg_strict)
+
+    row = df.head(1)
+    preds_permissive = train.predict_risk(bundle_permissive, "dengue", row)
+    preds_strict = train.predict_risk(bundle_strict, "dengue", row)
+
+    assert preds_permissive[0]["low_confidence"] is False
+    assert preds_strict[0]["low_confidence"] is True
+
+
+def test_predict_risk_falls_back_for_a_bundle_without_the_field() -> None:
+    """A bundle built before Sprint M6.1 (no stored threshold) must reproduce the
+    prior hardcoded behaviour (0.55), not raise or silently use 0."""
+    df = _tiny_df()
+    cfg = _tiny_cfg()
+    bundle, _runs, _feats = train.train_all(df, cfg)
+    del bundle["low_confidence_threshold"]  # simulate a pre-M6.1 artifact
+
+    row = df.head(1)
+    preds = train.predict_risk(bundle, "dengue", row)
+    assert isinstance(preds[0]["low_confidence"], bool)
+    expected = preds[0]["confidence"] < train._LEGACY_LOW_CONFIDENCE_THRESHOLD
+    assert preds[0]["low_confidence"] == expected
+
+
 def test_feature_importance_csv_is_ranked_per_disease(tmp_path) -> None:
     df = _tiny_df()
     cfg = _tiny_cfg()

@@ -53,6 +53,8 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 from sklearn.pipeline import Pipeline
 
+from app.predict import resolve_low_confidence_threshold
+
 #: Identifier for the attribution method stored on each estimate. Documents the
 #: provenance of the numbers and lets a future method (e.g. SHAP) be distinguished
 #: by readers without changing the field shape.
@@ -62,11 +64,6 @@ METHOD = "tree_path_contributions"
 #: small so documents stay lean and the "why this prediction" surface stays
 #: legible; the full 36-feature vector is not stored per estimate.
 TOP_N_DEFAULT = 6
-
-#: Reliability threshold shared with the frozen contract (RISK_SCHEMA.md): a top
-#: confidence below this flags ``lowConfidence``. Mirrors
-#: ``app.predict.LOW_CONFIDENCE_THRESHOLD`` (imported lazily to avoid a cycle).
-LOW_CONFIDENCE_THRESHOLD = 0.55
 
 # Qualitative strength buckets for the confidence rationale. Deterministic
 # functions of genuine model quantities (margin + agreement) — a labelling of the
@@ -254,7 +251,7 @@ def compute_attributions(
         for i in ranked
     ]
 
-    low_confidence = confidence < LOW_CONFIDENCE_THRESHOLD
+    low_confidence = confidence < resolve_low_confidence_threshold(bundle)
     rationale = ConfidenceRationale(
         confidence=round(confidence, 4),
         predicted_class=predicted_class,

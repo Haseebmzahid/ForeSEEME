@@ -100,8 +100,13 @@ search:
 # test.parquet). The held-out test-set evaluation, calibration, robustness, and
 # permutation importance are Prompt 12.
 evaluation:
-  # Below this max-probability confidence a prediction is flagged lowConfidence
-  # (mirrors the Sprint 1 serving contract; not used to alter training).
+  # Below this max-probability confidence a prediction is flagged lowConfidence.
+  # SINGLE SOURCE OF TRUTH (Sprint M6.1): this value is baked into the trained
+  # bundle (`build_bundle()` -> `bundle["low_confidence_threshold"]`) and is what
+  # every inference component (RealRiskModel, explain.compute_attributions,
+  # the compute_risk batch job) reads at serving time — not a local constant.
+  # Change it here and retrain/re-promote to change serving behaviour; nothing
+  # in `app/` hardcodes this value anymore.
   low_confidence_threshold: 0.55
   # Reliability-curve bins for the calibration assessment plot.
   calibration_bins: 10

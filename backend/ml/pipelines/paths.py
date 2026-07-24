@@ -85,6 +85,93 @@ PIPELINE_PATH = CONFIG_DIR / "pipeline.yaml"
 MODEL_PATH = CONFIG_DIR / "model.yaml"
 
 
+# --- Promoted model artifacts (Prompt 13 / Sprint M6.2) ----------------------
+#
+# The single definition of the ``model_<semver>.joblib`` naming convention that
+# ``ml.training.persist.promote()`` writes and ``app.predict`` discovers, so the
+# writer and the reader can never encode the pattern — or the semver rules —
+# differently. Previously ``persist.py`` defined its own ``SEMVER_RE``/
+# ``is_semver`` and ``app/predict.py`` picked "latest" by sorting filenames as
+# plain strings (`model_10.0.0.joblib` sorted *before* `model_2.0.0.joblib`).
+# Both now derive from here.
+
+MODEL_ARTIFACT_PREFIX = "model_"
+MODEL_ARTIFACT_SUFFIX = ".joblib"
+#: Glob pattern for every promoted artifact under an artifacts directory.
+MODEL_ARTIFACT_GLOB = f"{MODEL_ARTIFACT_PREFIX}*{MODEL_ARTIFACT_SUFFIX}"
+
+#: Strict semver (major.minor.patch, optional pre-release/build) — the version
+#: :func:`~ml.training.persist.promote` validates before writing an artifact.
+SEMVER_RE = re.compile(
+    r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
+    r"(?:-(?P<prerelease>[0-9A-Za-z-.]+))?(?:\+(?P<build>[0-9A-Za-z-.]+))?$"
+)
+
+
+def is_semver(version: str) -> bool:
+    """Whether ``version`` is a valid semver string."""
+    return bool(SEMVER_RE.match(version))
+
+
+def model_artifact_version(path: Path) -> str | None:
+    """The semver string encoded in a ``model_<version>.joblib`` filename.
+
+    Returns ``None`` if ``path`` doesn't match the naming convention or its
+    version segment isn't valid semver (a malformed or stray file) — so a caller
+    can skip it rather than crash, the same graceful-degradation posture the
+    rest of artifact loading uses.
+    """
+    stem = path.stem  # "model_1.0.0.joblib" -> "model_1.0.0"
+    if not stem.startswith(MODEL_ARTIFACT_PREFIX):
+        return None
+    version = stem[len(MODEL_ARTIFACT_PREFIX):]
+    return version if is_semver(version) else None
+
+
+def semver_sort_key(version: str) -> tuple[int, int, int, int, str]:
+    """Numeric ordering key for a semver string.
+
+    ``model_10.0.0`` now correctly outranks ``model_2.0.0`` (Sprint M6.2 — the
+    prior lexicographic filename sort did not: ``"10.0.0" < "2.0.0"`` as plain
+    strings). A release (no pre-release) sorts after any pre-release of the same
+    major.minor.patch, matching real semver precedence for the common case; two
+    pre-releases of the same version break ties by string comparison. The full
+    semver pre-release-precedence algorithm (numeric vs. alphanumeric identifier
+    comparison, per-dot-segment) is not implemented — this project only ever
+    releases plain ``major.minor.patch`` versions (``config/model.yaml:
+    release.version``), so that complexity has no current use.
+    """
+    match = SEMVER_RE.match(version)
+    if not match:
+        raise ValueError(f"{version!r} is not valid semver")
+    prerelease = match["prerelease"] or ""
+    is_release = 0 if prerelease else 1  # a release outranks its own pre-releases
+    return (int(match["major"]), int(match["minor"]), int(match["patch"]),
+            is_release, prerelease)
+
+
+def latest_model_artifact(artifacts_dir: Path | None = None) -> Path | None:
+    """The highest-semver promoted ``model_<version>.joblib`` under ``artifacts_dir``.
+
+    Deterministic, semver-aware selection (Sprint M6.2) — never filename string
+    order. Filenames that don't parse as ``model_<semver>.joblib`` are ignored
+    rather than raising, so one stray or malformed file cannot break discovery
+    for everything else. Returns ``None`` if no valid artifact is found. This is
+    the single "what is the active production model" lookup — both
+    ``app.predict.resolve_artifact_path`` (serving) and any future caller should
+    use this rather than re-implementing artifact discovery.
+    """
+    base = artifacts_dir if artifacts_dir is not None else ARTIFACTS_DIR
+    candidates = [
+        (semver_sort_key(version), candidate)
+        for candidate in base.glob(MODEL_ARTIFACT_GLOB)
+        if (version := model_artifact_version(candidate)) is not None
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda item: item[0])[1]
+
+
 # --- Helpers ----------------------------------------------------------------
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9._-]+")
