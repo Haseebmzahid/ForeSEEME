@@ -1,11 +1,12 @@
 /// Condition categories the user can toggle alerts for (key → display label).
-/// Stable keys are what Sprint 4's dispatch engine matches against.
+/// Stable keys are what the backend dispatch engine matches against.
 const Map<String, String> kNotificationConditionLabels = {
   'respiratory': 'Respiratory',
   'cardiovascular': 'Cardiovascular',
 };
 
-/// The user's risk-alert preferences (consumed by Sprint 4's dispatch engine).
+/// The user's risk-alert preferences, read by the backend dispatch engine to
+/// decide who receives alerts.
 ///
 /// Immutable, SDK-free. Persisted at `users/{uid}.notificationPreferences`
 /// (see `docs/notification-preferences-schema.md`). [fromJson] is defensive so a

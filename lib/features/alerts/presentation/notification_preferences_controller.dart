@@ -9,8 +9,8 @@ import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 /// Loads, exposes and persists the signed-in user's [NotificationPreferences].
 ///
 /// Toggles update optimistically then persist; a failed write reverts the state
-/// so the UI never drifts from what is stored. Preferences are consumed (not
-/// enforced) until Sprint 4.
+/// so the UI never drifts from what is stored. These preferences directly gate
+/// the backend's alert-dispatch engine.
 class NotificationPreferencesController
     extends AsyncNotifier<NotificationPreferences> {
   @override

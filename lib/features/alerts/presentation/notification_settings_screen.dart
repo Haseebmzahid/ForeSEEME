@@ -14,8 +14,8 @@ import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.dart';
 
-/// Notification preferences (Sprint 3, Prompt 8): per-severity and per-condition
-/// toggles. Settable + persisted now; consumed by Sprint 4's dispatch engine.
+/// Notification preferences: per-severity and per-condition toggles that
+/// directly gate the backend's alert-dispatch engine.
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -99,8 +99,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
       children: [
         Text(
-          "Choose which risk alerts you receive. We'll start sending these in "
-          'a future update.',
+          'Choose which risk alerts you receive. These preferences control '
+          'the alerts we send you.',
           style: context.fsmText.bodyMedium?.copyWith(
             color: context.fsmPalette.textSecondary,
           ),

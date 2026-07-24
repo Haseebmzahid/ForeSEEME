@@ -1,7 +1,8 @@
-# Notification Preferences — schema (Sprint 3 → consumed in Sprint 4)
+# Notification Preferences — schema
 
-Captured in Sprint 3 (Prompt 8); **consumed, not enforced, until Sprint 4's
-FCM dispatch engine**. Stored on the user's own document alongside `fcmToken`.
+Captured in Sprint 3 (Prompt 8); **read and enforced by the backend's FCM
+dispatch engine** (`backend/app/jobs/alerting/targeting.py`) since Sprint 4.
+Stored on the user's own document alongside `fcmToken`.
 
 ## Location
 
@@ -40,7 +41,7 @@ Condition keys are defined in
 (`kNotificationConditionLabels`). A missing or partial document reloads to these
 defaults (`NotificationPreferences.fromJson` is defensive).
 
-## How Sprint 4 should consume it
+## How the dispatch engine consumes it
 
 For a generated `riskEstimates` document for the user's city, dispatch only if:
 
@@ -48,5 +49,7 @@ For a generated `riskEstimates` document for the user's city, dispatch only if:
    (`riskLevel == High → highRiskAlerts`, etc.); **and**
 2. the disease maps to an **enabled** condition category in `conditions`.
 
-Then send to the user's `fcmToken` (subject to Sprint 4's 24h throttle + audit
-log). Sprint 3 writes these fields; it sends nothing.
+Then send to the user's `fcmToken` (subject to the dispatch engine's 24h
+throttle + audit log). See `docs/alert_dispatch_design.md` for the full
+targeting predicate (this also requires a risk-band transition upward, not
+just a static severity match).
