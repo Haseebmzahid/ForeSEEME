@@ -111,7 +111,13 @@ def classify_dominant(
 
     Runs every disease Pipeline on the single-row ``features`` frame and selects the
     most severe risk level, breaking ties by confidence. Shared by the ``/predict``
-    endpoint and the batch job so the selection logic has one definition.
+    endpoint (via :class:`RealRiskModel`) and the batch job
+    (:mod:`app.jobs.compute_risk`) so the selection logic has one definition.
+
+    This is the one authoritative production classification path (Sprint M6.4).
+    ``ml.training.train.predict_risk`` looks similar but is a distinct,
+    non-serving artifact-testing utility (per-disease, bulk, no dominant-disease
+    selection) — see its docstring for the full distinction.
     """
     best: tuple[tuple[int, float], str, str, float] | None = None
     for disease in bundle["diseases"]:
@@ -143,7 +149,15 @@ class RealRiskModel(RiskModel):
         return self._version
 
     def predict(self, request: PredictRequest) -> RiskEstimateResponse:
-        """Classify the dominant environmental risk for one city/week request."""
+        """Classify the dominant environmental risk for one city/week request.
+
+        Deliberately does not compute attributions (:mod:`app.explain`): the
+        frozen :class:`~app.schemas.RiskEstimateResponse` contract has no field
+        for them (Sprint M6.4 clarification — not an oversight). Attributions
+        are added additively only to the batch job's Firestore document
+        (:func:`app.jobs.compute_risk.estimate_for_city_full`), which owns a
+        separate, richer response type for exactly that reason.
+        """
         features = build_request_features(request, self._feature_names)
         disease, risk_level, confidence = classify_dominant(self._bundle, features)
         confidence = round(confidence, 4)

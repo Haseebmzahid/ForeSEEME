@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +102,19 @@ def load_seasonality_reference(path: Path | None = None) -> dict[str, Any]:
 
 
 def predict(bundle: dict[str, Any], disease: str, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-    """Return (hard predictions, severity-ordered probabilities) for ``disease``."""
+    """Return (hard predictions, severity-ordered probabilities) for ``disease``.
+
+    Internal to this module only (Sprint M6.4 clarification, prompted by the
+    Module 6 audit's review of every prediction-related function): every
+    caller below is a metrics/plotting computation (``classification_metrics``,
+    ``robustness_sweep``, ``permutation_imp``, ``model_seasonality_on_test``)
+    that needs raw sklearn-shaped arrays, not the Sprint 1 contract. It is
+    unrelated to — not a third copy of — either
+    :func:`ml.training.train.predict_risk` (artifact-testing, contract-shaped
+    dicts) or :func:`app.predict.classify_dominant` (the production serving
+    path, cross-disease dominant selection). Do not use this for anything
+    outside evaluation.
+    """
     pipe = bundle["models"][disease]
     proba = T._remap_proba(pipe.predict_proba(X), pipe.classes_, CLASSES)
     return pipe.predict(X), proba
@@ -574,7 +586,7 @@ def render_report(evals: list[DiseaseEval], cfg: dict[str, Any]) -> str:
     L.append("")
     L.append("> " + ACK)
     L.append("")
-    L.append(f"- Evaluated on the held-out **test.parquet** (never seen in Prompt 11).")
+    L.append("- Evaluated on the held-out **test.parquet** (never seen in Prompt 11).")
     L.append(f"- Ground truth: deterministic hard `*_{te['test_target_label']}` labels; "
              f"the model was trained on the soft `label_sampled` (documented choice).")
     L.append("")

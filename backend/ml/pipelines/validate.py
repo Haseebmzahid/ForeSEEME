@@ -42,7 +42,7 @@ import pandera.pandas as pa
 import yaml
 
 from ml.pipelines import paths
-from ml.pipelines.labels import hard_label, load_label_config
+from ml.pipelines.labels import hard_label
 
 logger = logging.getLogger("foreseeme.ml.validate")
 

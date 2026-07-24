@@ -120,7 +120,6 @@ def test_contamination_detected() -> None:
 
 
 def _labelled(weeks: list[int], labels: dict[str, list[str]]) -> pd.DataFrame:
-    n = len(weeks)
     df = pd.DataFrame({"city": "Lahore", "iso_year": 2024, "week_of_year": weeks})
     for disease in ("dengue", "smog", "influenza"):
         df[f"{disease}_label"] = labels[disease]

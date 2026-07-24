@@ -27,7 +27,6 @@ CLASSES = ["Low", "Medium", "High"]
 
 def _tiny_df(n_weeks: int = 24) -> pd.DataFrame:
     """A small, time-ordered, leakage-free-shaped frame with all three classes."""
-    rng = np.random.default_rng(0)
     rows: list[dict] = []
     cycle = ["Low", "Medium", "High"]
     for w in range(1, n_weeks + 1):

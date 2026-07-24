@@ -6,9 +6,15 @@ Trains the candidate Random Forest for ForeSeeMe. One self-contained sklearn
 scaling + ``RandomForestClassifier`` — is tuned with a randomised search over a
 **time-aware** ``TimeSeriesSplit`` (never plain K-fold: lagged features make a
 shuffled split leak the future into the past). The three fitted Pipelines are
-bundled into a single ``candidate_model.joblib`` behind one stable prediction
-interface that returns ``RiskLevel`` / ``Confidence`` / ``ModelVersion`` (the
-Sprint 1 contract).
+bundled into a single ``candidate_model.joblib`` returning ``RiskLevel`` /
+``Confidence`` / ``ModelVersion`` (the Sprint 1 contract).
+
+Prediction pipeline boundary (Sprint M6.4): this module's :func:`predict_risk`
+is an **artifact-level testing/tooling utility** — it is not, and has never
+been, part of the production serving path. The one authoritative production
+classification function is :func:`app.predict.classify_dominant`, called by
+both the ``/predict`` endpoint and the scheduled batch job. See
+:func:`predict_risk`'s docstring for why both exist.
 
 Scope guardrails (enforced in code):
 
@@ -51,7 +57,7 @@ import pandas as pd  # noqa: E402
 import scipy  # noqa: E402
 import sklearn  # noqa: E402
 import yaml  # noqa: E402
-from joblib import dump, load  # noqa: E402
+from joblib import dump  # noqa: E402
 from sklearn.base import clone  # noqa: E402
 from sklearn.ensemble import RandomForestClassifier  # noqa: E402
 from sklearn.impute import SimpleImputer  # noqa: E402
@@ -645,13 +651,36 @@ _LEGACY_LOW_CONFIDENCE_THRESHOLD = 0.55
 def predict_risk(
     bundle: dict[str, Any], disease: str, X: pd.DataFrame
 ) -> list[dict[str, Any]]:
-    """Stable prediction interface: feature rows -> RiskLevel / Confidence / Version.
+    """Artifact-level, per-disease, bulk inference utility — NOT the production
+    serving path (Sprint M6.4 clarification; this was previously docstringed as
+    "the stable prediction interface", which read as a claim to be the
+    production path and was not accurate).
 
-    Returns one dict per input row with the Sprint 1 contract fields. Operates on
-    the plain bundle dict, so it works after a bare ``joblib.load`` without
-    importing the training internals. The low-confidence threshold is read from
-    the bundle (``low_confidence_threshold``, Sprint M6.1) — never hardcoded —
-    so this stays consistent with whatever the model was configured with.
+    This exists to verify — and to let anyone verify, e.g. a test or an
+    operator's ad hoc script — that a promoted artifact is genuinely
+    self-sufficient: it operates on the plain bundle dict and returns Sprint 1
+    contract-shaped dicts (``risk_level`` / ``confidence`` / ``model_version`` /
+    ``low_confidence``) using only ``joblib.load`` — no import of this training
+    module, no import of ``app.*``, no web request shape. That is a genuinely
+    different job from production classification, not a duplicate of it:
+
+    * ``predict_risk`` scores **one named disease** across **many feature
+      rows** — a bulk, single-disease shape, useful for testing/tooling
+      (e.g. :mod:`ml.tests.test_artifact`) and reused by
+      :mod:`ml.tests.test_train` to exercise :func:`build_reproducibility_record`
+      / ``low_confidence_threshold`` propagation without needing a
+      :class:`~app.schemas.PredictRequest` or the FastAPI app.
+    * The actual production entry point is
+      :func:`app.predict.classify_dominant`, called by both the ``/predict``
+      endpoint and the scheduled batch job (:mod:`app.jobs.compute_risk`): it
+      scores **all three diseases** for **one row** and selects the dominant
+      (most severe) one — the shape a real request/city-week estimate needs,
+      which this function does not (and should not) compute.
+
+    Returns one dict per input row with the Sprint 1 contract fields. The
+    low-confidence threshold is read from the bundle
+    (``low_confidence_threshold``, Sprint M6.1) — never hardcoded — so this
+    stays consistent with whatever the model was configured with.
     """
     pipeline: Pipeline = bundle["models"][disease]
     feats = X[bundle["feature_names"]].astype(float)
@@ -736,7 +765,6 @@ def save_artifacts(
     # Plots per disease.
     classes = cfg.get("classes", DEFAULT_CLASSES)
     top_n = int(cfg["evaluation"]["importance_top_n"])
-    bins = int(cfg["evaluation"]["calibration_bins"])
     feature_names = bundle["feature_names"]
     for r in runs:
         cm = r.metrics["confusion_matrix"]["matrix"]

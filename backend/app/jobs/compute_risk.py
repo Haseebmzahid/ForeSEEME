@@ -49,7 +49,7 @@ from app.predict import (
     resolve_low_confidence_threshold,
 )
 from app.schemas import RiskEstimateResponse
-from ml.pipelines import clean, merge, paths
+from ml.pipelines import clean, merge
 from ml.pipelines import acquire_weather as aw
 from ml.pipelines.acquisition_base import Window
 
@@ -174,9 +174,17 @@ def estimate_for_city(
 ) -> RiskEstimateResponse | None:
     """Contract estimate for one city (thin wrapper over :func:`estimate_for_city_full`).
 
-    Kept as the stable, attribution-free entry point so existing callers and the
-    train/serve parity path are unchanged; the additive attributions live on
-    :class:`CityEstimate`.
+    Sprint M6.4 clarification: :func:`run`/:func:`backfill` (the actual
+    scheduled job) call :func:`estimate_for_city_full` directly and do not use
+    this wrapper — it is kept as the minimal, attribution-free public accessor
+    for any caller (a script, a notebook, a future integration) that only wants
+    the frozen :class:`~app.schemas.RiskEstimateResponse` shape without also
+    handling :class:`CityEstimate`/:class:`~app.explain.AttributionSet`. This is
+    a one-line field extraction (``full.response``), not a second
+    classification implementation, so it cannot diverge from
+    :func:`estimate_for_city_full` the way a duplicated computation could —
+    ``test_estimate_for_city_wrapper_matches_full`` in
+    ``backend/tests/test_compute_risk.py`` pins that equivalence.
     """
     full = estimate_for_city_full(bundle, city_name, base, generated_at)
     return full.response if full is not None else None

@@ -251,10 +251,10 @@ def render_model_card(metrics: dict[str, Any], cfg: dict[str, Any]) -> str:
              "features (raw weather/AQI, 1–4 wk lags, 3–4 wk rolling means, "
              "seasonal anomalies, cyclical week, city one-hots). See "
              "`reports/feature_dictionary.md`.")
-    L.append(f"- **Output:** `riskLevel` ∈ {{Low, Medium, High}}, `confidence` ∈ "
+    L.append("- **Output:** `riskLevel` ∈ {Low, Medium, High}, `confidence` ∈ "
              "[0,1], `modelVersion` — matching the frozen Sprint 1 contract "
              "(`docs/RISK_SCHEMA.md`).")
-    L.append(f"- **Selected hyperparameters (tuned via TimeSeriesSplit, Prompt 11):**")
+    L.append("- **Selected hyperparameters (tuned via TimeSeriesSplit, Prompt 11):**")
     for d in metrics["diseases"]:
         params = ", ".join(f"{k}={v}" for k, v in metrics["per_disease"][d]["best_params"].items())
         L.append(f"  - {d}: {params}")
@@ -262,7 +262,7 @@ def render_model_card(metrics: dict[str, Any], cfg: dict[str, Any]) -> str:
 
     L.append("## Training data & provenance")
     L.append("")
-    L.append(f"- **Sources:** Open-Meteo ERA5 (temperature, humidity, "
+    L.append("- **Sources:** Open-Meteo ERA5 (temperature, humidity, "
              "precipitation) and CAMS air quality (PM2.5, PM10, US-AQI), for "
              "Islamabad, Rawalpindi, Lahore, Karachi, Peshawar.")
     L.append(f"- **Window:** {start} → {end} (weekly; bounded by real AQI "
@@ -343,7 +343,7 @@ def render_model_card(metrics: dict[str, Any], cfg: dict[str, Any]) -> str:
     L.append(f"- **Config hash** (`model.yaml`): "
              f"`{repro.get('config_sha256', 'unavailable (pre-M6.3 candidate)')}`")
     L.append(f"- **Candidate hash:** `{repro['candidate_sha256']}`")
-    L.append(f"- **Library versions:** " + ", ".join(
+    L.append("- **Library versions:** " + ", ".join(
         f"{k} {v}" for k, v in repro.get("library_versions", {}).items()))
     L.append("- **Reproducibility:** the candidate (training + tuning) is "
              "byte-for-byte reproducible — same seed → identical candidate "

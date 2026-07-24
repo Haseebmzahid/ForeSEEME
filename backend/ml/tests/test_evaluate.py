@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ml.pipelines import paths
 from ml.training import evaluate as E
 
 CLASSES = ["Low", "Medium", "High"]

@@ -148,7 +148,7 @@ Honest generalisation estimate from out-of-fold TimeSeriesSplit predictions — 
 ## Artifacts
 
 - `artifacts/candidate_model.joblib` — bundle of the three fitted Pipelines + feature list + reproducibility record.
-- `artifacts/metrics.json` — per-disease CV winner + OOF metric suite.
+- `artifacts/metrics.json` — per-disease CV winner + OOF metric suite. *(Historical note, Sprint M6.3: as of this training run, the candidate stage's OOF metrics and the promoted stage's held-out metrics shared this one filename, so promoting silently overwrote these OOF numbers. Current code writes this file as `artifacts/candidate_metrics.json` instead, so the two can no longer collide — this document predates that fix and reflects the naming at the time it was generated. Re-running `python -m ml.training.train` regenerates this report with the corrected filename.)*
 - `artifacts/feature_importance.csv` — ranked Gini importances (permutation importance is Prompt 12).
 - `artifacts/plots/` — confusion matrix, feature importance, and calibration (reliability) plot per disease.
 

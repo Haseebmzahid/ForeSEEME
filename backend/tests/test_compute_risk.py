@@ -18,10 +18,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.feature_builder import engineer_serving_features
+from app import predict
+from app.feature_builder import engineer_serving_features, request_to_base
 from app.jobs import compute_risk as job
 from app.predict import load_bundle, resolve_artifact_path, resolve_low_confidence_threshold
-from app.schemas import RiskEstimateResponse
+from app.schemas import PredictRequest, RiskEstimateResponse
 
 BUNDLE = load_bundle(resolve_artifact_path())
 GENERATED_AT = datetime(2026, 6, 29, tzinfo=timezone.utc)
@@ -402,3 +403,40 @@ def test_real_provider_constructs_and_builds_window() -> None:
     window = provider._recent_window()
     assert window.start < window.end                  # trailing window, not one day
     assert provider._sources and provider._cleaning   # config loaded
+
+
+# --- Prediction pipeline consolidation: one authoritative path (Sprint M6.4) -
+
+
+def test_batch_job_uses_the_same_classify_dominant_function_as_serving() -> None:
+    """The batch job and `/predict` (`RealRiskModel`) must call the exact same
+    `classify_dominant` function object — not two independently-maintained
+    copies of dominant-disease selection logic that could drift apart."""
+    assert job.classify_dominant is predict.classify_dominant
+
+
+def test_serving_and_batch_paths_agree_given_equivalent_single_point_input() -> None:
+    """Both production prediction paths — single-request `/predict`
+    (`RealRiskModel.predict`) and the scheduled batch job
+    (`compute_risk.estimate_for_city`) — build features via the same
+    `engineer_serving_features` and classify via the same `classify_dominant`.
+    Given a batch `base` carrying exactly the single point a `PredictRequest`
+    would produce (no trailing history — the condition `/predict` is always
+    in), the two paths must classify identically, proving they are one
+    pipeline, not two that merely happen to agree today."""
+    req = PredictRequest(city="Lahore", temperature=34.5, humidity=62.0,
+                         rainfall=12.0, aqi=180.0, week_of_year=26)
+    single_request_result = predict.RealRiskModel(BUNDLE).predict(req)
+
+    # The batch path's equivalent single-point base: the same one row
+    # `request_to_base` builds for the single-request path, fed through the
+    # batch entry point instead of the FastAPI one.
+    batch_base = request_to_base(req)
+    batch_estimate = job.estimate_for_city(
+        BUNDLE, "Lahore", batch_base, single_request_result.generated_at,
+    )
+
+    assert batch_estimate is not None
+    assert batch_estimate.risk_level == single_request_result.risk_level
+    assert batch_estimate.disease == single_request_result.disease
+    assert batch_estimate.confidence == single_request_result.confidence

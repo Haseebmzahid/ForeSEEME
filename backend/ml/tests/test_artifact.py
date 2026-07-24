@@ -16,7 +16,6 @@ import json
 from pathlib import Path
 
 import pandas as pd
-import pytest
 from joblib import load
 
 from ml.pipelines import paths
