@@ -130,6 +130,204 @@ def test_reproducibility_record_complete() -> None:
     assert load(_model_path())["reproducibility"]["config_sha256"] == repro["config_sha256"]
 
 
+# --- Reproducibility: inherited, not recomputed (Sprint M6.3) ---------------
+
+
+def test_promotion_inherits_the_candidates_own_reproducibility_record(tmp_path) -> None:
+    """Promotion must INHERIT the candidate's already-computed reproducibility
+    record (`ml.training.train.build_reproducibility_record`, the one
+    authoritative implementation) rather than recomputing an independent copy —
+    proving there is one implementation, not two that merely happen to agree."""
+    candidate = {
+        "model_version": "rf-candidate-test",
+        "random_state": 42,
+        "target_label": "label_sampled",
+        "feature_names": ["temperature", "humidity", "us_aqi"],
+        "reproducibility": {
+            "seed": 42,
+            "target_label": "label_sampled",
+            "feature_count": 3,
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "config_sha256": "c" * 64,
+            "train_sha256": "a" * 64,
+            "test_sha256": "b" * 64,
+            "split_manifest": {"train_sha256": "a" * 64, "test_sha256": "b" * 64},
+            "library_versions": {"python": "3.13.0", "scikit-learn": "1.5.0",
+                                  "numpy": "2.0.0", "pandas": "2.2.0",
+                                  "scipy": "1.14.0", "joblib": "1.4.0"},
+        },
+    }
+    candidate_file = tmp_path / "candidate_model.joblib"
+    candidate_file.write_bytes(b"fake artifact bytes")
+
+    repro = persist.reproducibility_record(candidate, candidate_file)
+
+    # Every field the candidate already computed survives unchanged...
+    for key in ("seed", "target_label", "feature_count", "generated_at",
+                "config_sha256", "train_sha256", "test_sha256",
+                "split_manifest", "library_versions"):
+        assert repro[key] == candidate["reproducibility"][key]
+    # ...plus the two fields that can only exist once promotion happens.
+    assert repro["candidate_sha256"] == T._sha256_file(candidate_file)
+    assert "promoted_at" in repro
+
+
+def test_promotion_backward_compatible_with_a_pre_m63_candidate(tmp_path) -> None:
+    """A candidate built before Sprint M6.3 lacks `seed`/`target_label`/
+    `feature_count`/`config_sha256`/`generated_at` inside its reproducibility
+    dict (persist.py used to compute those independently at promotion time
+    instead) and has three separate `*_version` keys rather than a unified
+    `library_versions`. Promoting it must not crash — only what can be
+    HONESTLY derived from fields the candidate has always carried is
+    backfilled; nothing is fabricated."""
+    old_candidate = {
+        "model_version": "rf-candidate-legacy",
+        "random_state": 7,
+        "target_label": "label_sampled",
+        "feature_names": ["temperature", "humidity"],
+        "reproducibility": {
+            "sklearn_version": "1.3.0",
+            "numpy_version": "1.26.0",
+            "pandas_version": "2.1.0",
+            "train_sha256": "a" * 64,
+            "split_manifest": {"train_sha256": "a" * 64, "test_sha256": "b" * 64},
+        },
+    }
+    candidate_file = tmp_path / "candidate_model.joblib"
+    candidate_file.write_bytes(b"legacy artifact bytes")
+
+    repro = persist.reproducibility_record(old_candidate, candidate_file)
+
+    assert repro["seed"] == 7                        # backfilled from random_state
+    assert repro["target_label"] == "label_sampled"   # backfilled
+    assert repro["feature_count"] == 2                # backfilled from feature_names
+    assert repro["test_sha256"] == "b" * 64           # backfilled from split_manifest
+    assert repro["library_versions"] == {
+        "scikit-learn": "1.3.0", "numpy": "1.26.0", "pandas": "2.1.0",
+    }
+    assert "config_sha256" not in repro   # honestly absent — never fabricated
+    assert repro["candidate_sha256"]      # always fresh, regardless of candidate age
+
+
+def test_model_card_renders_honestly_for_legacy_reproducibility(tmp_path) -> None:
+    """`render_model_card` must not crash on a promoted-from-legacy-candidate
+    record that lacks `config_sha256` — it should say so plainly instead of
+    KeyError-ing or fabricating a hash."""
+    old_candidate = {
+        "model_version": "rf-candidate-legacy",
+        "random_state": 7,
+        "target_label": "label_sampled",
+        "feature_names": ["temperature", "humidity"],
+        "diseases": ["dengue"],
+        "best_params": {"dengue": {}},
+        "reproducibility": {
+            "sklearn_version": "1.3.0", "numpy_version": "1.26.0",
+            "pandas_version": "2.1.0", "train_sha256": "a" * 64,
+            "split_manifest": {"train_sha256": "a" * 64, "test_sha256": "b" * 64},
+        },
+    }
+    candidate_file = tmp_path / "candidate_model.joblib"
+    candidate_file.write_bytes(b"legacy artifact bytes")
+    evaluation = {
+        "evaluated_on": "test.parquet",
+        "test_target_label": "label",
+        "per_disease": {
+            "dengue": {
+                "metrics": {
+                    "accuracy": 0.9, "f1_macro": 0.9, "roc_auc_ovr_macro": 0.9,
+                    "brier_multiclass": 0.1, "precision_macro": 0.9,
+                    "recall_macro": 0.9, "precision_weighted": 0.9,
+                    "recall_weighted": 0.9, "f1_weighted": 0.9,
+                    "n": 10, "per_class": {}, "confusion_matrix": {},
+                },
+                "calibration": {"ece_top_class": 0.05},
+                "recalibration": None,
+                "label_seasonality": {"window_label": "x", "high_in_window_rate": 0.9,
+                                       "base_rate": 0.5, "lift": 1.8},
+            }
+        },
+    }
+    cfg = {"release": {"version": "9.9.9", "model_version": "rf-9.9.9"},
+           "model_version": "rf-candidate-legacy", "classes": ["Low", "Medium", "High"]}
+
+    repro = persist.reproducibility_record(old_candidate, candidate_file)
+    metrics = persist.build_metrics(cfg, old_candidate, evaluation, repro)
+    card = persist.render_model_card(metrics, cfg)  # must not raise
+
+    assert "unavailable (pre-m6.3 candidate)" in card.lower()
+    assert "candidate hash" in card.lower()
+
+
+# --- Metrics lifecycle: unambiguous responsibilities (Sprint M6.3) ----------
+
+
+def test_candidate_and_promoted_metrics_files_never_share_a_name(tmp_path) -> None:
+    """The candidate stage's OOF metrics and the promoted stage's held-out
+    metrics must never collide on `metrics.json` again (the audit finding: the
+    old shared filename meant promoting silently overwrote the candidate's own
+    numbers, and `training_log.md`'s description of the file went stale)."""
+    df = _tiny_train_df()
+    cfg = _tiny_train_cfg()
+    bundle, runs, _feats = T.train_all(df, cfg)
+    out = T.save_artifacts(bundle, runs, cfg, artifacts_dir=tmp_path)
+
+    assert out["candidate_metrics"].name == "candidate_metrics.json"
+    assert out["candidate_metrics"].name != "metrics.json"
+    candidate_metrics = json.loads(out["candidate_metrics"].read_text(encoding="utf-8"))
+    # The candidate file reports OOF metrics per disease (train.py's own shape) —
+    # not the held-out `test`/`calibration`/`label_seasonality` shape persist.py
+    # writes to metrics.json.
+    assert "per_disease" in candidate_metrics
+    for disease_metrics in candidate_metrics["per_disease"].values():
+        assert "best_cv_score" in disease_metrics  # candidate-stage-only field
+
+
+def _tiny_train_df() -> pd.DataFrame:
+    import numpy as np
+
+    rows = []
+    cycle = ["Low", "Medium", "High"]
+    for w in range(1, 25):
+        for ci, city in enumerate(["Lahore", "Karachi"]):
+            temp = 10.0 + (w % 12) * 2.0 + ci
+            row = {
+                "city": city, "iso_year": 2024, "week_of_year": w,
+                "temperature": temp, "humidity": 50.0 + (w % 7),
+                "us_aqi": 80.0 + (w % 20), "aqi_available": True,
+                "week_sin": float(np.sin(2 * np.pi * w / 52)),
+                "week_cos": float(np.cos(2 * np.pi * w / 52)),
+                "city_Lahore": int(city == "Lahore"),
+                "city_Karachi": int(city == "Karachi"),
+            }
+            row["dengue_label_sampled"] = cycle[(w + ci) % 3]
+            rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def _tiny_train_cfg() -> dict:
+    return {
+        "model_version": "rf-test-0.0.1", "random_state": 7,
+        "diseases": ["dengue"], "classes": ["Low", "Medium", "High"],
+        "target_label": "label_sampled",
+        "features": {
+            "raw": ["temperature", "humidity", "us_aqi", "aqi_available"],
+            "cyclical": ["week_sin", "week_cos"], "city_onehot_prefix": "city_",
+        },
+        "preprocessing": {"numeric_impute_strategy": "median", "scale": True},
+        "random_forest": {"class_weight": "balanced", "bootstrap": True, "n_jobs": 1},
+        "search": {
+            "method": "randomized", "n_iter": 1, "scoring": "f1_macro",
+            "refit": True, "n_jobs": 1,
+            "cv": {"splitter": "time_series", "n_splits": 2},
+            "param_grid": {"n_estimators": [12], "max_depth": [3],
+                           "min_samples_leaf": [1], "min_samples_split": [2],
+                           "max_features": ["sqrt"]},
+        },
+        "evaluation": {"low_confidence_threshold": 0.55, "calibration_bins": 5,
+                       "importance_top_n": 5},
+    }
+
+
 # --- Configuration propagation through promotion (Sprint M6.1) --------------
 
 

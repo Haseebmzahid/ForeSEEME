@@ -162,7 +162,11 @@ def test_train_fits_persists_reloads_and_predicts(tmp_path) -> None:
     assert bundle["model_version"] == "rf-test-0.0.1"
 
     out = train.save_artifacts(bundle, runs, cfg, artifacts_dir=tmp_path)
-    assert out["model"].exists() and out["metrics"].exists()
+    # Sprint M6.3: the candidate stage's own metrics file is named distinctly
+    # from the promoted `metrics.json` (ml.training.persist) — the two report
+    # different things (OOF vs. held-out test) and must never share a name.
+    assert out["model"].exists() and out["candidate_metrics"].exists()
+    assert out["candidate_metrics"].name == "candidate_metrics.json"
     assert out["importance"].exists()
     assert (tmp_path / "plots" / "confusion_matrix_dengue.png").exists()
 
@@ -175,6 +179,50 @@ def test_train_fits_persists_reloads_and_predicts(tmp_path) -> None:
         assert 0.0 <= p["confidence"] <= 1.0
         assert p["model_version"] == "rf-test-0.0.1"
         assert isinstance(p["low_confidence"], bool)
+
+
+# --- Reproducibility record: one authoritative implementation (Sprint M6.3) -
+
+
+def test_reproducibility_record_is_complete() -> None:
+    """The bundle's reproducibility record must describe every category the
+    audit flagged as required: training configuration, feature information,
+    dataset fingerprints, the exact config used, library versions, and a
+    timestamp."""
+    df = _tiny_df()
+    cfg = _tiny_cfg()
+    bundle, _runs, feature_names = train.train_all(df, cfg)
+    repro = bundle["reproducibility"]
+
+    assert repro["seed"] == cfg["random_state"]
+    assert repro["target_label"] == cfg["target_label"]
+    assert repro["feature_count"] == len(feature_names)
+    assert isinstance(repro["generated_at"], str) and repro["generated_at"]
+    assert isinstance(repro["config_sha256"], str) and len(repro["config_sha256"]) == 64
+    assert isinstance(repro["train_sha256"], str) and len(repro["train_sha256"]) == 64
+    assert "split_manifest" in repro
+    for lib in ("python", "scikit-learn", "numpy", "pandas", "scipy", "joblib"):
+        assert repro["library_versions"].get(lib), f"missing library version {lib}"
+
+
+def test_build_bundle_is_the_only_place_reproducibility_is_assembled() -> None:
+    """`build_bundle` delegates to `build_reproducibility_record` rather than
+    constructing the dict inline — proving there is one function that computes
+    this, not logic duplicated between the bundle-building code and elsewhere."""
+    df = _tiny_df()
+    cfg = _tiny_cfg()
+    feature_names = train.select_feature_columns(df, cfg["features"])
+
+    direct = train.build_reproducibility_record(cfg, feature_names)
+    bundle, _runs, _feats = train.train_all(df, cfg)
+
+    # Timestamps differ (each call reads the clock); everything else must match
+    # exactly, since both came from calling the same function with the same
+    # inputs — not two independent implementations that merely agree today.
+    bundle_repro = dict(bundle["reproducibility"])
+    direct.pop("generated_at")
+    bundle_repro.pop("generated_at")
+    assert direct == bundle_repro
 
 
 def test_bundle_carries_the_configured_low_confidence_threshold() -> None:

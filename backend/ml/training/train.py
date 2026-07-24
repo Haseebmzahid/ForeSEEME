@@ -34,17 +34,21 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import platform
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import matplotlib
 
 matplotlib.use("Agg")  # headless: write PNGs, never open a window
+import joblib  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+import scipy  # noqa: E402
 import sklearn  # noqa: E402
 import yaml  # noqa: E402
 from joblib import dump, load  # noqa: E402
@@ -551,6 +555,58 @@ def _split_manifest() -> dict[str, Any]:
     return {}
 
 
+def _library_versions() -> dict[str, str]:
+    """Every library whose version affects bit-for-bit reproducibility.
+
+    Single definition (Sprint M6.3): ``ml.training.persist`` used to keep its
+    own, differently-shaped copy of this — both the candidate and the promoted
+    artifact now report the same six libraries instead of two overlapping
+    subsets that could drift apart.
+    """
+    return {
+        "python": platform.python_version(),
+        "scikit-learn": sklearn.__version__,
+        "numpy": np.__version__,
+        "pandas": pd.__version__,
+        "scipy": scipy.__version__,
+        "joblib": joblib.__version__,
+    }
+
+
+def build_reproducibility_record(
+    cfg: dict[str, Any], feature_names: list[str]
+) -> dict[str, Any]:
+    """The one authoritative reproducibility record (Sprint M6.3).
+
+    Computed exactly once, here, at the moment training's own config and
+    dataset are known to be current — never independently recomputed
+    downstream. ``ml.training.persist.reproducibility_record`` INHERITS this
+    record when promoting and only adds the promotion-only
+    ``candidate_sha256``/``promoted_at`` fields, instead of building an
+    overlapping-but-differently-shaped copy from scratch (the duplication the
+    Module 6 audit flagged: two independent implementations computing
+    ``train_sha256``, library versions, etc., that could silently disagree).
+
+    Covers every category the artifact must be self-describing about: training
+    configuration (``seed``, ``target_label``), feature information
+    (``feature_count``), dataset fingerprints (``train_sha256``,
+    ``test_sha256``, the full ``split_manifest``), the exact config used
+    (``config_sha256``), library versions, and a timestamp (``generated_at``).
+    """
+    manifest = _split_manifest()
+    return {
+        "seed": int(cfg["random_state"]),
+        "target_label": cfg["target_label"],
+        "feature_count": len(feature_names),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "config_sha256": _sha256_file(paths.MODEL_PATH),
+        "train_sha256": _sha256_file(paths.TRAIN_PATH),
+        "test_sha256": manifest.get("test_sha256"),
+        "split_manifest": manifest,
+        "library_versions": _library_versions(),
+    }
+
+
 def build_bundle(
     runs: list[DiseaseRun], feature_names: list[str], cfg: dict[str, Any]
 ) -> dict[str, Any]:
@@ -574,13 +630,7 @@ def build_bundle(
         "low_confidence_threshold": float(cfg["evaluation"]["low_confidence_threshold"]),
         "models": {r.disease: r.pipeline for r in runs},
         "best_params": {r.disease: r.best_params for r in runs},
-        "reproducibility": {
-            "sklearn_version": sklearn.__version__,
-            "numpy_version": np.__version__,
-            "pandas_version": pd.__version__,
-            "train_sha256": _sha256_file(paths.TRAIN_PATH),
-            "split_manifest": _split_manifest(),
-        },
+        "reproducibility": build_reproducibility_record(cfg, feature_names),
     }
 
 
@@ -629,7 +679,17 @@ def save_artifacts(
     cfg: dict[str, Any],
     artifacts_dir: Path | None = None,
 ) -> dict[str, Path]:
-    """Persist model, metrics, feature importances, and plots."""
+    """Persist model, candidate metrics, feature importances, and plots.
+
+    Sprint M6.3: the candidate's own (out-of-fold) metrics are written to
+    ``candidate_metrics.json`` — a distinct name from the promoted artifact's
+    ``metrics.json`` (``ml.training.persist``). Both used to write to the same
+    ``artifacts/metrics.json`` path, so promoting silently overwrote this
+    stage's OOF numbers with the held-out test numbers, and this file's own
+    documentation (see :func:`render_training_log`) went stale the moment
+    ``persist.promote()`` ran. The two files now have one responsibility each
+    and neither can clobber the other.
+    """
     artifacts_dir = artifacts_dir or paths.ARTIFACTS_DIR
     paths.ensure_dir(artifacts_dir)
     plots_dir = paths.ensure_dir(artifacts_dir / "plots")
@@ -656,7 +716,7 @@ def save_artifacts(
             for r in runs
         },
     }
-    metrics_path = artifacts_dir / "metrics.json"
+    metrics_path = artifacts_dir / "candidate_metrics.json"
     metrics_path.write_text(
         json.dumps(_round_floats(metrics), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -687,8 +747,8 @@ def save_artifacts(
                          f"{r.disease} — top features",
                          plots_dir / f"feature_importance_{r.disease}.png")
 
-    return {"model": model_path, "metrics": metrics_path, "importance": imp_path,
-            "plots": plots_dir}
+    return {"model": model_path, "candidate_metrics": metrics_path,
+            "importance": imp_path, "plots": plots_dir}
 
 
 def train_all(
@@ -810,7 +870,11 @@ def render_training_log(runs: list[DiseaseRun], cfg: dict[str, Any]) -> str:
     L.append("")
     L.append("- `artifacts/candidate_model.joblib` — bundle of the three fitted "
              "Pipelines + feature list + reproducibility record.")
-    L.append("- `artifacts/metrics.json` — per-disease CV winner + OOF metric suite.")
+    L.append("- `artifacts/candidate_metrics.json` — per-disease CV winner + OOF "
+             "metric suite (Sprint M6.3: distinct from the promoted "
+             "`artifacts/metrics.json`, which Prompt 13 later writes with "
+             "held-out test metrics — the two no longer share a filename, so "
+             "promoting this candidate can never overwrite these OOF numbers).")
     L.append("- `artifacts/feature_importance.csv` — ranked Gini importances "
              "(permutation importance is Prompt 12).")
     L.append("- `artifacts/plots/` — confusion matrix, feature importance, and "
@@ -846,7 +910,7 @@ def main() -> int:
               f"acc={r.metrics['accuracy']:.4f} f1_macro={r.metrics['f1_macro']:.4f} "
               f"params={r.best_params}")
     print(f"model    -> {out['model']}")
-    print(f"metrics  -> {out['metrics']}")
+    print(f"metrics  -> {out['candidate_metrics']}")
     print(f"log      -> {paths.REPORTS_DIR / 'training_log.md'}")
     return 0
 

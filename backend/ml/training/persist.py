@@ -8,7 +8,9 @@ can audit end-to-end:
   per-disease Pipelines) enriched with a complete reproducibility record.
 * ``artifacts/metrics.json`` — the sidecar, whose held-out numbers are sourced
   directly from the Prompt 12 ``evaluation.json`` so they cannot drift from the
-  evaluation report.
+  evaluation report. Distinct from the candidate stage's own
+  ``artifacts/candidate_metrics.json`` (Sprint M6.3) — the two report different
+  things (out-of-fold vs. held-out test) and no longer share a filename.
 * ``reports/MODEL_CARD.md`` — rendered programmatically from that same data, so
   the card and the artifact never disagree.
 
@@ -18,6 +20,15 @@ with a bare ``joblib.load`` and predicted through the existing
 prompt persists and documents only — it does not modify FastAPI, the stub, or any
 serving code (that is Prompt 14).
 
+Reproducibility (Sprint M6.3): the reproducibility record embedded in the
+promoted artifact is **inherited** from the candidate's own record
+(``ml.training.train.build_reproducibility_record``, computed once at train
+time) rather than recomputed here — recomputing at promotion time would risk
+reporting a ``config_sha256``/``train_sha256`` that no longer matches what the
+candidate was actually trained on if either changed in between. Promotion only
+*adds* what genuinely cannot exist before promotion: ``candidate_sha256`` (the
+hash of the candidate file itself) and ``promoted_at``.
+
 Run (from ``backend/``)::
 
     python -m ml.training.persist
@@ -26,15 +37,10 @@ Run (from ``backend/``)::
 from __future__ import annotations
 
 import json
-import platform
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import joblib
-import numpy as np
-import pandas as pd
-import scipy
-import sklearn
 import yaml
 from joblib import dump, load
 
@@ -65,36 +71,49 @@ def load_evaluation(path: Path | None = None) -> dict[str, Any]:
 # --- Reproducibility record -------------------------------------------------
 
 
-def library_versions() -> dict[str, str]:
-    return {
-        "python": platform.python_version(),
-        "scikit-learn": sklearn.__version__,
-        "numpy": np.__version__,
-        "pandas": pd.__version__,
-        "scipy": scipy.__version__,
-        "joblib": joblib.__version__,
-    }
-
-
 def reproducibility_record(
-    cfg: dict[str, Any], candidate: dict[str, Any], candidate_path: Path
+    candidate: dict[str, Any], candidate_path: Path
 ) -> dict[str, Any]:
-    """Everything needed to reproduce this artifact bit-for-bit."""
-    manifest = (
-        _load_json(paths.SPLIT_MANIFEST_PATH)
-        if Path(paths.SPLIT_MANIFEST_PATH).exists() else {}
-    )
-    return {
-        "seed": int(cfg["random_state"]),
-        "target_label": cfg["target_label"],
-        "config_sha256": T._sha256_file(paths.MODEL_PATH),
-        "candidate_sha256": T._sha256_file(candidate_path),
-        "train_sha256": manifest.get("train_sha256"),
-        "test_sha256": manifest.get("test_sha256"),
-        "split_manifest": manifest,
-        "feature_count": len(candidate["feature_names"]),
-        "library_versions": library_versions(),
-    }
+    """Promotion's reproducibility record.
+
+    Sprint M6.3: **inherits** ``candidate["reproducibility"]`` — the one
+    authoritative record ``ml.training.train.build_reproducibility_record``
+    computed once, at train time — rather than recomputing an independent copy
+    from ``config/model.yaml`` and ``train.parquet`` as they exist *right now*.
+    Recomputing here would silently misreport provenance if either changed
+    between training and promoting; inheriting cannot. Only the two fields that
+    genuinely cannot exist before promotion are added:
+    ``candidate_sha256`` (the candidate file's own hash) and ``promoted_at``.
+
+    Backward compatibility: a candidate built before Sprint M6.3 carries an
+    older, smaller reproducibility shape (``sklearn_version``/``numpy_version``/
+    ``pandas_version`` instead of a unified ``library_versions``; no ``seed``/
+    ``target_label``/``feature_count``/``config_sha256``/``generated_at``). The
+    smallest possible migration layer below backfills only what can be derived
+    *honestly* from fields every candidate has always carried at its top level
+    (``random_state``, ``target_label``, ``feature_names``) or from data the old
+    record already nested (``split_manifest``) — it never fabricates a
+    ``config_sha256`` for a config that may have since changed.
+    """
+    record = dict(candidate.get("reproducibility", {}))
+
+    record.setdefault("seed", candidate.get("random_state"))
+    record.setdefault("target_label", candidate.get("target_label"))
+    record.setdefault("feature_count", len(candidate.get("feature_names", [])))
+    record.setdefault("test_sha256", record.get("split_manifest", {}).get("test_sha256"))
+    if "library_versions" not in record:
+        legacy = {
+            "scikit-learn": record.get("sklearn_version"),
+            "numpy": record.get("numpy_version"),
+            "pandas": record.get("pandas_version"),
+        }
+        present = {k: v for k, v in legacy.items() if v}
+        if present:
+            record["library_versions"] = present
+
+    record["candidate_sha256"] = T._sha256_file(candidate_path)
+    record["promoted_at"] = datetime.now(timezone.utc).isoformat()
+    return record
 
 
 # --- Promotion --------------------------------------------------------------
@@ -316,10 +335,16 @@ def render_model_card(metrics: dict[str, Any], cfg: dict[str, Any]) -> str:
              f"`{repro['target_label']}` · **Promoted:** "
              f"`{cfg['model_version']}` (candidate) → `{metrics['model_version']}` "
              "(released).")
-    L.append(f"- **Config hash** (`model.yaml`): `{repro['config_sha256']}`")
+    # `.get(...)` with an honest placeholder, not a silent `['...']` KeyError:
+    # a pre-Sprint-M6.3 candidate never recorded `config_sha256` (it was only
+    # ever computed at promotion time, from whatever model.yaml happened to
+    # exist then — exactly the staleness risk this sprint removes), so there is
+    # no truthful value to backfill. Say so plainly rather than guess.
+    L.append(f"- **Config hash** (`model.yaml`): "
+             f"`{repro.get('config_sha256', 'unavailable (pre-M6.3 candidate)')}`")
     L.append(f"- **Candidate hash:** `{repro['candidate_sha256']}`")
     L.append(f"- **Library versions:** " + ", ".join(
-        f"{k} {v}" for k, v in repro["library_versions"].items()))
+        f"{k} {v}" for k, v in repro.get("library_versions", {}).items()))
     L.append("- **Reproducibility:** the candidate (training + tuning) is "
              "byte-for-byte reproducible — same seed → identical candidate "
              "(`reports/training_log.md`). This artifact is promoted from that "
@@ -364,7 +389,7 @@ def promote(cfg: dict[str, Any] | None = None) -> dict[str, Path]:
             f"{candidate.get('model_version')!r}; re-run Prompt 12 before promoting."
         )
 
-    repro = reproducibility_record(cfg, candidate, candidate_path)
+    repro = reproducibility_record(candidate, candidate_path)
     bundle = build_production_bundle(cfg, candidate, evaluation, repro)
     metrics = build_metrics(cfg, candidate, evaluation, repro)
 

@@ -22,7 +22,8 @@ Layout (defaults)::
         raw/        <bulk blobs, git-ignored>  manifest.json (committed)
         interim/    <git-ignored>
         processed/  <git-ignored>
-      artifacts/  candidate_model.joblib  metrics.json  feature_importance.csv  plots/
+      artifacts/  candidate_model.joblib  candidate_metrics.json  evaluation.json
+                  model_<version>.joblib  metrics.json  feature_importance.csv  plots/
       reports/
 """
 
