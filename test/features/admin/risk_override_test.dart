@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:fyp_foreseeme/features/admin/domain/models/admin_activity_log_entry.dart';
+import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_activity_log_repository.dart';
 import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_repository.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/activity_log_providers.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
@@ -65,6 +68,26 @@ class _FakeOverrideRepo implements RiskOverrideRepository {
     final existing = store[city];
     if (existing != null) store[city] = existing.copyWith(active: false);
   }
+}
+
+class _FakeActivityLogRepo implements AdminActivityLogRepository {
+  final List<AdminActivityLogEntry> entries = [];
+
+  @override
+  Future<void> append(AdminActivityLogEntry entry) async => entries.add(entry);
+
+  @override
+  Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async =>
+      entries.reversed.take(limit).toList();
+}
+
+class _ThrowingActivityLogRepo implements AdminActivityLogRepository {
+  @override
+  Future<void> append(AdminActivityLogEntry entry) async =>
+      throw Exception('log sink unavailable');
+
+  @override
+  Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async => [];
 }
 
 class _FakeAdmin implements AdminRepository {
@@ -208,11 +231,16 @@ void main() {
     // Bare ProviderContainer + StreamProvider.future hangs under Riverpod 3, so
     // we subscribe and let `Stream.value` deliver via a real event-loop turn,
     // then read the resolved value (never `.future`).
-    Future<ProviderContainer> ready(_FakeOverrideRepo repo) async {
+    Future<ProviderContainer> ready(
+      _FakeOverrideRepo repo, {
+      AdminActivityLogRepository? activityLog,
+    }) async {
       final c = ProviderContainer(
         overrides: [
           riskOverrideRepositoryProvider.overrideWithValue(repo),
           userCityProvider.overrideWith((ref) async => 'Lahore'),
+          if (activityLog != null)
+            adminActivityLogRepositoryProvider.overrideWithValue(activityLog),
           authStateProvider.overrideWith(
             (ref) => Stream.value(
               UserModel(
@@ -257,6 +285,61 @@ void main() {
       await c.read(adminOverrideControllerProvider.notifier).clear('Lahore');
       expect(repo.cleared, contains('Lahore'));
       expect(repo.store['Lahore']!.active, isFalse);
+    });
+
+    // ── Sprint M8.2: submit/clear append to the admin activity log ──────────
+    test('submit appends an activity-log entry stamped with the author', () async {
+      final repo = _FakeOverrideRepo();
+      final activityLog = _FakeActivityLogRepo();
+      final c = await ready(repo, activityLog: activityLog);
+
+      await c.read(adminOverrideControllerProvider.notifier).submit(
+            city: 'Lahore',
+            riskLevel: RiskLevel.high,
+            disease: 'Smog',
+            reason: 'AQI spiked',
+          );
+
+      expect(activityLog.entries, hasLength(1));
+      final logged = activityLog.entries.single;
+      expect(logged.action, 'override_set');
+      expect(logged.target, 'Lahore');
+      expect(logged.summary, contains('High'));
+      expect(logged.summary, contains('Smog'));
+      expect(logged.authorUid, 'op-1');
+      expect(logged.authorEmail, 'op@example.com');
+    });
+
+    test('clear appends an activity-log entry', () async {
+      final repo = _FakeOverrideRepo()..store['Lahore'] = _override();
+      final activityLog = _FakeActivityLogRepo();
+      final c = await ready(repo, activityLog: activityLog);
+
+      await c.read(adminOverrideControllerProvider.notifier).clear('Lahore');
+
+      expect(activityLog.entries, hasLength(1));
+      expect(activityLog.entries.single.action, 'override_clear');
+      expect(activityLog.entries.single.target, 'Lahore');
+    });
+
+    test('a logging failure never fails the underlying override write', () async {
+      final repo = _FakeOverrideRepo();
+      final c = await ready(repo, activityLog: _ThrowingActivityLogRepo());
+
+      // Must complete without throwing — the override write already
+      // succeeded and the audit trail is best-effort.
+      await c.read(adminOverrideControllerProvider.notifier).submit(
+            city: 'Lahore',
+            riskLevel: RiskLevel.high,
+            disease: 'Smog',
+            reason: 'AQI spiked',
+          );
+
+      expect(repo.store['Lahore'], isNotNull);
+      expect(
+        c.read(adminOverrideControllerProvider),
+        isA<AsyncData<void>>(),
+      );
     });
   });
 

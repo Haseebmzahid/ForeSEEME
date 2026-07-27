@@ -108,6 +108,12 @@ class FakeRepository:
     def prune_token(self, uid):
         self.pruned.append(uid)
 
+    def claim_dispatch(self, log_id, now):
+        if log_id in self.logs:
+            return False
+        self.logs[log_id] = {"status": "claimed", "claimedAt": now}
+        return True
+
 
 # Cities: Lahore transitions up (smog), Islamabad transitions up (heat),
 # Karachi stays steady (no transition → must never alert).

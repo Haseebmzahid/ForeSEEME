@@ -6,9 +6,15 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.da
 /// Foreground display via `flutter_local_notifications` on a dedicated **Risk
 /// Alerts** channel (separate from medication reminders).
 ///
-/// Reuses the plugin already initialised by `LocalNotificationService` (does not
-/// re-initialise it, so the Sprint 1 medication path is untouched); it only
-/// ensures its own channel and shows. The `deepLink` rides along as the payload.
+/// [plugin] is `LocalNotificationService.plugin` in production (wired in
+/// `alertPresenterProvider`) — the *same* app-wide plugin instance the
+/// medication reminder path initialises, not a second one. This presenter
+/// never calls `.initialize()`; it only ensures its own channel exists and
+/// shows on it, so the medication path's registered tap handler and Android
+/// activity binding are untouched. The `deepLink` rides along as the payload.
+/// The optional constructor parameter defaults to a fresh instance only so
+/// this class stays constructible in isolation (e.g. tests); production code
+/// must always pass the shared instance explicitly.
 class LocalNotificationAlertPresenter implements AlertPresenter {
   LocalNotificationAlertPresenter({FlutterLocalNotificationsPlugin? plugin})
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();

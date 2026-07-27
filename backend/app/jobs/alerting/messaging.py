@@ -9,11 +9,15 @@ recommendation — no medical text is generated here.
 
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Callable, Protocol
 
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import Target
+
+logger = logging.getLogger("foreseeme.jobs.alerting.messaging")
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,28 @@ class FcmSender(Protocol):
 
 class FirebaseAdminFcmSender:
     """Production sender using firebase-admin (Admin SDK). Imported lazily so the
-    API service never needs firebase-admin."""
+    API service never needs firebase-admin.
+
+    Retries a bounded number of times, with backoff, on a transient (non-token)
+    send failure before classifying it terminal (``failed``). This matters
+    because a ``failed`` outcome still writes the audit log keyed by the
+    estimate's idempotency key — a later run would never retry it on its own —
+    so the only chance to recover from a transient FCM/network blip is within
+    this call. Token-related failures are never retried: a dead token stays
+    dead regardless of how many times you resend to it, and Prompt 3's token
+    pruning should run immediately rather than waste retries on it.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_retries: int = 2,
+        backoff_seconds: float = 0.5,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._max_retries = max_retries
+        self._backoff_seconds = backoff_seconds
+        self._sleep = sleep
 
     def send(
         self, *, token: str, title: str, body: str, data: dict[str, str]
@@ -76,13 +101,24 @@ class FirebaseAdminFcmSender:
             notification=messaging.Notification(title=title, body=body),
             data={k: str(v) for k, v in data.items()},
         )
-        try:
-            message_id = messaging.send(message)
-            return SendResult(status="sent", message_id=message_id)
-        except messaging.UnregisteredError:
-            # Token no longer valid — Prompt 3 prunes it from `users`.
-            return SendResult(status="token_invalid", error="unregistered")
-        except Exception as exc:  # noqa: BLE001 — classify any other failure
-            invalid = "token" in str(exc).lower() and "invalid" in str(exc).lower()
-            status = "token_invalid" if invalid else "failed"
-            return SendResult(status=status, error=str(exc))
+
+        attempt = 0
+        while True:
+            try:
+                message_id = messaging.send(message)
+                return SendResult(status="sent", message_id=message_id)
+            except messaging.UnregisteredError:
+                # Token no longer valid — Prompt 3 prunes it from `users`.
+                return SendResult(status="token_invalid", error="unregistered")
+            except Exception as exc:  # noqa: BLE001 — classify any other failure
+                invalid = "token" in str(exc).lower() and "invalid" in str(exc).lower()
+                if invalid:
+                    return SendResult(status="token_invalid", error=str(exc))
+                if attempt >= self._max_retries:
+                    return SendResult(status="failed", error=str(exc))
+                logger.warning(
+                    "fcm_send_retry",
+                    extra={"attempt": attempt + 1, "max_retries": self._max_retries, "error": str(exc)},
+                )
+                self._sleep(self._backoff_seconds * (2**attempt))
+                attempt += 1

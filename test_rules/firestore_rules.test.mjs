@@ -171,6 +171,39 @@ await check('overrides: unauthenticated read denied', () =>
   assertFails(getDoc(doc(anon, 'overrides/Lahore'))),
 );
 
+// adminActivityLog/{entryId} (Sprint M8.2) — admin-only, append-only audit
+// trail (SDS FR8.4). Create + read gated to the admin claim; immutable
+// afterwards, even for an admin.
+const logEntry = {
+  action: 'override_set',
+  target: 'Lahore',
+  summary: 'Set Lahore risk to High (Smog)',
+  authorUid: 'op',
+  authorEmail: 'op@example.com',
+  createdAt: '2026-07-27T00:00:00.000Z',
+};
+await check('adminActivityLog: admin (claim) may create', () =>
+  assertSucceeds(setDoc(doc(admin, 'adminActivityLog/log1'), logEntry)),
+);
+await check('adminActivityLog: admin (claim) may read', () =>
+  assertSucceeds(getDoc(doc(admin, 'adminActivityLog/log1'))),
+);
+await check('adminActivityLog: non-admin create denied', () =>
+  assertFails(setDoc(doc(alice, 'adminActivityLog/log2'), logEntry)),
+);
+await check('adminActivityLog: non-admin read denied', () =>
+  assertFails(getDoc(doc(alice, 'adminActivityLog/log1'))),
+);
+await check('adminActivityLog: unauthenticated read denied', () =>
+  assertFails(getDoc(doc(anon, 'adminActivityLog/log1'))),
+);
+await check('adminActivityLog: admin cannot update an existing entry (immutable)', () =>
+  assertFails(updateDoc(doc(admin, 'adminActivityLog/log1'), { summary: 'edited' })),
+);
+await check('adminActivityLog: admin cannot delete an existing entry (immutable)', () =>
+  assertFails(deleteDoc(doc(admin, 'adminActivityLog/log1'))),
+);
+
 // riskEstimates (ADR-001) — authenticated read; clients never write.
 await check('riskEstimates: authenticated user may read', () =>
   assertSucceeds(getDoc(doc(alice, 'riskEstimates/Lahore_2026-07-08'))),

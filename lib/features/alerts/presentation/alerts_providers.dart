@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/routes/app_router.dart';
+import 'package:fyp_foreseeme/core/services/local_notification_service.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_notification_preferences_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_user_alerts_repository.dart';
@@ -39,8 +40,12 @@ final alertsControllerProvider =
     );
 
 /// Foreground alert display (local notifications). Overridable in tests.
+///
+/// Passes `LocalNotificationService`'s single app-wide plugin instance so
+/// this presenter genuinely reuses it (rather than constructing its own),
+/// consistent with `LocalNotificationSchedulerAdapter` on the medication side.
 final alertPresenterProvider = Provider<AlertPresenter>((ref) {
-  return LocalNotificationAlertPresenter();
+  return LocalNotificationAlertPresenter(plugin: LocalNotificationService.plugin);
 });
 
 /// Deep-link engagement analytics sink (Prompt 9). Overridable in tests and

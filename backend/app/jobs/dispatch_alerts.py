@@ -88,6 +88,12 @@ class DispatchRepository(Protocol):
     # Token hygiene (Prompt 3): drop a token FCM reported as unregistered.
     def prune_token(self, uid: str) -> None: ...
 
+    # Concurrency gate (M7.4): atomically create-if-absent the log doc right
+    # before send, so two overlapping dispatch runs can't both pass the
+    # (non-atomic) `has_dispatch` check and both send. Returns True iff this
+    # call won the claim; False means another run already claimed it.
+    def claim_dispatch(self, log_id: str, now: datetime) -> bool: ...
+
 
 @dataclass
 class DispatchOutcome:
@@ -192,11 +198,34 @@ def _dispatch(
             target.uid, target.city, target.category, "skipped_throttled", log_id
         )
 
+    # Concurrency gate (M7.4): `has_dispatch` above is a cheap, non-atomic
+    # pre-check; two overlapping runs could both pass it before either writes
+    # (see docs/dispatch_concurrency.md). `claim_dispatch` atomically
+    # create-if-absents the log doc — only the run that wins the claim may
+    # proceed to send. A loser treats this exactly like an idempotent skip.
+    if not repository.claim_dispatch(log_id, now):
+        logger.info(
+            "skipped_idempotent_claim_lost", extra={"uid": target.uid, "log_id": log_id}
+        )
+        return DispatchOutcome(
+            target.uid, target.city, target.category, "skipped_idempotent", log_id
+        )
+
     recommendation = recommendation_lookup.lookup(target.category, target.driver)
     title, body, data = build_notification(target, recommendation, latest.doc_id)
 
     assert user.fcm_token is not None  # guaranteed by targeting.evaluate
-    result = sender.send(token=user.fcm_token, title=title, body=body, data=data)
+    try:
+        result = sender.send(token=user.fcm_token, title=title, body=body, data=data)
+    except Exception as exc:  # noqa: BLE001 — the claim must always be finalized
+        logger.error(
+            "dispatch_send_crashed",
+            extra={"uid": target.uid, "log_id": log_id, "error": str(exc)},
+        )
+        repository.write_dispatch_log(
+            log_id, _crash_log_body(target, latest, str(exc), now)
+        )
+        return DispatchOutcome(target.uid, target.city, target.category, "failed", log_id)
 
     repository.write_dispatch_log(
         log_id, _log_body(target, latest, recommendation, result, now)
@@ -313,6 +342,33 @@ def _skip_log_body(
     }
 
 
+def _crash_log_body(target: Target, latest: CityRisk, error: str, now: datetime) -> dict:
+    """Audit entry finalizing a claimed log_id whose send raised unexpectedly
+    (M7.4). Same shape as `_log_body`'s failure case, so a claim is never left
+    stuck 'claimed' forever — a later run's `has_dispatch`/`claim_dispatch`
+    correctly treats this estimate/category as already (unsuccessfully)
+    attempted, same as any other terminal `failed` outcome."""
+    return {
+        "uid": target.uid,
+        "city": target.city,
+        "category": target.category,
+        "riskEstimateId": latest.doc_id,
+        "generatedAt": latest.generated_at,
+        "previousRiskLevel": target.previous_risk_level,
+        "riskLevel": target.risk_level,
+        "disease": target.disease,
+        "driver": target.driver,
+        "modelVersion": latest.model_version,
+        "status": "failed",
+        "reason": _REASONS["failed"],
+        "recommendationId": None,
+        "fcmMessageId": None,
+        "createdAt": now,
+        "throttleWindowEnd": now + THROTTLE_WINDOW,
+        "error": error,
+    }
+
+
 # --- Observability: heartbeat + failure signal (Sprint 5, Prompt 12) --------
 
 
@@ -378,14 +434,36 @@ def _to_iso(value: object) -> str:
     return isoformat() if callable(isoformat) else str(value)
 
 
-def _to_city_risk(doc) -> CityRisk:
+_REQUIRED_RISK_FIELDS = ("city", "riskLevel", "disease", "generatedAt", "modelVersion")
+
+
+def _malformed_risk_reason(data: dict) -> str | None:
+    """Returns why a `riskEstimates` doc is unusable, or ``None`` if it's fine."""
+    missing = [f for f in _REQUIRED_RISK_FIELDS if not data.get(f)]
+    return f"missing/empty fields: {', '.join(missing)}" if missing else None
+
+
+def _to_city_risk(doc) -> CityRisk | None:
+    """Parses one `riskEstimates` doc, or ``None`` (logged) if it's malformed.
+
+    Required fields missing/empty used to silently become ``""``, which could
+    make a corrupt doc look like a real (and wrong) risk level to
+    ``targeting.risk_rose()``. A malformed doc is now treated as absent rather
+    than guessed at.
+    """
     data = doc.to_dict() or {}
+    reason = _malformed_risk_reason(data)
+    if reason:
+        logger.warning(
+            "malformed_risk_estimate_skipped", extra={"doc_id": doc.id, "reason": reason}
+        )
+        return None
     return CityRisk(
-        city=data.get("city", ""),
-        risk_level=data.get("riskLevel", ""),
-        disease=data.get("disease", ""),
-        generated_at=_to_iso(data.get("generatedAt")),
-        model_version=data.get("modelVersion", ""),
+        city=data["city"],
+        risk_level=data["riskLevel"],
+        disease=data["disease"],
+        generated_at=_to_iso(data["generatedAt"]),
+        model_version=data["modelVersion"],
         doc_id=doc.id,
     )
 
@@ -408,9 +486,10 @@ class FirestoreRiskHistoryProvider:
             .limit(2)
             .get()
         )
-        docs = list(snapshot)
-        latest = _to_city_risk(docs[0]) if docs else None
-        previous = _to_city_risk(docs[1]) if len(docs) > 1 else None
+        parsed = [_to_city_risk(doc) for doc in snapshot]
+        valid = [risk for risk in parsed if risk is not None]
+        latest = valid[0] if valid else None
+        previous = valid[1] if len(valid) > 1 else None
         return latest, previous
 
 
@@ -494,6 +573,29 @@ class FirestoreDispatchRepository:
             {"fcmToken": firestore.DELETE_FIELD}
         )
 
+    def claim_dispatch(self, log_id: str, now: datetime) -> bool:
+        """Atomically create-if-absent the log doc (M7.4 concurrency gate).
+
+        `write_dispatch_log` immediately overwrites this placeholder with the
+        real, final body once the send outcome is known — the transaction's
+        only job is to guarantee at most one caller ever observes an absent
+        doc for a given `log_id`, closing the read-then-much-later-write race
+        `has_dispatch` alone cannot close (see docs/dispatch_concurrency.md).
+        """
+        from firebase_admin import firestore
+
+        doc_ref = self._db.collection(COLLECTION_LOG).document(log_id)
+
+        @firestore.transactional
+        def _claim(transaction) -> bool:
+            snapshot = doc_ref.get(transaction=transaction)
+            if snapshot.exists:
+                return False
+            transaction.set(doc_ref, {"status": "claimed", "claimedAt": now})
+            return True
+
+        return _claim(self._db.transaction())
+
 
 def init_firestore():
     """Initialise the Admin SDK from the environment (compute_risk pattern)."""
@@ -516,7 +618,25 @@ def init_firestore():
                 "firestore_auth",
                 extra={"mode": "emulator", "host": emulator, "project": project_id},
             )
-            firebase_admin.initialize_app(options={"projectId": project_id})
+
+            class _EmulatorCredential(credentials.Base):
+                """Never touches Application Default Credentials. Required
+                because passing no explicit credential defaults to
+                ``credentials.ApplicationDefault()``, which eagerly calls
+                ``google.auth.default()`` and raises when no real GCP
+                credentials are configured (as in a pure local-emulator
+                sandbox) — the emulator host env var alone does not prevent
+                that lookup. The emulator itself does not validate tokens, so
+                an anonymous credential is sufficient."""
+
+                def get_credential(self):
+                    from google.auth.credentials import AnonymousCredentials
+
+                    return AnonymousCredentials()
+
+            firebase_admin.initialize_app(
+                _EmulatorCredential(), options={"projectId": project_id}
+            )
         else:
             raise SystemExit(
                 "Set GOOGLE_APPLICATION_CREDENTIALS (real project) or "

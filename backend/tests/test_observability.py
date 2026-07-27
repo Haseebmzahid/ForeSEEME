@@ -310,6 +310,12 @@ class _FakeDispatchRepo:
     def prune_token(self, uid):
         self.pruned.append(uid)
 
+    def claim_dispatch(self, log_id, now):
+        if log_id in self.logs:
+            return False
+        self.logs[log_id] = {"status": "claimed", "claimedAt": now}
+        return True
+
 
 def test_dispatch_zero_sends_is_ok_and_writes_heartbeat() -> None:
     """No risk transition (steady risk) → zero sends. That is NORMAL, so the run is

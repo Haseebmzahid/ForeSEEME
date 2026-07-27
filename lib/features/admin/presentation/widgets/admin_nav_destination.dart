@@ -19,4 +19,5 @@ class AdminNavDestination {
 const List<AdminNavDestination> kAdminDestinations = [
   AdminNavDestination(icon: Icons.dashboard_outlined, label: 'Dashboard'),
   AdminNavDestination(icon: Icons.rule_outlined, label: 'Override'),
+  AdminNavDestination(icon: Icons.history_rounded, label: 'Logs'),
 ];

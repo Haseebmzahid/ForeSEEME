@@ -38,6 +38,7 @@ import 'package:fyp_foreseeme/features/alerts/presentation/geospatial_timeline_s
 import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_activity_log_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_dashboard_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_shell.dart';
@@ -70,6 +71,8 @@ final GlobalKey<NavigatorState> _shellNavigatorAdminDashboardKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminDashboard');
 final GlobalKey<NavigatorState> _shellNavigatorAdminOverrideKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminOverride');
+final GlobalKey<NavigatorState> _shellNavigatorAdminLogsKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shellAdminLogs');
 
 class _RouterRefreshNotifier extends ChangeNotifier {
   void refresh() => notifyListeners();
@@ -292,6 +295,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/admin/risk-override',
                 builder: (context, state) => const AdminOverrideScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorAdminLogsKey,
+            routes: [
+              GoRoute(
+                path: '/admin/activity-log',
+                builder: (context, state) => const AdminActivityLogScreen(),
               ),
             ],
           ),

@@ -32,6 +32,13 @@ class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+  /// The single app-wide plugin instance, for callers outside this class that
+  /// need to show/schedule on their own channel without re-initialising the
+  /// plugin (e.g. `LocalNotificationAlertPresenter` in `features/alerts`,
+  /// which owns the separate `risk_alerts` channel). Safe to read before
+  /// [initialize] has run — [_notificationsPlugin] is created eagerly.
+  static FlutterLocalNotificationsPlugin get plugin => _notificationsPlugin;
+
   static bool _initialized = false;
 
   /// Broadcasts the `payload` of every notification tap received while the

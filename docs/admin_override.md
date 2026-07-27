@@ -15,7 +15,13 @@ errs, an authorised operator can transparently correct a city's displayed risk.*
   enforced server-side by Firestore rules; the in-app admin surface only reveals
   itself to admins and additionally fails closed.
 - **Minimal internal surface.** One guarded screen (city, level, disease, reason,
-  submit/clear) — no dashboards or batch tooling.
+  submit/clear) — no batch tooling. (Sprint M8.1/M8.2 later added a read-only
+  System Monitoring Dashboard and Admin Activity Log alongside it, per SDS
+  Module 8 — this screen itself stays exactly this small.)
+- **All actions are logged.** Since Sprint M8.2, every submit/clear appends an
+  immutable entry to the shared `adminActivityLog` — see
+  `docs/admin_activity_log.md` (closes the FR8.2 business rule that was
+  previously undelivered).
 
 ## Data model — `overrides/{city}`
 

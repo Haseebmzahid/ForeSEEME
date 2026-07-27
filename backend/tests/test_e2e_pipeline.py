@@ -108,6 +108,12 @@ class PipelineStore:
     def prune_token(self, uid: str) -> None:
         self.pruned.append(uid)
 
+    def claim_dispatch(self, log_id: str, now: datetime) -> bool:
+        if log_id in self.logs:
+            return False
+        self.logs[log_id] = {"status": "claimed", "claimedAt": now}
+        return True
+
 
 class FakeDirectory:
     def __init__(self, mapping: dict[str, list[TargetUser]]) -> None:

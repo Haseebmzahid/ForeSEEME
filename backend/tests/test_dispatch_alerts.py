@@ -102,6 +102,12 @@ class FakeRepository:
     def prune_token(self, uid):
         self.pruned.append(uid)
 
+    def claim_dispatch(self, log_id, now):
+        if log_id in self.logs:
+            return False
+        self.logs[log_id] = {"status": "claimed", "claimedAt": now}
+        return True
+
 
 def _run(history, directory, sender=None, repository=None):
     sender = sender or FakeSender()
@@ -266,3 +272,121 @@ def test_second_event_within_24h_is_throttled() -> None:
     assert outcomes[0].status == "skipped_throttled"
     assert len(sender.sends) == 1  # second event suppressed (no spam)
     assert repo.logs["u1__Lahore_2026-07-01__respiratory"]["status"] == "skipped_throttled"
+
+
+# --- Malformed riskEstimates docs (M7.3): skipped, not silently defaulted ----
+
+
+class _FakeDoc:
+    """Minimal stand-in for a Firestore DocumentSnapshot."""
+
+    def __init__(self, doc_id: str, data: dict):
+        self.id = doc_id
+        self._data = data
+
+    def to_dict(self):
+        return self._data
+
+
+_VALID_RISK_DATA = {
+    "city": "Lahore",
+    "riskLevel": "High",
+    "disease": "Smog",
+    "generatedAt": "2026-06-30T00:00:00.000Z",
+    "modelVersion": "rf-1.0.0",
+}
+
+
+def test_malformed_risk_reason_none_for_complete_doc() -> None:
+    assert job._malformed_risk_reason(_VALID_RISK_DATA) is None
+
+
+def test_malformed_risk_reason_reports_missing_fields() -> None:
+    reason = job._malformed_risk_reason({"city": "Lahore", "riskLevel": "", "disease": "Smog"})
+    assert reason is not None
+    assert "riskLevel" in reason
+    assert "generatedAt" in reason
+    assert "modelVersion" in reason
+
+
+def test_to_city_risk_parses_a_valid_doc() -> None:
+    risk = job._to_city_risk(_FakeDoc("Lahore_2026-06-30", _VALID_RISK_DATA))
+    assert risk is not None
+    assert risk.city == "Lahore"
+    assert risk.risk_level == "High"
+    assert risk.doc_id == "Lahore_2026-06-30"
+
+
+def test_to_city_risk_skips_a_malformed_doc_instead_of_defaulting() -> None:
+    # riskLevel missing entirely — used to silently become "".
+    incomplete = dict(_VALID_RISK_DATA)
+    del incomplete["riskLevel"]
+
+    risk = job._to_city_risk(_FakeDoc("Lahore_2026-06-30", incomplete))
+
+    assert risk is None  # not a CityRisk with riskLevel=""
+
+
+# --- Concurrency gate (M7.4): two overlapping runs must never both send -----
+
+
+def test_claim_dispatch_only_the_first_caller_wins() -> None:
+    """Contract check on the fake itself: a second claim on the same log_id
+    (simulating a concurrent run reaching the gate microseconds later) must
+    fail, matching the atomic create-if-absent semantics
+    `FirestoreDispatchRepository.claim_dispatch` implements via a real
+    Firestore transaction."""
+    repo = FakeRepository()
+    log_id = "u1__Lahore_2026-06-30__respiratory"
+
+    assert repo.claim_dispatch(log_id, NOW) is True
+    assert repo.claim_dispatch(log_id, NOW) is False  # already claimed
+
+
+def test_a_pre_claimed_estimate_is_never_sent_to() -> None:
+    """Simulates the exact race the audit flagged: run A claims `log_id`
+    first (e.g. it is already mid-send when run B starts). Run B must treat
+    this identically to an idempotent skip — no FCM call, no duplicate
+    write — even though run B's own `has_dispatch` pre-check would have
+    raced run A's write under the old (non-atomic) implementation."""
+    history = FakeHistory({"Lahore": (_city("High"), _city("Medium"))})
+    directory = FakeDirectory({"Lahore": [_user("u1", ["Asthma"])]})
+    sender = FakeSender()
+    repo = FakeRepository()
+
+    log_id = "u1__Lahore_2026-06-30__respiratory"
+    assert repo.claim_dispatch(log_id, NOW) is True  # run A "arrives first"
+
+    outcomes, sender, repo = _run(history, directory, sender=sender, repository=repo)
+
+    assert outcomes[0].status == "skipped_idempotent"
+    assert sender.sends == []  # run B never called FCM
+
+
+class _CrashingSender:
+    """An FcmSender whose send() raises, simulating an unexpected failure
+    (the real FirebaseAdminFcmSender never raises — see M7.3 — but the
+    Protocol doesn't forbid it, and the claim must still be finalized)."""
+
+    def send(self, *, token, title, body, data):
+        raise RuntimeError("boom")
+
+
+def test_send_crash_finalizes_the_claim_instead_of_leaving_it_stuck() -> None:
+    history = FakeHistory({"Lahore": (_city("High"), _city("Medium"))})
+    directory = FakeDirectory({"Lahore": [_user("u1", ["Asthma"])]})
+    repo = FakeRepository()
+
+    outcomes, _, repo = _run(history, directory, sender=_CrashingSender(), repository=repo)
+
+    log_id = "u1__Lahore_2026-06-30__respiratory"
+    assert outcomes[0].status == "failed"
+    assert repo.logs[log_id]["status"] == "failed"  # not stuck at "claimed"
+    assert repo.logs[log_id]["error"] == "boom"
+
+    # A later run must not treat the crashed attempt as retryable/reclaimable.
+    second = job.run(
+        history=history, directory=directory, sender=FakeSender(),
+        repository=repo, cities=CITIES, now=NOW,
+    )
+    assert second[0].status == "skipped_idempotent"

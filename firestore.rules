@@ -111,6 +111,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // adminActivityLog/{entryId} (Sprint M8.2): append-only audit trail of
+    // admin actions (SDS FR8.4) — currently risk-override set/clear, written
+    // by the same authorised client that performs the action (same trust
+    // model as `overrides`: the admin claim is the gate; audit fields are
+    // client-asserted, not independently verified). Immutable once written —
+    // no update or delete, even by an admin — so the trail cannot be edited
+    // after the fact.
+    match /adminActivityLog/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats,
     // written only by the backend service account (Admin SDK bypasses rules) —
     // no client may ever write here. Sprint M8.1 adds the same narrow admin-read
@@ -139,6 +152,7 @@ service cloud.firestore {
     //   • overrides/{city}         — authed read, admin-claim write
     //   • jobHeartbeats/{job}      — admin-claim read (M8.1), else service-account
     //                                only (Admin SDK bypass)
+    //   • adminActivityLog/{id}    — admin-claim create + read, immutable (M8.2)
     match /{document=**} {
       allow read, write: if false;
     }
