@@ -2,9 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/services/launcher_service.dart';
 import 'package:fyp_foreseeme/core/services/share_service.dart';
-import 'package:fyp_foreseeme/features/resources/data/repositories/static_resource_repository.dart';
+import 'package:fyp_foreseeme/features/resources/data/repositories/firestore_resource_content_repository.dart';
+import 'package:fyp_foreseeme/features/resources/data/repositories/firestore_resource_repository.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/emergency_contact.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
+import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_content_repository.dart';
 import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_repository.dart';
 import 'package:fyp_foreseeme/features/resources/domain/services/resource_prioritizer.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
@@ -12,13 +14,40 @@ import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
 /// Concrete [ResourceRepository]. Depends on the abstract type so tests/dev can
 /// override it with a fake library (mirrors `riskRepositoryProvider`).
+///
+/// Firestore-backed since Sprint M8.3 (SDS FR8.3) — tests should override this
+/// with `StaticResourceRepository()` (or a fake) rather than relying on this
+/// default, now that it performs a real read.
 final resourceRepositoryProvider = Provider<ResourceRepository>((ref) {
-  return const StaticResourceRepository();
+  return const FirestoreResourceRepository();
+});
+
+/// The one async boundary for article data (Sprint M8.3): every other
+/// article-derived provider below stays a plain, synchronous [Provider] by
+/// reading this via `.asData?.value ?? []` — the same "async source, sync
+/// derived providers" idiom already used for [currentCityRiskProvider]
+/// elsewhere in this file. This means [ResourceCenterScreen]
+/// and [ArticleScreen] needed NO changes for the Firestore migration; the
+/// accepted trade-off is a brief empty-list flash on first paint before the
+/// initial Firestore read resolves (no loading spinner is shown for it).
+final resourceArticlesAsyncProvider = FutureProvider<List<ResourceArticle>>((
+  ref,
+) {
+  return ref.watch(resourceRepositoryProvider).articles();
 });
 
 /// The curated self-care guides, in their stored (unordered) form.
 final resourceArticlesProvider = Provider<List<ResourceArticle>>((ref) {
-  return ref.watch(resourceRepositoryProvider).articles();
+  return ref.watch(resourceArticlesAsyncProvider).asData?.value ?? const [];
+});
+
+/// Admin-only write path for articles (Sprint M8.3). Mirrors
+/// `riskOverrideRepositoryProvider` living alongside the read-side providers
+/// it shares a collection with, even though only the admin surface writes.
+final resourceContentRepositoryProvider = Provider<ResourceContentRepository>((
+  ref,
+) {
+  return FirestoreResourceContentRepository();
 });
 
 /// The primary emergency contact (Rescue 1122).

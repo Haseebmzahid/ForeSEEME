@@ -100,6 +100,12 @@ Future<FakeLauncherService> pumpCenter(
         articleBookmarkStoreProvider.overrideWithValue(
           ArticleBookmarkStore(prefs),
         ),
+        // Sprint M8.3: the default `resourceRepositoryProvider` now performs a
+        // real Firestore read; pin it to the deterministic static fixture so
+        // these tests stay fast, offline, and independent of seed state.
+        resourceRepositoryProvider.overrideWithValue(
+          const StaticResourceRepository(),
+        ),
         ...extraOverrides,
       ],
       child: MaterialApp.router(routerConfig: _buildRouter()),
@@ -301,9 +307,9 @@ void main() {
     test(
       'every article has a name, an https source URL, real reading content, '
       'and is verified',
-      () {
+      () async {
         const repo = StaticResourceRepository();
-        final articles = repo.articles();
+        final articles = await repo.articles();
 
         expect(articles, isNotEmpty);
         for (final a in articles) {

@@ -158,6 +158,7 @@ class _LogEntryTile extends StatelessWidget {
   /// action codes render sensibly without a matching change here.
   static IconData _iconForAction(String action) {
     if (action.startsWith('override')) return Icons.rule_outlined;
+    if (action.startsWith('article')) return Icons.article_outlined;
     return Icons.admin_panel_settings_outlined;
   }
 }

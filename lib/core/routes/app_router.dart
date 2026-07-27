@@ -39,9 +39,12 @@ import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_activity_log_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_article_form_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_content_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_dashboard_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_shell.dart';
+import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 
 /// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
 /// fade-through transition (see [AppMotion.pageTransition]). Routes, paths and
@@ -71,6 +74,8 @@ final GlobalKey<NavigatorState> _shellNavigatorAdminDashboardKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminDashboard');
 final GlobalKey<NavigatorState> _shellNavigatorAdminOverrideKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminOverride');
+final GlobalKey<NavigatorState> _shellNavigatorAdminContentKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shellAdminContent');
 final GlobalKey<NavigatorState> _shellNavigatorAdminLogsKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminLogs');
 
@@ -295,6 +300,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/admin/risk-override',
                 builder: (context, state) => const AdminOverrideScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorAdminContentKey,
+            routes: [
+              GoRoute(
+                path: '/admin/content',
+                builder: (context, state) => const AdminContentScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    pageBuilder: (context, state) =>
+                        _motionPage(state, const AdminArticleFormScreen()),
+                  ),
+                  GoRoute(
+                    path: 'edit',
+                    pageBuilder: (context, state) {
+                      final extra = state.extra;
+                      final article = extra is ResourceArticle ? extra : null;
+                      return _motionPage(
+                        state,
+                        AdminArticleFormScreen(article: article),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

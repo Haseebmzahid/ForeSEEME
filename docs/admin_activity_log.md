@@ -91,6 +91,8 @@ override write`) pins this.
 ## Relation to other Module 8 work
 
 See `docs/MODULE_8_AUDIT.md` §15 for the full roadmap. This sprint also
-positions FR8.3 (content management) and FR8.5 (user management) to log to
-this same collection when they're built — no schema or rule change will be
-needed for them, only new `action` codes.
+positioned FR8.3 (content management) and FR8.5 (user management) to log to
+this same collection when built — no schema or rule change needed, only new
+`action` codes. FR8.3 followed in Sprint M8.3 exactly this way (`article_create`
+/ `article_update` — see `docs/resource_content_management.md`); FR8.5 (user
+management) remains open.

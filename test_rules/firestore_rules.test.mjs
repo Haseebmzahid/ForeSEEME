@@ -171,6 +171,35 @@ await check('overrides: unauthenticated read denied', () =>
   assertFails(getDoc(doc(anon, 'overrides/Lahore'))),
 );
 
+// articles/{articleId} (Sprint M8.3) — the Resource Center CMS (SDS FR8.3):
+// authed read, admin-only write.
+const articleDoc = {
+  title: 'Protecting your lungs on smog days',
+  summary: 'Cut your exposure to fine particles when air quality is poor.',
+  topic: 'lungs',
+  sourceName: 'World Health Organization (WHO)',
+  sourceUrl: 'https://www.who.int/health-topics/air-pollution',
+  content: [{ kind: 'paragraph', text: 'Check your local AQI.' }],
+  verified: true,
+};
+await check('articles: admin (claim) may create', () =>
+  assertSucceeds(setDoc(doc(admin, 'articles/lungs-smog'), articleDoc)),
+);
+await check('articles: authenticated user may read', () =>
+  assertSucceeds(getDoc(doc(alice, 'articles/lungs-smog'))),
+);
+await check('articles: admin (claim) may update', () =>
+  assertSucceeds(
+    updateDoc(doc(admin, 'articles/lungs-smog'), { summary: 'Updated.' }),
+  ),
+);
+await check('articles: non-admin write denied', () =>
+  assertFails(setDoc(doc(alice, 'articles/other'), articleDoc)),
+);
+await check('articles: unauthenticated read denied', () =>
+  assertFails(getDoc(doc(anon, 'articles/lungs-smog'))),
+);
+
 // adminActivityLog/{entryId} (Sprint M8.2) — admin-only, append-only audit
 // trail (SDS FR8.4). Create + read gated to the admin claim; immutable
 // afterwards, even for an admin.

@@ -46,6 +46,16 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
   late String _disease = _kDiseases.first;
   final _reasonController = TextEditingController();
 
+  /// True only once submit/clear has actually been invoked. Needed because
+  /// [AsyncNotifier.build] itself transitions `AsyncLoading` → `AsyncData` the
+  /// moment the controller is first created — identical in shape to a real
+  /// write completing — so gating the "saved" toast below on
+  /// `previous is AsyncLoading` alone would show a false "Override saved."
+  /// the instant this screen opens, before any write has happened. (Found
+  /// while building Sprint M8.3's article form, which copied this listener
+  /// pattern and turned the same latent bug into a broken auto-pop.)
+  bool _submitted = false;
+
   @override
   void dispose() {
     _reasonController.dispose();
@@ -61,7 +71,10 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
       next.whenOrNull(
         error: (e, _) => _snack('Could not save override: $e', isError: true),
         data: (_) {
-          if (previous is AsyncLoading) _snack('Override saved.');
+          if (_submitted && previous is AsyncLoading) {
+            _submitted = false;
+            _snack('Override saved.');
+          }
         },
       );
     });
@@ -99,9 +112,12 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
                     riskOverride: o,
                     onClear: isBusy
                         ? null
-                        : () => ref
-                            .read(adminOverrideControllerProvider.notifier)
-                            .clear(_city),
+                        : () {
+                            _submitted = true;
+                            ref
+                                .read(adminOverrideControllerProvider.notifier)
+                                .clear(_city);
+                          },
                   ),
                 ),
           orElse: () => const SizedBox.shrink(),
@@ -142,6 +158,7 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
       _snack('A reason is required — it is shown to users.', isError: true);
       return;
     }
+    _submitted = true;
     ref.read(adminOverrideControllerProvider.notifier).submit(
           city: _city,
           riskLevel: _level,

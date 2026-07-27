@@ -2,7 +2,14 @@ import 'package:fyp_foreseeme/features/resources/domain/models/emergency_contact
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_repository.dart';
 
-/// Ships the curated Resource Center content with the app.
+/// The original, hardcoded Resource Center content.
+///
+/// Superseded as the **default** production source by
+/// [FirestoreResourceRepository] in Sprint M8.3 (SDS FR8.3 — content must be
+/// admin-editable), but kept as: (a) the seed data written to Firestore by
+/// `backend/scripts/seed_resource_articles.py`, (b) the graceful-degradation
+/// fallback [FirestoreResourceRepository] returns if the live collection has
+/// never been seeded, and (c) a fast, dependency-free fixture for tests.
 ///
 /// Every article is conservative, widely-accepted public-health guidance
 /// attributed to a named authority with a stable source URL — no fabricated or
@@ -25,8 +32,13 @@ class StaticResourceRepository implements ResourceRepository {
   @override
   EmergencyContact emergencyContact() => kRescue1122;
 
+  /// The 8 curated articles below, wrapped in an already-resolved [Future] —
+  /// this repository never actually awaits anything, matching
+  /// [ResourceRepository]'s async contract without adding any real latency.
   @override
-  List<ResourceArticle> articles() => const [
+  Future<List<ResourceArticle>> articles() => Future.value(_articles);
+
+  static const List<ResourceArticle> _articles = [
     ResourceArticle(
       id: 'lungs-smog',
       title: 'Protecting your lungs on smog days',

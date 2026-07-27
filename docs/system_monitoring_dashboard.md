@@ -80,7 +80,8 @@ the shell supplies chrome only; the authoritative gate stays server-side in
 
 - No active-user counter (no aggregation job or counter document exists yet —
   a real design decision, not an oversight; see `docs/MODULE_8_AUDIT.md`).
-- No content management or user management (SDS FR8.3/FR8.5) — planned as
-  separate sprints in `docs/MODULE_8_AUDIT.md` §15, built on the shell this
-  sprint introduces. (The admin activity log, FR8.4, followed in Sprint M8.2 —
-  see `docs/admin_activity_log.md`.)
+- No user management (SDS FR8.5) — planned as a separate sprint in
+  `docs/MODULE_8_AUDIT.md` §15, built on the shell this sprint introduces.
+  (The admin activity log, FR8.4, followed in Sprint M8.2 — see
+  `docs/admin_activity_log.md`; content management, FR8.3, in Sprint M8.3 —
+  see `docs/resource_content_management.md`.)

@@ -111,6 +111,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // articles/{articleId} (Sprint M8.3): the Health Resource Center's CMS
+    // content (SDS FR8.3). Any AUTHENTICATED client may READ — the same
+    // openness as `riskEstimates`, since every user reads the same published
+    // library; only an admin may WRITE (create or edit an article). There is
+    // no draft/review state (SDS's "if workflow enabled" is not enabled for
+    // v1): a write is immediately visible to every reader.
+    match /articles/{articleId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
     // adminActivityLog/{entryId} (Sprint M8.2): append-only audit trail of
     // admin actions (SDS FR8.4) — currently risk-override set/clear, written
     // by the same authorised client that performs the action (same trust
@@ -153,6 +164,7 @@ service cloud.firestore {
     //   • jobHeartbeats/{job}      — admin-claim read (M8.1), else service-account
     //                                only (Admin SDK bypass)
     //   • adminActivityLog/{id}    — admin-claim create + read, immutable (M8.2)
+    //   • articles/{articleId}     — authed read, admin-claim write (M8.3)
     match /{document=**} {
       allow read, write: if false;
     }
