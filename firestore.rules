@@ -122,6 +122,20 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // userDirectory/{uid} (Sprint M8.4): a minimal, honest admin directory
+    // for SDS FR8.5 ("Display User List") — deliberately NOT the sensitive
+    // `users/{uid}` subtree itself (profile, medications, adherence logs stay
+    // owner-only, untouched by this rule). Written by the owning user (at
+    // sign-up and first profile save — see AuthNotifier/HealthProfileNotifier);
+    // read by admins only. There is no admin WRITE here: suspend/block/delete
+    // need the Firebase Auth Admin SDK, not Firestore, and are operator
+    // scripts (backend/scripts/set_user_status.py, delete_user.py), not an
+    // in-app action — see docs/user_management.md.
+    match /userDirectory/{uid} {
+      allow read: if isAdmin();
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
     // adminActivityLog/{entryId} (Sprint M8.2): append-only audit trail of
     // admin actions (SDS FR8.4) — currently risk-override set/clear, written
     // by the same authorised client that performs the action (same trust
@@ -165,6 +179,7 @@ service cloud.firestore {
     //                                only (Admin SDK bypass)
     //   • adminActivityLog/{id}    — admin-claim create + read, immutable (M8.2)
     //   • articles/{articleId}     — authed read, admin-claim write (M8.3)
+    //   • userDirectory/{uid}      — owner write, admin-claim read (M8.4)
     match /{document=**} {
       allow read, write: if false;
     }

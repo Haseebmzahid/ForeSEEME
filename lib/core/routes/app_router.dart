@@ -44,6 +44,9 @@ import 'package:fyp_foreseeme/features/admin/presentation/admin_content_screen.d
 import 'package:fyp_foreseeme/features/admin/presentation/admin_dashboard_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_shell.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_user_detail_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_users_screen.dart';
+import 'package:fyp_foreseeme/features/auth/domain/models/user_directory_entry.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 
 /// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
@@ -76,6 +79,8 @@ final GlobalKey<NavigatorState> _shellNavigatorAdminOverrideKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminOverride');
 final GlobalKey<NavigatorState> _shellNavigatorAdminContentKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminContent');
+final GlobalKey<NavigatorState> _shellNavigatorAdminUsersKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shellAdminUsers');
 final GlobalKey<NavigatorState> _shellNavigatorAdminLogsKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellAdminLogs');
 
@@ -325,6 +330,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         AdminArticleFormScreen(article: article),
                       );
                     },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorAdminUsersKey,
+            routes: [
+              GoRoute(
+                path: '/admin/users',
+                builder: (context, state) => const AdminUsersScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'detail',
+                    pageBuilder: (context, state) => _motionPage(
+                      state,
+                      AdminUserDetailScreen(
+                        entry: state.extra as UserDirectoryEntry,
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -200,6 +200,32 @@ await check('articles: unauthenticated read denied', () =>
   assertFails(getDoc(doc(anon, 'articles/lungs-smog'))),
 );
 
+// userDirectory/{uid} (Sprint M8.4) — the admin user directory (SDS FR8.5):
+// owner-only write, admin-only read.
+const directoryEntry = {
+  email: 'alice@example.com',
+  createdAt: '2026-07-27T00:00:00.000Z',
+  status: 'pending',
+};
+await check('userDirectory: owner may write their own entry', () =>
+  assertSucceeds(setDoc(doc(alice, 'userDirectory/alice'), directoryEntry)),
+);
+await check('userDirectory: admin (claim) may read', () =>
+  assertSucceeds(getDoc(doc(admin, 'userDirectory/alice'))),
+);
+await check('userDirectory: non-owner write denied', () =>
+  assertFails(setDoc(doc(bob, 'userDirectory/alice'), directoryEntry)),
+);
+await check('userDirectory: non-admin read denied', () =>
+  assertFails(getDoc(doc(bob, 'userDirectory/alice'))),
+);
+await check('userDirectory: unauthenticated read denied', () =>
+  assertFails(getDoc(doc(anon, 'userDirectory/alice'))),
+);
+await check('userDirectory: unauthenticated write denied', () =>
+  assertFails(setDoc(doc(anon, 'userDirectory/eve'), directoryEntry)),
+);
+
 // adminActivityLog/{entryId} (Sprint M8.2) — admin-only, append-only audit
 // trail (SDS FR8.4). Create + read gated to the admin claim; immutable
 // afterwards, even for an admin.

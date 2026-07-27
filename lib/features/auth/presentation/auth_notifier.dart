@@ -30,6 +30,22 @@ class AuthNotifier extends Notifier<AuthState> {
       (error) => AuthStateError(error.message),
       (user) => AuthStateAuthenticated(user),
     );
+
+    // Best-effort admin-directory registration (Sprint M8.4, SDS FR8.5) — a
+    // failure here must never surface as a sign-up failure; the account
+    // creation above already succeeded or failed on its own.
+    final user = result.fold((_) => null, (u) => u);
+    if (user != null) {
+      try {
+        await ref.read(userDirectoryRepositoryProvider).register(
+              uid: user.uid,
+              email: user.email,
+              name: displayName,
+            );
+      } catch (_) {
+        // Non-fatal by design — see doc comment above.
+      }
+    }
   }
 
   Future<void> signIn({
