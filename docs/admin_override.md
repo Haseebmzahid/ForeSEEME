@@ -66,8 +66,9 @@ The user refreshes their token (the app force-refreshes when reading the claim).
   labelled "Operator-set", with the reason and the superseded automated estimate.
 - **Risk Details** — a prominent `RiskOverrideNotice` banner above the (still
   visible, still labelled) automated model detail.
-- **Admin surface** — `/admin/risk-override`, reachable from Profile only for
-  admins; shows the current override for the selected city with a **Clear** action.
+- **Admin surface** — `/admin/risk-override`, one branch of the operator-only
+  `AdminShell` (Sprint M8.1; entry point is **Profile → Admin Panel**, admins
+  only); shows the current override for the selected city with a **Clear** action.
 
 The override overlay is **best-effort**: if the override read fails, the risk
 surfaces fall back to the genuine estimate rather than erroring.
@@ -81,6 +82,11 @@ surfaces fall back to the genuine estimate rather than erroring.
 - The **admin** feature holds the gate (`AdminRepository.isCurrentUserAdmin` via
   the `admin` claim), the write controller (`AdminOverrideController`), and the
   guarded screen. No Firebase in the UI (GOLDEN_RULES §3).
+- Since Sprint M8.1, the screen is one branch of `AdminShell` — a shared
+  `StatefulShellRoute` (app bar + bottom nav) that also hosts the System
+  Monitoring Dashboard, so future admin modules add a branch instead of a new
+  standalone screen. The screen itself still gates its own content on
+  `isAdminProvider`; the shell only supplies chrome (see `docs/MODULE_8_AUDIT.md`).
 
 ## Relation to other Sprint-5 work
 

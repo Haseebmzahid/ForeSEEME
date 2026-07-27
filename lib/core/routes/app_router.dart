@@ -38,7 +38,9 @@ import 'package:fyp_foreseeme/features/alerts/presentation/geospatial_timeline_s
 import 'package:fyp_foreseeme/features/insights/presentation/health_intelligence_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/model_transparency_screen.dart';
 import 'package:fyp_foreseeme/features/insights/presentation/weekly_report_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_dashboard_screen.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_override_screen.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_shell.dart';
 
 /// Shared page for Sprint-3/4 pushed routes — a consistent, reduced-motion-aware
 /// fade-through transition (see [AppMotion.pageTransition]). Routes, paths and
@@ -64,6 +66,10 @@ final GlobalKey<NavigatorState> _shellNavigatorResourcesKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellResources');
 final GlobalKey<NavigatorState> _shellNavigatorProfileKey =
     GlobalKey<NavigatorState>(debugLabel: 'shellProfile');
+final GlobalKey<NavigatorState> _shellNavigatorAdminDashboardKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shellAdminDashboard');
+final GlobalKey<NavigatorState> _shellNavigatorAdminOverrideKey =
+    GlobalKey<NavigatorState>(debugLabel: 'shellAdminOverride');
 
 class _RouterRefreshNotifier extends ChangeNotifier {
   void refresh() => notifyListeners();
@@ -260,10 +266,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) =>
             _motionPage(state, const WeeklyReportScreen()),
       ),
-      GoRoute(
-        path: '/admin/risk-override',
-        pageBuilder: (context, state) =>
-            _motionPage(state, const AdminOverrideScreen()),
+      // Operator-only admin area (Sprint M8.1): its own StatefulShellRoute, so
+      // future modules (content management, user management, activity log —
+      // SDS FR8.3/8.4/8.5) plug in as new branches without restructuring the
+      // shell. Mirrors the main app shell below in shape, not tabs — this one
+      // is reached by pushing '/admin/dashboard' from Profile, not from the
+      // bottom nav.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return AdminShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorAdminDashboardKey,
+            routes: [
+              GoRoute(
+                path: '/admin/dashboard',
+                builder: (context, state) => const AdminDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            navigatorKey: _shellNavigatorAdminOverrideKey,
+            routes: [
+              GoRoute(
+                path: '/admin/risk-override',
+                builder: (context, state) => const AdminOverrideScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

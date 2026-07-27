@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_button.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/widgets/not_authorized_view.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/constants/cities_constants.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_override.dart';
@@ -19,8 +19,10 @@ import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_visuals.da
 /// the claim is absent, and Firestore rules enforce it server-side regardless.
 ///
 /// Deliberately small: pick a city, set the level/disease + a required reason,
-/// submit or clear. No dashboards, batch tools, or user management (do not
-/// over-build).
+/// submit or clear. No batch tools or user management (do not over-build).
+///
+/// Hosted as a branch of [AdminShell] (Sprint M8.1) — it renders only its body
+/// content; the shell provides the shared app bar/back button/bottom nav.
 class AdminOverrideScreen extends ConsumerStatefulWidget {
   const AdminOverrideScreen({super.key});
 
@@ -52,7 +54,6 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
     final isAdminAsync = ref.watch(isAdminProvider);
 
     // Surface submit/clear results without leaving the screen.
@@ -65,25 +66,11 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
       );
     });
 
-    return Scaffold(
-      backgroundColor: palette.background,
-      appBar: AppBar(
-        backgroundColor: palette.background,
-        elevation: 0,
-        foregroundColor: palette.textPrimary,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'Back',
-          onPressed: () => context.pop(),
-        ),
-        title: Text('Risk Override', style: context.fsmText.titleLarge),
-      ),
-      body: SafeArea(
-        child: isAdminAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, _) => const _NotAuthorized(),
-          data: (isAdmin) => isAdmin ? _form() : const _NotAuthorized(),
-        ),
+    return SafeArea(
+      child: isAdminAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => const NotAuthorizedView(),
+        data: (isAdmin) => isAdmin ? _form() : const NotAuthorizedView(),
       ),
     );
   }
@@ -189,44 +176,6 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
 }
 
 // ── Pieces ───────────────────────────────────────────────────────────────────
-
-class _NotAuthorized extends StatelessWidget {
-  const _NotAuthorized();
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(ForeSeeMeSpacing.xxxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.lock_outline_rounded,
-              size: 48,
-              color: palette.textTertiary,
-            ),
-            const SizedBox(height: ForeSeeMeSpacing.md),
-            Text(
-              'Not authorized',
-              style: text.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: ForeSeeMeSpacing.sm),
-            Text(
-              'This area is restricted to operators. If you believe this is an '
-              'error, contact an administrator.',
-              style: text.bodyLarge?.copyWith(color: palette.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _InfoBanner extends StatelessWidget {
   const _InfoBanner();

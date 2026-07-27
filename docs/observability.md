@@ -44,8 +44,12 @@ A monitor watches **two** things:
   in-process log could report.
 
 The heartbeat is written by the service account (Admin SDK bypasses rules) and is
-**operator-only**: `firestore.rules` denies all client read/write to `jobHeartbeats`.
-It is telemetry, not user data.
+**operator-only**: `firestore.rules` denies all client writes to `jobHeartbeats`,
+and reads to everyone except an `admin`-claim caller. That one exception (Sprint
+M8.1) powers the in-app System Monitoring Dashboard (`/admin/dashboard`, SDS
+FR8.1) — a deliberate, narrow widening of the admin claim's scope, mirrored on
+`alertDispatchLog` for the same dashboard's alert-volume count. A non-admin still
+has zero access, exactly as before. It remains telemetry, not user data.
 
 > **Backfill is excluded.** `compute_risk --backfill` is a manual operator operation,
 > not the monitored weekly cadence, so it prints its own summary and writes **no**
@@ -120,3 +124,9 @@ the heartbeat's key set.
    container failed to start; check Cloud Scheduler + Cloud Run job history.
 3. **`compute_risk` failed/stale** → users see the Prompt-11 staleness banner; use
    the manual risk override (Prompt 13) if a correction is needed before the next run.
+
+An admin can also check job health directly in-app, without `gcloud` or the ops
+scripts below: **Profile → Admin Panel → Dashboard** (Sprint M8.1, SDS FR8.1)
+shows each monitored job's last-run status and time, the total alert volume, and
+the most recent model version — see `docs/MODULE_8_AUDIT.md` for what this does
+and does not cover (it is not a substitute for the log-based alert policy above).

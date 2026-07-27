@@ -78,6 +78,16 @@ await check('alertDispatchLog: client read denied', () =>
 await check('alertDispatchLog: client write denied', () =>
   assertFails(setDoc(doc(alice, 'alertDispatchLog/x'), { uid: 'alice' })),
 );
+// M8.1: the System Monitoring Dashboard (SDS FR8.1, "alerts count") needs an
+// admin-only read path onto the dispatch ledger — a deliberate, narrow widening
+// of the admin claim's scope (see firestore.rules). Write stays sealed to the
+// service account even for admins.
+await check('alertDispatchLog: admin (claim) may read', () =>
+  assertSucceeds(getDoc(doc(admin, 'alertDispatchLog/log1'))),
+);
+await check('alertDispatchLog: admin claim does not grant write', () =>
+  assertFails(setDoc(doc(admin, 'alertDispatchLog/x'), { uid: 'alice' })),
+);
 
 // userAlerts — owner read, scoped mark-read; nothing else.
 await check('userAlerts: owner reads own alert', () =>
@@ -104,6 +114,34 @@ await check('userAlerts: owner cannot edit content', () =>
 );
 await check('userAlerts: owner cannot delete', () =>
   assertFails(deleteDoc(doc(alice, 'userAlerts/alice/items/a1'))),
+);
+// M7.0 gap: only cross-user READ was previously tested; a non-owner write
+// path (update/delete) was unverified.
+await check('userAlerts: cross-user update (mark-read) denied', () =>
+  assertFails(
+    updateDoc(doc(bob, 'userAlerts/alice/items/a1'), {
+      read: true,
+      readAt: serverTimestamp(),
+    }),
+  ),
+);
+await check('userAlerts: cross-user delete denied', () =>
+  assertFails(deleteDoc(doc(bob, 'userAlerts/alice/items/a1'))),
+);
+// M7.0 gap (still true post-M8.1): the admin custom-claim must not be a
+// backdoor into another user's inbox. Admin's extra rights are narrow and
+// explicit — write on `overrides`, read on `jobHeartbeats`/`alertDispatchLog`
+// (M8.1) — and `userAlerts` grants it nothing at all.
+await check('userAlerts: admin claim does not grant cross-user read', () =>
+  assertFails(getDoc(doc(admin, 'userAlerts/alice/items/a1'))),
+);
+await check('userAlerts: admin claim does not grant cross-user mark-read', () =>
+  assertFails(
+    updateDoc(doc(admin, 'userAlerts/alice/items/a1'), {
+      read: true,
+      readAt: serverTimestamp(),
+    }),
+  ),
 );
 
 // overrides/{city} (Sprint 5 P13) — admin-role write, authenticated read.
@@ -150,6 +188,16 @@ await check('jobHeartbeats: client read denied', () =>
 );
 await check('jobHeartbeats: client write denied', () =>
   assertFails(setDoc(doc(alice, 'jobHeartbeats/y'), { ok: false })),
+);
+// M8.1: the System Monitoring Dashboard (SDS FR8.1, "last run time" / job
+// health) needs an admin-only read path onto the heartbeats — see
+// firestore.rules and the matching alertDispatchLog grant above. Write stays
+// sealed to the service account even for admins.
+await check('jobHeartbeats: admin (claim) may read', () =>
+  assertSucceeds(getDoc(doc(admin, 'jobHeartbeats/compute_risk'))),
+);
+await check('jobHeartbeats: admin claim does not grant write', () =>
+  assertFails(setDoc(doc(admin, 'jobHeartbeats/y'), { ok: false })),
 );
 
 // users/{uid}[/**] — owner-only, never cross-user (covers the profile,

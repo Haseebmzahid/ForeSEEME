@@ -3,6 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Shared admin-claim check (Sprint 5 P13 introduced the pattern for
+    // `overrides`; Sprint M8.1 reuses it for the read-only monitoring grants
+    // below instead of re-deriving it inline each time). `.get('admin', false)`
+    // rather than `request.auth.token.admin`: a non-admin's token has no `admin`
+    // key, and dot-access on a missing key raises "Property admin is undefined";
+    // `.get` returns the default and denies cleanly instead.
+    function isAdmin() {
+      return request.auth != null && request.auth.token.get('admin', false) == true;
+    }
+
     // riskEstimates (ADR-001 / docs/RISK_SCHEMA.md) — Sprint 3 risk binding:
     // Any AUTHENTICATED client may READ; clients may NEVER write. The collection
     // is written only by the backend service account, whose Admin SDK bypasses
@@ -29,10 +39,16 @@ service cloud.firestore {
     }
 
     // alertDispatchLog (Sprint 4 P1): ops audit + throttle/idempotency ledger.
-    // Service-account ONLY (Admin SDK bypasses rules). It holds cross-user
-    // targeting data, so NO client may read or write it.
+    // Written ONLY by the service account (Admin SDK bypasses rules) — no client
+    // may ever write here. Sprint M8.1 adds one deliberate, narrow exception to
+    // "service-only": an admin may READ, so the System Monitoring Dashboard
+    // (SDS FR8.1, "alerts count") can total dispatch attempts. This is a genuine,
+    // considered widening of the admin claim's scope (previously `overrides` was
+    // the only collection admin got extra rights on) — a non-admin still has no
+    // access at all, matching the pre-M8.1 behaviour exactly.
     match /alertDispatchLog/{logId} {
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // userAlerts/{uid}/... (Sprint 4 P1): the in-app inbox. The dispatch engine
@@ -92,20 +108,19 @@ service cloud.firestore {
     // live on the document. A normal user is denied all writes here.
     match /overrides/{city} {
       allow read: if request.auth != null;
-      // Admin-claim required to write. Use `.get('admin', false)` rather than
-      // `request.auth.token.admin`: a non-admin's token has no `admin` key, and
-      // dot-access on the missing key raises "Property admin is undefined" — the
-      // `.get` accessor returns the default and denies cleanly, same security.
-      allow write: if request.auth != null
-                   && request.auth.token.get('admin', false) == true;
+      allow write: if isAdmin();
     }
 
-    // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats written
-    // only by the backend service account (Admin SDK bypasses rules). They are
-    // operator-facing telemetry, not user data, so NO client may read or write —
-    // the user-facing complement is the in-app staleness indicator (Prompt 11).
+    // jobHeartbeats/{job} (Sprint 5 P12): operator observability heartbeats,
+    // written only by the backend service account (Admin SDK bypasses rules) —
+    // no client may ever write here. Sprint M8.1 adds the same narrow admin-read
+    // exception as `alertDispatchLog` above, so the System Monitoring Dashboard
+    // (SDS FR8.1, "model version" / "last run time" / job health) can read them.
+    // A non-admin still has zero access, matching the pre-M8.1 behaviour exactly;
+    // the user-facing complement remains the in-app staleness indicator (Prompt 11).
     match /jobHeartbeats/{job} {
-      allow read, write: if false;
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // PRODUCTION DEFAULT-DENY (replaces the expired temporary dev catch-all,
@@ -119,9 +134,11 @@ service cloud.firestore {
     //   • users/{uid}[/**]         — owner-only (profile, medications,
     //                                adherence_logs subtrees included)
     //   • userAlerts/{uid}/**      — owner read + scoped mark-read only
-    //   • alertDispatchLog         — service-account only (Admin SDK bypass)
+    //   • alertDispatchLog         — admin-claim read (M8.1), else service-account
+    //                                only (Admin SDK bypass)
     //   • overrides/{city}         — authed read, admin-claim write
-    //   • jobHeartbeats/{job}      — service-account only (Admin SDK bypass)
+    //   • jobHeartbeats/{job}      — admin-claim read (M8.1), else service-account
+    //                                only (Admin SDK bypass)
     match /{document=**} {
       allow read, write: if false;
     }

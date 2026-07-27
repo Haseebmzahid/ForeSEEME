@@ -167,18 +167,20 @@ class ProfileScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // Operator-only: manual risk override (Sprint 5, Prompt 13).
-                  // Shown only when the signed-in user carries the admin claim;
-                  // Firestore rules enforce it server-side regardless.
+                  // Operator-only: the admin area (Sprint 5 P13 risk override;
+                  // Sprint M8.1 adds the system monitoring dashboard behind the
+                  // same shell). Shown only when the signed-in user carries the
+                  // admin claim; Firestore rules enforce it server-side
+                  // regardless.
                   if (ref.watch(isAdminProvider).value ?? false) ...[
                     const SizedBox(height: 16),
                     _GlassContainer(
                       padding: EdgeInsets.zero,
                       child: _SettingsTile(
                         icon: Icons.admin_panel_settings_outlined,
-                        title: 'Risk Override',
-                        subtitle: 'Operator: correct a stale/wrong estimate',
-                        onTap: () => context.push('/admin/risk-override'),
+                        title: 'Admin Panel',
+                        subtitle: 'System status & operator tools',
+                        onTap: () => context.push('/admin/dashboard'),
                         showTrailing: true,
                       ),
                     ),
