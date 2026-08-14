@@ -252,6 +252,11 @@ extension ForeSeeMeContext on BuildContext {
   /// Manrope, colours resolved from the palette). Use with `.copyWith(...)` when
   /// a widget needs a role's shape but a semantic (status) colour.
   TextTheme get fsmText => ForeSeeMeTypography.textTheme(fsmPalette);
+
+  /// The ForeSeeMe **instrumentation** styles (IBM Plex Mono readouts, channel
+  /// labels, telemetry values) for the ambient brightness. Use only for measured
+  /// values and their labels — never for prose. See [ForeSeeMeTelemetry].
+  ForeSeeMeTelemetry get fsmTelemetry => ForeSeeMeTelemetry.of(fsmPalette);
 }
 
 /// ForeSeeMe premium design-system — **the theme** (single entry point).

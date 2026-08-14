@@ -17,7 +17,7 @@ import 'package:fyp_foreseeme/features/medication/domain/models/medication_model
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/todays_mission_card.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_card.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/home_risk_field.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -98,11 +98,17 @@ String _formatDisplay(String hhmm) {
 //
 // Information architecture (Sprint UX-08): the screen answers one question,
 // "How am I today?", as a Daily Health Brief rather than a card dashboard.
-// Order: greeting → today's health (Risk Card, unchanged, the hero) → Today's
+// Order: greeting → today's health (the Risk Field, the hero) → Today's
 // Mission → Next Medication → Health Snapshot → Quick Actions → Explore Your
 // Health. Every section below is either the pre-existing hero component or a
 // thin composition of already-shipped providers/widgets — no new business
 // logic, no new architecture.
+//
+// Sprint 6 design pass: the hero is now [HomeRiskField] — the Risk Field drawn
+// natively with its environmental instrumentation, reading the same providers
+// the previous `RiskCard` hero read. Home was `RiskCard`'s only caller, so it is
+// now unrendered (but intact and still tested); whether to retire it is a
+// separate call.
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -168,14 +174,14 @@ class DashboardScreen extends ConsumerWidget {
                         const SizedBox(height: 20),
 
                         // SECTION 1 — TODAY'S HEALTH BRIEF (hero). The Risk
-                        // Card is untouched (visual hero); only the compact
-                        // inline disclaimer sits with it, per Rule 11 / the
-                        // Content Safety Policy checklist ("every risk-facing
-                        // surface carries a MedicalDisclaimer").
+                        // Field carries the estimate and its environmental
+                        // instrumentation; only the compact inline disclaimer
+                        // sits with it, per Rule 11 / the Content Safety Policy
+                        // checklist ("every risk-facing surface carries a
+                        // MedicalDisclaimer").
                         AppReveal(
-                          child: PressableScale(
+                          child: HomeRiskField(
                             onTap: () => context.push('/risk-details'),
-                            child: const RiskCard(),
                           ),
                         ),
                         const SizedBox(height: 10),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:fyp_foreseeme/core/theme/foreseeme_palette.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
@@ -15,11 +16,17 @@ import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey
 /// Compact "how am I doing" summary for the Home dashboard (Sprint UX-08).
 ///
 /// Deliberately narrow in scope: it recomputes nothing. Streaks come from the
-/// existing [adherenceInsightsProvider]; this week's adherence percent and its
-/// trend vs. last week come from the same [adherenceJourneyProvider] the
-/// Adherence Journey screen and the Today's Mission card already watch. It
-/// replaces the old four-stat-card [AdherenceInsightsCard] footprint on Home
-/// with a single tappable row that opens the full journey for detail.
+/// existing [adherenceInsightsProvider]; the daily series, this week's adherence
+/// percent and its trend vs. last week come from the same
+/// [adherenceJourneyProvider] the Adherence Journey screen and the Today's
+/// Mission card already watch. It replaces the old four-stat-card
+/// [AdherenceInsightsCard] footprint on Home with a single tappable row that
+/// opens the full journey for detail.
+///
+/// Sprint 6 design pass: laid out as an instrument readout — a daily bar series
+/// over a tracked stat row. The series is exactly as long as the journey's own
+/// timeline (7 days) and is labelled with that length; it is never padded out
+/// to a rounder-looking window.
 class HealthSnapshotCard extends ConsumerWidget {
   const HealthSnapshotCard({super.key});
 
@@ -37,13 +44,15 @@ class HealthSnapshotCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  SkeletonBox(width: 18, height: 18, radius: 6),
-                  SizedBox(width: 8),
-                  SkeletonBar(width: 120, height: 12),
+                  SkeletonBar(width: 120, height: 10),
+                  Spacer(),
+                  SkeletonBar(width: 56, height: 10),
                 ],
               ),
+              SizedBox(height: 16),
+              SkeletonBar(width: double.infinity, height: 44),
               SizedBox(height: 18),
-              SkeletonBar(width: double.infinity, height: 36),
+              SkeletonBar(width: double.infinity, height: 28),
               SizedBox(height: 14),
               SkeletonBar(width: 200, height: 12),
             ],
@@ -56,22 +65,29 @@ class HealthSnapshotCard extends ConsumerWidget {
     // breaking the dashboard — the same "degrade to nothing" rule every other
     // dashboard card already follows.
     final insights = insightsAsync.value;
-    final reflection = journeyAsync.value?.reflection;
-    if (insights == null || reflection == null) {
+    final journey = journeyAsync.value;
+    if (insights == null || journey == null) {
       return const SizedBox.shrink();
     }
 
-    return _SnapshotContent(insights: insights, reflection: reflection);
+    return _SnapshotContent(
+      insights: insights,
+      reflection: journey.reflection,
+      timeline: journey.weeklyTimeline,
+    );
   }
 }
 
 class _SnapshotContent extends StatelessWidget {
-  const _SnapshotContent({required this.insights, required this.reflection});
+  const _SnapshotContent({
+    required this.insights,
+    required this.reflection,
+    required this.timeline,
+  });
 
   final AdherenceInsights insights;
   final WeeklyReflection reflection;
-
-  static String _days(int n) => n == 1 ? '1 day' : '$n days';
+  final List<DayJourneyCard> timeline;
 
   (String, Color, IconData) _trend(BuildContext context) {
     final delta = reflection.comparedToLastWeek;
@@ -92,6 +108,7 @@ class _SnapshotContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
     final text = context.fsmText;
+    final mono = context.fsmTelemetry;
     final (trendLabel, trendColor, trendIcon) = _trend(context);
 
     void openJourney() => context.push('/adherence-history');
@@ -100,7 +117,8 @@ class _SnapshotContent extends StatelessWidget {
       button: true,
       container: true,
       label:
-          'Health snapshot. Current streak ${insights.currentStreakDays} days. '
+          'Health snapshot, last ${timeline.length} days. '
+          'Current streak ${insights.currentStreakDays} days. '
           'Best streak ${insights.longestStreakDays} days. '
           '${reflection.adherencePercent} percent adherence, $trendLabel. '
           '${insights.supportiveMessage} Opens your Adherence Journey.',
@@ -110,82 +128,76 @@ class _SnapshotContent extends StatelessWidget {
           onTap: openJourney,
           child: _SnapshotShell(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.favorite_outline_rounded,
-                      size: 18,
-                      color: palette.primary,
-                    ),
-                    const SizedBox(width: 8),
                     Text(
-                      'HEALTH SNAPSHOT',
-                      style: text.labelSmall?.copyWith(
-                        letterSpacing: 1.2,
-                        color: palette.textTertiary,
-                      ),
+                      // The window is named from the data's own length, not a
+                      // fixed literal, so the label can never overstate it.
+                      'ADHERENCE · ${timeline.length} DAYS',
+                      style: mono.channel,
                     ),
                     const Spacer(),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: palette.textTertiary,
-                      size: 20,
+                    Icon(trendIcon, size: 13, color: trendColor),
+                    const SizedBox(width: 5),
+                    Text(
+                      trendLabel.toUpperCase(),
+                      style: mono.channel.copyWith(color: trendColor),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                if (timeline.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _AdherenceSeries(timeline: timeline),
+                ],
+                const SizedBox(height: 18),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _stat(
-                        context,
-                        label: 'Current Streak',
-                        value: _days(insights.currentStreakDays),
-                      ),
+                    _stat(
+                      context,
+                      label: 'STREAK',
+                      value: '${insights.currentStreakDays}',
+                      unit: ' d',
+                      first: true,
                     ),
-                    Expanded(
-                      child: _stat(
-                        context,
-                        label: 'Best Streak',
-                        value: _days(insights.longestStreakDays),
-                      ),
+                    _stat(
+                      context,
+                      label: 'BEST',
+                      value: '${insights.longestStreakDays}',
+                      unit: ' d',
                     ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _stat(
-                        context,
-                        label: 'Adherence',
-                        value: '${reflection.adherencePercent}%',
-                      ),
-                    ),
-                    Expanded(
-                      child: _stat(
-                        context,
-                        label: 'Trend',
-                        value: trendLabel,
-                        valueColor: trendColor,
-                        icon: trendIcon,
-                      ),
+                    _stat(
+                      context,
+                      label: 'ADHERENCE',
+                      value: '${reflection.adherencePercent}',
+                      unit: '%',
                     ),
                   ],
                 ),
                 const SizedBox(height: 14),
                 Container(height: 1, color: palette.outlineVariant),
                 const SizedBox(height: 12),
-                Text(
-                  insights.supportiveMessage,
-                  style: text.bodySmall?.copyWith(
-                    color: palette.textSecondary,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        insights.supportiveMessage,
+                        style: text.bodySmall?.copyWith(
+                          color: palette.textSecondary,
+                          height: 1.4,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: palette.textTertiary,
+                      size: 20,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -195,39 +207,107 @@ class _SnapshotContent extends StatelessWidget {
     );
   }
 
+  /// One tracked stat in the footer row, separated by a hairline rule.
   Widget _stat(
     BuildContext context, {
     required String label,
     required String value,
-    Color? valueColor,
-    IconData? icon,
+    required String unit,
+    bool first = false,
   }) {
     final palette = context.fsmPalette;
-    final text = context.fsmText;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: text.labelSmall?.copyWith(color: palette.textTertiary),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: valueColor ?? palette.textPrimary),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              value,
-              style: text.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: valueColor ?? palette.textPrimary,
+    final mono = context.fsmTelemetry;
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.only(left: first ? 0 : 14),
+        decoration: first
+            ? null
+            : BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: palette.outlineVariant),
+                ),
               ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(label, style: mono.channel, maxLines: 1),
+            const SizedBox(height: 5),
+            Text.rich(
+              TextSpan(
+                text: value,
+                style: mono.readout,
+                children: [TextSpan(text: unit, style: mono.unit)],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
-      ],
+      ),
+    );
+  }
+}
+
+/// The daily adherence series — one bar per day in the journey's own timeline.
+///
+/// Height and colour both come from that day's stored `adherencePercent`, so
+/// the series is never conveyed by colour alone. A day with **no doses
+/// scheduled** is drawn as a flat neutral tick rather than a zero-percent bar:
+/// nothing was due, so nothing was missed.
+class _AdherenceSeries extends StatelessWidget {
+  const _AdherenceSeries({required this.timeline});
+
+  final List<DayJourneyCard> timeline;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.fsmPalette;
+    final colors = context.fsmColors;
+
+    return SizedBox(
+      height: 44,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < timeline.length; i++) ...[
+            if (i > 0) const SizedBox(width: 3),
+            Expanded(child: _bar(timeline[i], palette, colors)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _bar(
+    DayJourneyCard day,
+    ForeSeeMePalette palette,
+    ForeSeeMeColors colors,
+  ) {
+    if (day.totalDoses == 0) {
+      return Container(
+        height: 3,
+        decoration: BoxDecoration(
+          color: palette.outlineVariant,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      );
+    }
+    final percent = day.adherencePercent.clamp(0, 100);
+    final color = switch (percent) {
+      100 => colors.success.withValues(alpha: 0.55),
+      > 0 => colors.warning.withValues(alpha: 0.50),
+      _ => palette.error.withValues(alpha: 0.45),
+    };
+    return FractionallySizedBox(
+      heightFactor: (percent / 100).clamp(0.10, 1.0),
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
     );
   }
 }
