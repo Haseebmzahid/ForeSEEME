@@ -1,193 +1,80 @@
-import 'dart:ui';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
-import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
-import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
-import 'package:fyp_foreseeme/core/widgets/empty_state_widget.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/adherence_stats_model.dart';
+import 'package:fyp_foreseeme/features/medication/domain/models/medication_hub_state.dart';
 import 'package:fyp_foreseeme/features/medication/domain/models/medication_model.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_analytics_provider.dart';
-import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/medication_hub_providers.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/medication_notifier.dart';
-import 'package:fyp_foreseeme/features/medication/presentation/widgets/med_primitives.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_detail_sheet.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_hub_chrome.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_hub_objects.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_hub_style.dart';
 
-class MedicationScreen extends ConsumerWidget {
+/// The **Medications screen**, implemented natively from the approved
+/// prototype (`docs/Design/ForeSeeMe Medications.html`).
+///
+/// Composition only: every value on screen comes from [medicationHubProvider],
+/// which projects the existing medication and adherence-log streams through
+/// [MedicationHubService]. The screen touches no repository and no Firebase SDK
+/// (Golden Rule 1), performs no scheduling arithmetic of its own, and keeps the
+/// module's existing behaviour — real-time streaming, add / edit / archive
+/// through [MedicationNotifier], and the reminder scheduling and cancellation
+/// that notifier already drives.
+///
+/// **Deliberate departures from the prototype**, all recorded here so the
+/// difference is a decision rather than a drift:
+///
+///  * The prototype's mock status bar (`9:41`, `LTE`, a battery) is dropped. It
+///    is prototype furniture standing in for the real OS status bar, and
+///    drawing a fake `9:41` in a shipping app would be fabricated information.
+///  * The prototype's own bottom navigation is dropped in favour of the app's
+///    existing `AppShell` / `AppBottomNavBar`, which this screen must not
+///    redesign. The scroll padding still reserves the prototype's clearance so
+///    the last card clears the bar by the same margin.
+///  * The prototype draws four distinct medication objects for its four mock
+///    medications. The app stores two types (`pill`, `syrup`), so two objects
+///    are drawn, keyed to the stored type — see `medication_hub_objects.dart`.
+///  * The prototype has one non-taken past state, `MISSED`. The app
+///    distinguishes a dose the user *skipped* from one that lapsed, so a
+///    skipped dose keeps the prototype's amber treatment but is labelled
+///    `SKIPPED`. Reporting a deliberate skip back as a miss would be wrong.
+///  * The prototype's `checkIn` handler confirms the next dose in place. Here
+///    the slab navigates to Daily Check-In, which is where the app's dose
+///    confirmation (and its optimistic-update, auto-missed and notification
+///    refresh machinery) actually lives. Duplicating that mutation on this
+///    screen would create a second write path for the same fact.
+///  * The prototype has no loading, error, or empty states. Those are drawn
+///    here in its own material rather than left to a generic Material fallback.
+///  * The screen this replaces carried an app-bar button through to the
+///    adherence history, and the prototype has no app bar. Rather than lose the
+///    entry point, the schedule header's own readout — which already summarises
+///    today's adherence — becomes the control, gaining a chevron and a 44dp tap
+///    target so it does not become a hidden gesture.
+class MedicationScreen extends ConsumerStatefulWidget {
   const MedicationScreen({super.key});
 
-  String _formatTime(String timeString) {
-    final parts = timeString.split(':');
-    if (parts.length != 2) return timeString;
-    final hour = int.tryParse(parts[0]) ?? 0;
-    final minute = parts[1];
-    final suffix = hour >= 12 ? 'PM' : 'AM';
-    final readHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    return '$readHour:$minute $suffix';
+  @override
+  ConsumerState<MedicationScreen> createState() => _MedicationScreenState();
+}
+
+class _MedicationScreenState extends ConsumerState<MedicationScreen> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
-  Widget _buildMedicationTile(
-    BuildContext context,
-    WidgetRef ref,
-    MedicationModel medication,
-  ) {
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
+  // ── Interactions (unchanged behaviour, new chrome) ─────────────────────────
 
-    final reminderText = medication.reminderTimes.isEmpty
-        ? 'No reminders set'
-        : medication.reminderTimes.map(_formatTime).join(', ');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ForeSeeMeSpacing.gutter,
-        vertical: 6.0,
-      ),
-      child: PressableScale(
-        onTap: () => _showMedicationDetailSheet(context, ref, medication),
-        child: Semantics(
-          button: true,
-          label: '${medication.name}, ${medication.dosage}',
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(ForeSeeMeRadius.lg),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: ForeSeeMeSurface.card(context),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Icon badge
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
-                        gradient: LinearGradient(
-                          colors: [palette.primary, palette.secondary],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: palette.primary.withValues(alpha: 0.30),
-                            blurRadius: 14,
-                            spreadRadius: -4,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.medication_rounded,
-                        color: palette.onPrimary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    // Text content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  medication.name,
-                                  style: text.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.2,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Dosage pill
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: palette.secondary.withValues(alpha: 0.14),
-                                  borderRadius: BorderRadius.circular(
-                                    ForeSeeMeRadius.full,
-                                  ),
-                                  border: Border.all(
-                                    color: palette.secondary.withValues(alpha: 0.24),
-                                    width: ForeSeeMeBorderWidth.hairline,
-                                  ),
-                                ),
-                                child: Text(
-                                  medication.dosage,
-                                  style: text.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.secondary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            medication.frequency.label,
-                            style: text.bodyMedium?.copyWith(
-                              fontSize: 13,
-                              color: palette.textSecondary,
-                            ),
-                          ),
-                          if (reminderText.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time_rounded,
-                                  size: 13,
-                                  color: palette.secondary.withValues(alpha: 0.75),
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    reminderText,
-                                    style: text.bodySmall?.copyWith(
-                                      color: palette.secondary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: palette.textTertiary,
-                      size: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showMedicationDetailSheet(
-    BuildContext context,
-    WidgetRef ref,
-    MedicationModel medication,
-  ) {
+  void _openDetail(MedicationModel medication) {
     final stats = ref.read(adherenceAnalyticsProvider(medication.uid)).value;
     AdherenceStatsModel? stat;
     for (final s in stats ?? const <AdherenceStatsModel>[]) {
@@ -210,17 +97,13 @@ class MedicationScreen extends ConsumerWidget {
         },
         onArchive: () {
           Navigator.of(sheetContext).pop();
-          _confirmArchive(context, ref, medication);
+          _confirmArchive(medication);
         },
       ),
     );
   }
 
-  Future<void> _confirmArchive(
-    BuildContext context,
-    WidgetRef ref,
-    MedicationModel medication,
-  ) async {
+  Future<void> _confirmArchive(MedicationModel medication) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -237,7 +120,7 @@ class MedicationScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: dialogContext.fsmPalette.error,
+              foregroundColor: MedicationHubTheme.of(dialogContext).warn,
             ),
             child: const Text('Archive'),
           ),
@@ -245,113 +128,501 @@ class MedicationScreen extends ConsumerWidget {
       ),
     );
 
-    if (confirmed != true || !context.mounted) return;
+    if (confirmed != true || !mounted) return;
 
     try {
       await ref
           .read(medicationNotifierProvider.notifier)
           .archiveMedication(medication.uid, medication.id);
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Medication archived')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Archive failed: $e')),
       );
     }
   }
 
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final palette = context.fsmPalette;
-    final medicationsAsync = ref.watch(medicationsStreamProvider);
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    final hub = ref.watch(medicationHubProvider);
 
     return Scaffold(
-      backgroundColor: palette.background,
-      extendBodyBehindAppBar: true,
-      appBar: const _GlassAppBar(),
+      backgroundColor: theme.bg,
       body: Stack(
         children: [
-          // Ambient design-system background gradient
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: context.fsmColors.gradients.surface,
-              ),
-            ),
-          ),
-          // Ambient glow orb – top-right
-          Positioned(
-            top: -40,
-            right: -50,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    palette.primary.withValues(
-                      alpha: palette.isDark ? 0.20 : 0.10,
+          _Backdrop(scroll: _scroll),
+          SafeArea(
+            bottom: false,
+            child: hub.when(
+              loading: () => const _HubLoading(),
+              error: (error, _) => _HubError(message: error.toString()),
+              data: (summary) => summary.activeCount == 0
+                  ? const _HubEmpty()
+                  : _HubContent(
+                      summary: summary,
+                      scroll: _scroll,
+                      onMedicationTap: _openDetail,
                     ),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
             ),
           ),
-          // List content
-          medicationsAsync.when(
-            loading: () => const Center(
-              child: CircularProgressIndicator(strokeCap: StrokeCap.round),
-            ),
-            error: (err, _) => EmptyStateWidget(
-              title: 'Unable to load medications',
-              subTitle: err.toString(),
-              icon: Icons.error_outline,
-            ),
-            data: (medications) {
-              // Archived medications are excluded — they preserve adherence
-              // history but no longer appear in the active list.
-              final activeMedications = medications
-                  .where((m) => m.isActive)
-                  .toList();
 
-              if (activeMedications.isEmpty) {
-                return const _EmptyMedicationState();
-              }
-              return ListView.builder(
-                padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + kToolbarHeight + 16,
-                  bottom: 96.0,
+          // The prototype's fixed bottom stack: the Check-In slab over a scrim
+          // that fades the content out behind it. The prototype's own nav bar
+          // is replaced by the app's `AppBottomNavBar`, which `AppShell` draws
+          // beneath this.
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _BottomStack(
+              subtitle: hub.value == null
+                  ? null
+                  : _checkInSubtitle(hub.value!),
+              onTap: () => context.go('/check-in'),
+              onAdd: () => context.go('/medications/add'),
+            ),
+          ),
+
+        ],
+      ),
+    );
+  }
+
+  /// The Check-In slab's subtitle. Names the dose the user can confirm, and
+  /// says so plainly when there is nothing left to confirm today.
+  static String _checkInSubtitle(MedicationHubSummary summary) {
+    final next = summary.nextDose;
+    if (next != null) return 'Confirm your ${next.time} dose';
+    if (summary.scheduledCount == 0) return 'No doses scheduled today';
+    return 'All of today’s doses are logged';
+  }
+}
+
+// ── Content ──────────────────────────────────────────────────────────────────
+
+class _HubContent extends StatelessWidget {
+  const _HubContent({
+    required this.summary,
+    required this.scroll,
+    required this.onMedicationTap,
+  });
+
+  final MedicationHubSummary summary;
+  final ScrollController scroll;
+  final ValueChanged<MedicationModel> onMedicationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    final next = summary.nextDose;
+
+    return ListView(
+      controller: scroll,
+      // The prototype's `padding: 46px 18px 272px`. The 46px top is its
+      // status-bar allowance, which SafeArea now provides. The 18px side inset
+      // is applied per child rather than on the list, because the hero and the
+      // rail cancel it (`margin: 0 -18px`) to span the full width.
+      padding: EdgeInsets.only(
+        top: 4,
+        bottom: 236 + MediaQuery.of(context).padding.bottom,
+      ),
+      children: [
+        _HeroSection(
+          scroll: scroll,
+          activeCount: summary.activeCount,
+          takenCount: summary.takenCount,
+          scheduledCount: summary.scheduledCount,
+          nextName: next?.medication.name,
+          nextTime: next?.time,
+        ),
+
+        // ── Today's schedule ───────────────────────────────────────────────
+        Padding(
+          // The prototype's `margin: 18px 2px 10px`, less the 14px the
+          // readout's tap target adds above and below it.
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+          child: MedHubSectionHeader(
+            label: "TODAY'S SCHEDULE",
+            trailing: _railSummary(summary),
+            trailingColor: summary.missedCount > 0 ? theme.warn : theme.txt2,
+            onTrailingTap: () => context.go('/adherence-history'),
+            trailingHint: 'Opens your adherence history',
+          ),
+        ),
+        if (summary.doses.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 4),
+            child: _NoticeSlab(
+              text: 'No doses are scheduled today. Add a reminder time to a '
+                  'medication and it will appear here.',
+            ),
+          )
+        else
+          _ScheduleRail(summary: summary, onDoseTap: onMedicationTap),
+
+        // ── Your medications ──────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          child: MedHubSectionHeader(
+            label: 'YOUR MEDICATIONS',
+            trailing: '${summary.activeCount} ACTIVE',
+            trailingColor: theme.accent,
+          ),
+        ),
+        for (var i = 0; i < summary.medications.length; i++)
+          Padding(
+            padding: EdgeInsets.fromLTRB(18, i == 0 ? 0 : 12, 18, 0),
+            child: MedHubMedicationCard(
+              entry: summary.medications[i],
+              floatIndex: i,
+              onTap: () => onMedicationTap(summary.medications[i].medication),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// `2 TAKEN · 1 MISSED` — the prototype's rail readout, dropping a term that
+  /// would read as a zero rather than reporting `0 MISSED`.
+  static String _railSummary(MedicationHubSummary summary) {
+    if (summary.doses.isEmpty) return 'NO DOSES';
+    final parts = <String>['${summary.takenCount} TAKEN'];
+    if (summary.missedCount > 0) parts.add('${summary.missedCount} MISSED');
+    return parts.join(' · ');
+  }
+}
+
+/// The horizontally-scrolling dose rail with its timeline rule beneath the
+/// tiles.
+///
+/// The rail opens already showing the promoted dose — the prototype's
+/// `revealNext(false)`, which scrolls with `behavior: 'auto'`, i.e. instantly.
+/// It is applied as the scroll view's initial offset rather than a post-mount
+/// scroll, so the rail is never briefly wrong and the reveal does not depend on
+/// a second frame arriving.
+class _ScheduleRail extends StatefulWidget {
+  const _ScheduleRail({required this.summary, required this.onDoseTap});
+
+  final MedicationHubSummary summary;
+  final ValueChanged<MedicationModel> onDoseTap;
+
+  @override
+  State<_ScheduleRail> createState() => _ScheduleRailState();
+}
+
+class _ScheduleRailState extends State<_ScheduleRail> {
+  ScrollController? _controller;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Built once, with the offset the first frame should already be at. Any
+    // out-of-range value is corrected by the scroll position on attach.
+    _controller ??= ScrollController(initialScrollOffset: _revealOffset());
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  /// Where the promoted tile sits, measured in tile pitch: a resting tile plus
+  /// the 10px gap.
+  double _revealOffset() {
+    final next = widget.summary.nextDose;
+    if (next == null) return 0;
+    final index = widget.summary.doses.indexOf(next);
+    if (index <= 0) return 0;
+    final pitch = medHubTileWidth(context, isNext: false) + 10;
+    return index * pitch;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    final doses = widget.summary.doses;
+
+    // How much of the day is behind the user, for the rule's lit segment.
+    final settled = doses.where((d) => d.phase != HubDosePhase.later).length;
+    final progress = doses.isEmpty ? 0.0 : settled / doses.length;
+
+    // The rail takes its height from the tiles rather than a fixed number, so a
+    // larger text size grows the tiles instead of clipping their captions.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // `top: 58px` — the rule runs behind the tiles.
+        Positioned(
+          left: 18,
+          right: 18,
+          top: medHubRailRuleTop(context),
+          height: 1,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: theme.railRule(progress)),
+            ),
+          ),
+        ),
+        SingleChildScrollView(
+          controller: _controller,
+          scrollDirection: Axis.horizontal,
+          clipBehavior: Clip.none,
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < doses.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                MedHubDoseTile(
+                  dose: doses[i],
+                  onTap: () => widget.onDoseTap(doses[i].medication),
                 ),
-                itemCount: activeMedications.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == activeMedications.length) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        ForeSeeMeSpacing.gutter,
-                        16.0,
-                        ForeSeeMeSpacing.gutter,
-                        0.0,
-                      ),
-                      child: MedGradientButton(
-                        icon: Icons.check_circle_outline_rounded,
-                        label: 'Check-In Now',
-                        onPressed: () => context.go('/check-in'),
-                      ),
-                    );
-                  }
-                  return _buildMedicationTile(
-                    context,
-                    ref,
-                    activeMedications[index],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Wraps [MedHubHero] in the prototype's scroll response:
+/// `translateY(y·0.3)`, `scale(max(0.85, 1 − y·0.0005))`,
+/// `opacity(max(0, 1 − y/230))`.
+class _HeroSection extends StatelessWidget {
+  const _HeroSection({
+    required this.scroll,
+    required this.activeCount,
+    required this.takenCount,
+    required this.scheduledCount,
+    required this.nextName,
+    required this.nextTime,
+  });
+
+  final ScrollController scroll;
+  final int activeCount;
+  final int takenCount;
+  final int scheduledCount;
+  final String? nextName;
+  final String? nextTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final hero = MedHubHero(
+      activeCount: activeCount,
+      takenCount: takenCount,
+      scheduledCount: scheduledCount,
+      nextName: nextName,
+      nextTime: nextTime,
+    );
+
+    if (AppMotion.reduceMotion(context)) return hero;
+
+    return AnimatedBuilder(
+      animation: scroll,
+      child: hero,
+      builder: (context, child) {
+        final y = scroll.hasClients ? scroll.offset : 0.0;
+        if (y <= 0) return child!;
+        return Opacity(
+          opacity: (1 - y / 230).clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(0, y * 0.3),
+            child: Transform.scale(
+              scale: math.max(0.85, 1 - y * 0.0005),
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Backdrop ─────────────────────────────────────────────────────────────────
+
+/// The three ambient layers behind the content: the teal aurora (which
+/// parallax-shifts with scroll at `0.12×`), a cool orb on the right, and the
+/// receding perspective floor grid.
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({required this.scroll});
+
+  final ScrollController scroll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    final size = MediaQuery.sizeOf(context);
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: RepaintBoundary(
+          child: Stack(
+            children: [
+              // `left/right: -20%; top: -16%; height: 600px`.
+              AnimatedBuilder(
+                animation: scroll,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(gradient: theme.auroraFill),
+                ),
+                builder: (context, child) {
+                  final y = scroll.hasClients ? scroll.offset : 0.0;
+                  return Positioned(
+                    left: -size.width * 0.2,
+                    right: -size.width * 0.2,
+                    top: -size.height * 0.16 + y * 0.12,
+                    height: 600,
+                    child: child!,
                   );
                 },
-              );
-            },
+              ),
+              // `right: -25%; top: 34%; 420×380`.
+              Positioned(
+                right: -size.width * 0.25,
+                top: size.height * 0.34,
+                width: 420,
+                height: 380,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(gradient: theme.orbFill),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -40,
+                height: 300,
+                child: CustomPaint(
+                  painter: _FloorGridPainter(line: theme.line),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The prototype's floor: a 46px grid under `transform: perspective(240px)
+/// rotateX(74deg)` with `transform-origin: bottom center`, faded out toward the
+/// top by a mask.
+///
+/// Painted directly rather than transformed, because a projected grid is a few
+/// lines of geometry and a `Transform` with that much foreshortening resamples
+/// hairlines into mush. Transcribed from the Profile Hub's floor, which is the
+/// same declaration.
+class _FloorGridPainter extends CustomPainter {
+  const _FloorGridPainter({required this.line});
+
+  final Color line;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final centerX = w / 2;
+
+    double screenY(double depth) => h * (1 - 1 / (1 + depth * 3.2));
+
+    for (var i = 0; i <= 14; i++) {
+      final depth = i / 14;
+      final y = screenY(depth);
+      if (y >= h) continue;
+      final fade = (1 - depth).clamp(0.0, 1.0);
+      final paint = Paint()
+        ..color = line.withValues(alpha: line.a * fade * 0.45)
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(0, y), Offset(w, y), paint);
+    }
+
+    for (var i = -9; i <= 9; i++) {
+      final xAtBase = centerX + i * 46.0;
+      final paint = Paint()
+        ..strokeWidth = 1
+        ..shader = LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            line.withValues(alpha: line.a * 0.45),
+            line.withValues(alpha: 0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, w, h));
+      canvas.drawLine(
+        Offset(xAtBase, h),
+        Offset(centerX + i * 46.0 * 0.06, 0),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FloorGridPainter old) => old.line != line;
+}
+
+// ── Bottom stack ─────────────────────────────────────────────────────────────
+
+/// The prototype's fixed bottom region: the scrim plus the Check-In slab.
+///
+/// The prototype's own nav bar sat below the slab; here `AppShell` draws the
+/// app's bar in that space, so the stack reserves its height instead.
+class _BottomStack extends StatelessWidget {
+  const _BottomStack({
+    required this.subtitle,
+    required this.onTap,
+    required this.onAdd,
+  });
+
+  /// Null while the hub is still loading — the slab is drawn, inert, so the
+  /// bottom of the screen does not jump when the data lands.
+  final String? subtitle;
+
+  final VoidCallback onTap;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        30,
+        16,
+        // Clearance for `AppBottomNavBar` (68px bar + its 24px bottom inset +
+        // its 8px top padding), matching the prototype's own 18px gap between
+        // the slab and the bar.
+        100 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(gradient: theme.bottomScrim),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // The prototype's FAB sits `34px` above the Check-In slab, at the
+          // right edge. It is laid out here rather than positioned from the
+          // bottom of the screen, so it stays clear of a slab whose height
+          // grows with the text scale.
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4, bottom: 34),
+              child: MedHubFab(onTap: onAdd),
+            ),
+          ),
+          IgnorePointer(
+            ignoring: subtitle == null,
+            child: MedHubCheckInCta(
+              subtitle: subtitle ?? 'Loading today’s doses…',
+              onTap: onTap,
+            ),
           ),
         ],
       ),
@@ -359,144 +630,173 @@ class MedicationScreen extends ConsumerWidget {
   }
 }
 
-// ── Glass AppBar ──────────────────────────────────────────────────────────────
+// ── Unhappy paths, in the prototype's own material ───────────────────────────
 
-class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _GlassAppBar();
+/// A quiet glass slab carrying one honest sentence.
+class _NoticeSlab extends StatelessWidget {
+  const _NoticeSlab({required this.text});
 
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: AppBar(
-          backgroundColor: ForeSeeMeSurface.chromeFill(context),
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          centerTitle: false,
-          title: Text(
-            'Medications',
-            style: context.fsmText.titleLarge?.copyWith(
-              fontSize: 20,
-              letterSpacing: -0.2,
-            ),
+    final theme = MedicationHubTheme.of(context);
+    return MedHubSlab(
+      radius: 16,
+      blur: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      shadow: theme.tileShadow,
+      child: Text(
+        text,
+        style: medHubSans(
+          context,
+          size: 13,
+          color: theme.txt2,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _HubLoading extends StatelessWidget {
+  const _HubLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    return Center(
+      child: Semantics(
+        label: 'Loading medications',
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            strokeCap: StrokeCap.round,
+            color: theme.accent,
           ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.bar_chart_rounded, color: palette.secondary),
-              tooltip: 'Adherence history',
-              onPressed: () => context.go('/adherence-history'),
+        ),
+      ),
+    );
+  }
+}
+
+class _HubError extends StatelessWidget {
+  const _HubError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = MedicationHubTheme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 120),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'UNABLE TO LOAD',
+              style: medHubMono(
+                context,
+                size: 10,
+                em: 0.28,
+                color: theme.warn,
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _GlassIconButton(
-                icon: Icons.add_rounded,
-                tooltip: 'Add medication',
-                onPressed: () => context.go('/medications/add'),
+            const SizedBox(height: 12),
+            Text(
+              'Your medications could not be loaded.',
+              textAlign: TextAlign.center,
+              style: medHubSans(
+                context,
+                size: 17,
+                em: -0.02,
+                color: theme.txt,
+                weight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: medHubSans(
+                context,
+                size: 12.5,
+                color: theme.txt2,
+                height: 1.5,
               ),
             ),
           ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(1),
-            child: Container(
-              height: 1,
-              color: ForeSeeMeSurface.stroke(context),
-            ),
-          ),
         ),
       ),
     );
   }
 }
 
-class _GlassIconButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _GlassIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
+class _HubEmpty extends ConsumerWidget {
+  const _HubEmpty();
 
   @override
-  Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    return Semantics(
-      button: true,
-      label: tooltip,
-      child: Tooltip(
-        message: tooltip,
-        child: GestureDetector(
-          onTap: onPressed,
-          // Keeps the visual badge at 36dp while preserving a 48dp tap target.
-          child: SizedBox(
-            width: 48,
-            height: 48,
-            child: Center(
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(11),
-                  gradient: context.fsmColors.gradients.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: palette.primary.withValues(alpha: 0.30),
-                      blurRadius: 12,
-                      spreadRadius: -3,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(icon, color: palette.onPrimary, size: 20),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = MedicationHubTheme.of(context);
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-class _EmptyMedicationState extends StatelessWidget {
-  const _EmptyMedicationState();
-
-  @override
-  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 140),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const MedEmptyGlyph(icon: Icons.medication_rounded),
-            const SizedBox(height: 24),
+            // The hero's own capsule, at rest — the screen's identity object
+            // rather than a generic icon.
+            SizedBox(
+              height: 96,
+              child: Center(
+                child: MedHubCapsule(
+                  width: 118,
+                  height: 52,
+                  glow: theme.glow,
+                  shadowColor: theme.shadowColor,
+                  isDark: theme.isDark,
+                ),
+              ),
+            ),
+            const SizedBox(height: 26),
             Text(
-              'No medications yet',
-              style: context.fsmText.headlineSmall,
+              'MEDICATIONS',
+              style: medHubMono(
+                context,
+                size: 10,
+                em: 0.28,
+                color: theme.txt2,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Your medications will appear here.\nAdd one to get started.',
+              'No medications yet',
               textAlign: TextAlign.center,
-              style: context.fsmText.bodyMedium?.copyWith(
-                height: 1.6,
-                color: context.fsmPalette.textSecondary,
+              style: medHubSans(
+                context,
+                size: 22,
+                em: -0.02,
+                color: theme.txt,
+                weight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 28),
-            MedGradientButton(
-              icon: Icons.check_circle_outline_rounded,
-              label: 'Check-In Now',
-              onPressed: () => context.go('/check-in'),
+            const SizedBox(height: 10),
+            Text(
+              'Add your first medication and its reminder times, and your '
+              'daily schedule will appear here.',
+              textAlign: TextAlign.center,
+              style: medHubSans(
+                context,
+                size: 13,
+                color: theme.txt2,
+                height: 1.6,
+              ),
             ),
           ],
         ),
