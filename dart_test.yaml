@@ -1,0 +1,8 @@
+# Golden tests render the Profile Hub to PNGs for design review. They are
+# excluded from the default run (image comparison is environment-sensitive and
+# has no place in the CI gate); regenerate them with:
+#
+#   flutter test --tags golden --run-skipped --update-goldens
+tags:
+  golden:
+    skip: "run explicitly with --tags golden"

@@ -32,6 +32,27 @@ class NotificationPreferencesController
   Future<void> setCondition(String key, bool value) =>
       _persist(state.requireValue.withCondition(key, value));
 
+  /// Turns **all three** risk-alert categories on or off in a single write.
+  ///
+  /// Added for the Profile Hub, whose Notifications card carries one master
+  /// switch over a contract that stores three independent booleans. Doing this
+  /// through the three setters above would issue three writes and briefly
+  /// persist a half-muted state, so the change is applied atomically here.
+  ///
+  /// Enabling restores [NotificationPreferences.defaults] rather than switching
+  /// every category on: un-muting must not sign the user up for more than the
+  /// app's documented default. Per-condition selections are left untouched.
+  Future<void> setAllRiskCategories({required bool enabled}) {
+    final defaults = NotificationPreferences.defaults();
+    return _persist(
+      state.requireValue.copyWith(
+        highRiskAlerts: enabled && defaults.highRiskAlerts,
+        mediumRiskAlerts: enabled && defaults.mediumRiskAlerts,
+        lowRiskUpdates: enabled && defaults.lowRiskUpdates,
+      ),
+    );
+  }
+
   Future<void> _persist(NotificationPreferences next) async {
     final previous = state.value;
     state = AsyncValue.data(next);

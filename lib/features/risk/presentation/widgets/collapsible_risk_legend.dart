@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
-import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
-import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
-import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_legend.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_map_chrome.dart';
+import 'package:fyp_foreseeme/features/risk/presentation/widgets/risk_map_style.dart';
 
-/// A floating glass [RiskLegend] that collapses to a small round key icon when
-/// not needed (Geospatial Intelligence sprint) — so it never competes for
-/// space with the map's tapped-city sheet. Wraps the existing [RiskLegend]
-/// unchanged; this only owns the expand/collapse chrome and motion.
+/// A floating risk-field legend that collapses to a small key control when not
+/// needed (Geospatial Intelligence sprint) — so it never competes for space
+/// with the map's tapped-city sheet.
+///
+/// Used only by the Risk Map. The expanded body is [RiskFieldLegendBody], the
+/// approved prototype's legend (swatch + elevation glyph + level), and the
+/// collapsed state matches the prototype's 48dp control shape. The
+/// expand/collapse behaviour, semantics and haptic are unchanged.
 class CollapsibleRiskLegend extends StatefulWidget {
   const CollapsibleRiskLegend({super.key, this.initiallyExpanded = true});
 
@@ -30,7 +32,6 @@ class _CollapsibleRiskLegendState extends State<CollapsibleRiskLegend> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
     return Semantics(
       button: true,
       label: _expanded ? 'Collapse risk legend' : 'Expand risk legend',
@@ -40,21 +41,19 @@ class _CollapsibleRiskLegendState extends State<CollapsibleRiskLegend> {
           child: AnimatedSize(
             duration: AppMotion.medium,
             curve: AppMotion.curve,
-            alignment: Alignment.topLeft,
+            alignment: Alignment.bottomLeft,
             child: _expanded
-                ? const RiskLegend(direction: Axis.vertical)
-                : Container(
-                    width: 44,
-                    height: 44,
-                    alignment: Alignment.center,
-                    decoration: ForeSeeMeSurface.card(
-                      context,
-                      radius: ForeSeeMeRadius.full,
-                    ),
-                    child: Icon(
-                      Icons.palette_outlined,
-                      size: 20,
-                      color: palette.primary,
+                ? const RiskFieldLegendBody()
+                : MapGlassPanel(
+                    radius: 15,
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(
+                        Icons.palette_outlined,
+                        size: 19,
+                        color: RiskMapTheme.of(context).ink,
+                      ),
                     ),
                   ),
           ),
