@@ -160,48 +160,46 @@ class _MedicationScreenState extends ConsumerState<MedicationScreen> {
           _Backdrop(scroll: _scroll),
           SafeArea(
             bottom: false,
-            child: hub.when(
-              loading: () => const _HubLoading(),
-              error: (error, _) => _HubError(message: error.toString()),
-              data: (summary) => summary.activeCount == 0
-                  ? const _HubEmpty()
-                  : _HubContent(
-                      summary: summary,
-                      scroll: _scroll,
-                      onMedicationTap: _openDetail,
-                    ),
+            // The content and the bottom actions are siblings in a column, not
+            // layers in a stack: the actions own their space at the foot of the
+            // screen, so a medication card can never scroll underneath them.
+            child: Column(
+              children: [
+                Expanded(
+                  child: hub.when(
+                    loading: () => const _HubLoading(),
+                    error: (error, _) => _HubError(message: error.toString()),
+                    data: (summary) => summary.activeCount == 0
+                        ? const _HubEmpty()
+                        : _HubContent(
+                            summary: summary,
+                            scroll: _scroll,
+                            onMedicationTap: _openDetail,
+                          ),
+                  ),
+                ),
+                _BottomActions(
+                  subtitle: _checkInSubtitle(hub.value),
+                  onCheckIn: () => context.go('/check-in'),
+                  onAdd: () => context.go('/medications/add'),
+                ),
+              ],
             ),
           ),
-
-          // The prototype's fixed bottom stack: the Check-In slab over a scrim
-          // that fades the content out behind it. The prototype's own nav bar
-          // is replaced by the app's `AppBottomNavBar`, which `AppShell` draws
-          // beneath this.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _BottomStack(
-              subtitle: hub.value == null
-                  ? null
-                  : _checkInSubtitle(hub.value!),
-              onTap: () => context.go('/check-in'),
-              onAdd: () => context.go('/medications/add'),
-            ),
-          ),
-
         ],
       ),
     );
   }
 
-  /// The Check-In slab's subtitle. Names the dose the user can confirm, and
-  /// says so plainly when there is nothing left to confirm today.
-  static String _checkInSubtitle(MedicationHubSummary summary) {
-    final next = summary.nextDose;
-    if (next != null) return 'Confirm your ${next.time} dose';
-    if (summary.scheduledCount == 0) return 'No doses scheduled today';
-    return 'All of today’s doses are logged';
+  /// The Check-In slab's subtitle, or `null` when there is no check-in to
+  /// offer — while the hub is still loading, and once the day holds no dose
+  /// left to confirm. The slab is only shown when it has something to do.
+  ///
+  /// This reads the same `nextDose` the hero and the schedule rail already
+  /// read; it decides nothing of its own.
+  static String? _checkInSubtitle(MedicationHubSummary? summary) {
+    final next = summary?.nextDose;
+    return next == null ? null : 'Confirm your ${next.time} dose';
   }
 }
 
@@ -226,13 +224,13 @@ class _HubContent extends StatelessWidget {
     return ListView(
       controller: scroll,
       // The prototype's `padding: 46px 18px 272px`. The 46px top is its
-      // status-bar allowance, which SafeArea now provides. The 18px side inset
-      // is applied per child rather than on the list, because the hero and the
-      // rail cancel it (`margin: 0 -18px`) to span the full width.
-      padding: EdgeInsets.only(
-        top: 4,
-        bottom: 236 + MediaQuery.of(context).padding.bottom,
-      ),
+      // status-bar allowance, which SafeArea now provides. Its 272px bottom was
+      // clearance for a bottom bar that overlaid the list; the actions now sit
+      // in their own region below it, so only the last card's breathing room
+      // remains. The 18px side inset is applied per child rather than on the
+      // list, because the hero and the rail cancel it (`margin: 0 -18px`) to
+      // span the full width.
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
       children: [
         _HeroSection(
           scroll: scroll,
@@ -567,34 +565,39 @@ class _FloorGridPainter extends CustomPainter {
   bool shouldRepaint(covariant _FloorGridPainter old) => old.line != line;
 }
 
-// ── Bottom stack ─────────────────────────────────────────────────────────────
+// ── Bottom action region ─────────────────────────────────────────────────────
 
-/// The prototype's fixed bottom region: the scrim plus the Check-In slab.
+/// The screen's actions, in their own space at the foot of the layout: the Add
+/// Medication button, and the Check-In slab when there is a dose to confirm.
 ///
-/// The prototype's own nav bar sat below the slab; here `AppShell` draws the
-/// app's bar in that space, so the stack reserves its height instead.
-class _BottomStack extends StatelessWidget {
-  const _BottomStack({
+/// This is a **sibling** of the scrolling content, not an overlay on it — the
+/// medication list ends where this region begins, so neither action can ever
+/// cover a card. It keeps the prototype's material (the scrim, the FAB above
+/// the slab at the right edge) and reserves clearance for `AppBottomNavBar`,
+/// which `AppShell` draws below it.
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
     required this.subtitle,
-    required this.onTap,
+    required this.onCheckIn,
     required this.onAdd,
   });
 
-  /// Null while the hub is still loading — the slab is drawn, inert, so the
-  /// bottom of the screen does not jump when the data lands.
+  /// Null hides the Check-In slab: while the hub is loading, and once nothing
+  /// is left to confirm today. The region then carries the FAB alone.
   final String? subtitle;
 
-  final VoidCallback onTap;
+  final VoidCallback onCheckIn;
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     final theme = MedicationHubTheme.of(context);
+    final hasCheckIn = subtitle != null;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
-        30,
+        14,
         16,
         // Clearance for `AppBottomNavBar` (68px bar + its 24px bottom inset +
         // its 8px top padding), matching the prototype's own 18px gap between
@@ -602,28 +605,20 @@ class _BottomStack extends StatelessWidget {
         100 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(gradient: theme.bottomScrim),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      // One action row: the Check-In slab takes the width it can, the Add
+      // button sits at the right edge alongside it. Stacking them would reserve
+      // ~80px more of the screen than the list can spare on a 360×800 device.
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // The prototype's FAB sits `34px` above the Check-In slab, at the
-          // right edge. It is laid out here rather than positioned from the
-          // bottom of the screen, so it stays clear of a slab whose height
-          // grows with the text scale.
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 4, bottom: 34),
-              child: MedHubFab(onTap: onAdd),
+          if (hasCheckIn) ...[
+            Expanded(
+              child: MedHubCheckInCta(subtitle: subtitle!, onTap: onCheckIn),
             ),
-          ),
-          IgnorePointer(
-            ignoring: subtitle == null,
-            child: MedHubCheckInCta(
-              subtitle: subtitle ?? 'Loading today’s doses…',
-              onTap: onTap,
-            ),
-          ),
+            const SizedBox(width: 12),
+          ] else
+            const Spacer(),
+          MedHubFab(onTap: onAdd),
         ],
       ),
     );
@@ -692,7 +687,7 @@ class _HubError extends StatelessWidget {
     final theme = MedicationHubTheme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 0, 28, 120),
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -746,7 +741,7 @@ class _HubEmpty extends ConsumerWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 0, 28, 140),
+        padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

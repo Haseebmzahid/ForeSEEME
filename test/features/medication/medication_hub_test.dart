@@ -311,6 +311,10 @@ void main() {
 
   group('MedicationScreen', () {
     testWidgets('renders real medications from the stream', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         host(
           medications: [
@@ -346,6 +350,10 @@ void main() {
     });
 
     testWidgets('archived medications never reach the screen', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         host(
           medications: [
@@ -371,8 +379,10 @@ void main() {
 
       expect(find.text('No medications yet'), findsOneWidget);
       expect(find.byType(MedHubMedicationCard), findsNothing);
-      // The Check-In slab stays reachable and stays honest.
-      expect(find.text('No doses scheduled today'), findsOneWidget);
+      // Nothing to check in on, so the slab is not offered — but Add
+      // Medication stays reachable.
+      expect(find.byType(MedHubCheckInCta), findsNothing);
+      expect(find.byType(MedHubFab), findsOneWidget);
     });
 
     testWidgets('loading state shows no fabricated counts', (tester) async {
@@ -409,6 +419,10 @@ void main() {
     testWidgets('taken doses are reflected from the adherence log', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         host(
           medications: [_medication(id: 'm1')],
@@ -472,6 +486,104 @@ void main() {
       );
 
       handle.dispose();
+    });
+
+    // ── Bottom action composition ──────────────────────────────────────────
+    //
+    // The actions live in their own region below the list rather than floating
+    // over it, so neither can cover a medication card at any scroll position.
+
+    for (final size in const [Size(360, 800), Size(390, 844), Size(430, 932)]) {
+      testWidgets(
+        'actions never overlap a medication card at '
+        '${size.width.toInt()}x${size.height.toInt()}',
+        (tester) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.reset);
+
+          await tester.pumpWidget(
+            host(
+              medications: [
+                for (var i = 0; i < 6; i++)
+                  _medication(id: 'm$i', name: 'Med $i'),
+              ],
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 500));
+
+          // Scrolled to the very bottom is where an overlay would bite.
+          await tester.drag(
+            find.byType(Scrollable).first,
+            const Offset(0, -1200),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+
+          final fab = tester.getRect(find.byType(MedHubFab));
+          final cta = tester.getRect(find.byType(MedHubCheckInCta));
+
+          for (final card in find.byType(MedHubMedicationCard).evaluate()) {
+            final rect = tester.getRect(find.byWidget(card.widget));
+            expect(
+              rect.overlaps(fab),
+              isFalse,
+              reason: 'Add Medication overlaps a medication card',
+            );
+            expect(
+              rect.overlaps(cta),
+              isFalse,
+              reason: 'Check-In overlaps a medication card',
+            );
+          }
+
+          // The two actions do not cover each other either.
+          expect(fab.overlaps(cta), isFalse);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets('the Check-In slab appears only when a dose is due', (
+      tester,
+    ) async {
+      // Every dose confirmed: nothing left to check in on.
+      await tester.pumpWidget(
+        host(
+          medications: [
+            _medication(
+              id: 'm1',
+              frequency: MedicationFrequency.onceDaily,
+              reminderTimes: const ['08:00'],
+            ),
+          ],
+          logs: [
+            _log(
+              medicationId: 'm1',
+              time: '08:00',
+              date: _today,
+              status: AdherenceStatus.taken,
+              confirmedAt: DateTime(2026, 5, 14, 8, 5),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(MedHubCheckInCta), findsNothing);
+      expect(find.byType(MedHubFab), findsOneWidget);
+    });
+
+    testWidgets('the Check-In slab names the dose it would confirm', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(medications: [_medication(id: 'm1')]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.byType(MedHubCheckInCta), findsOneWidget);
+      expect(find.text('Confirm your 20:00 dose'), findsOneWidget);
     });
 
     testWidgets('renders in the light theme without overflow', (tester) async {
