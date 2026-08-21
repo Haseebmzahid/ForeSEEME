@@ -5,7 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
+import 'package:fyp_foreseeme/features/resources/data/repositories/static_resource_repository.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/article_bookmark_provider.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/trend_direction.dart';
@@ -96,7 +99,7 @@ void main() {
     });
 
     testWidgets(
-      'High risk surfaces hospitals prominently in the Resource Center',
+      'High risk reaches the Resource Center field and re-weights its rail',
       (tester) async {
         tester.view.physicalSize = const Size(900, 2600);
         tester.view.devicePixelRatio = 1.0;
@@ -113,16 +116,34 @@ void main() {
                 (ref) => at('Lahore', 5, RiskLevel.high),
               ),
               sharedPreferencesProvider.overrideWithValue(prefs),
+              // The catalogue is a separate feed; pin the offline fixture so
+              // this slice only proves the *risk* signal composing.
+              resourceRepositoryProvider.overrideWithValue(
+                const StaticResourceRepository(),
+              ),
+              articleBookmarkStoreProvider.overrideWithValue(
+                ArticleBookmarkStore(prefs),
+              ),
             ],
-            child: const MaterialApp(home: ResourceCenterScreen()),
+            child: MaterialApp(
+              home: const ResourceCenterScreen(),
+              // The knowledge field runs a free-running Ticker; reduced motion
+              // holds its opening frame so `pumpAndSettle` can complete.
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: child!,
+              ),
+            ),
           ),
         );
         await tester.pumpAndSettle();
 
-        expect(
-          find.text('Surfaced because risk is High in your area'),
-          findsOneWidget,
-        );
+        // The same estimate drives all three: the field's live read names the
+        // dominant driver, the weighting caption names the topic it promotes,
+        // and the rail switches from EXPLORE to the contextual heading.
+        expect(find.text('TEMPERATURE 34°C · LAHORE'), findsOneWidget);
+        expect(find.text('HEAT WEIGHTING'), findsOneWidget);
+        expect(find.text('RELEVANT FOR YOU'), findsOneWidget);
       },
     );
   });

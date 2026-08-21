@@ -33,6 +33,10 @@ class ResourceTopicVisual {
         Icons.device_thermostat_rounded,
         palette.error,
       ),
+      ResourceTopic.heart => ResourceTopicVisual(
+        Icons.favorite_border_rounded,
+        palette.error,
+      ),
     };
   }
 }
@@ -45,4 +49,5 @@ String resourceTopicLabel(ResourceTopic topic) => switch (topic) {
   ResourceTopic.asthma => 'Asthma',
   ResourceTopic.airQuality => 'Air Quality',
   ResourceTopic.heat => 'Heat',
+  ResourceTopic.heart => 'Heart',
 };

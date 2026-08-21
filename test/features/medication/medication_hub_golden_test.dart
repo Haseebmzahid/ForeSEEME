@@ -142,7 +142,12 @@ Widget _host({
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(textScale),
-        padding: const EdgeInsets.only(top: 24, bottom: 8),
+        // `AppShell` runs `Scaffold(extendBody: true)`, so in the real app
+        // Flutter reports `AppBottomNavBar`'s 100px height as this screen's
+        // bottom inset — the seam `_BottomActions` reserves its clearance
+        // against. Reproducing it here puts the actions where the review needs
+        // to see them.
+        padding: const EdgeInsets.only(top: 24, bottom: 100),
       ),
       child: child!,
     ),

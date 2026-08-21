@@ -9,15 +9,26 @@ import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_re
 /// the admin-editable `articles` collection so a published edit is genuinely,
 /// immediately visible — the point of the CMS.
 ///
-/// **Graceful degradation**: if the collection has never been seeded (zero
-/// documents — a fresh/unseeded project, not an error), this falls back to
-/// [StaticResourceRepository]'s curated content rather than showing an empty
-/// Resource Center. This mirrors the backend's own established precedent
-/// (`app/predict.py` falling back to `StubRiskModel` when no model artifact is
-/// present) — the same graceful-degradation principle, applied client-side. A
-/// genuine read error (e.g. offline with nothing cached) is NOT masked this
-/// way; it propagates as an [AsyncError] the same as any other Firestore read
-/// failure in this app.
+/// **Graceful degradation**: the bundled [StaticResourceRepository] catalogue
+/// is the guaranteed baseline. Firestore content replaces it when the
+/// collection has documents; otherwise — an unseeded project, *or* a failed
+/// read — the bundled catalogue is served.
+///
+/// Falling back on a read *error* too is a deliberate change (Aug 2026). The
+/// original version degraded only on an empty collection and let errors
+/// propagate, on the reasoning that a genuine failure should not be masked.
+/// In practice that reasoning was wrong for this particular collection, and it
+/// is what produced an empty Resource Center reading "0 VERIFIED GUIDES":
+/// `resourceArticlesProvider` flattens an `AsyncError` to `const []`, so any
+/// denied read, or any cold start offline with nothing cached, wiped the
+/// catalogue — every category included — with no error surface to explain it.
+///
+/// The distinction that matters: `articles` is a **public, read-only,
+/// non-personal** library that already ships inside the binary. There is no
+/// user data to get wrong and nothing stale to mislead anyone with, so serving
+/// the bundled copy is strictly better than serving nothing. Personal or
+/// risk-bearing reads (`riskEstimates`, medication, the health profile) keep
+/// propagating their errors — this is not a precedent for those.
 class FirestoreResourceRepository implements ResourceRepository {
   final FirebaseFirestore? _firestoreOverride;
 
@@ -40,12 +51,19 @@ class FirestoreResourceRepository implements ResourceRepository {
 
   @override
   Future<List<ResourceArticle>> articles() async {
-    final snapshot = await _firestore.collection(collectionPath).get();
-    if (snapshot.docs.isEmpty) {
+    try {
+      final snapshot = await _firestore.collection(collectionPath).get();
+      if (snapshot.docs.isEmpty) {
+        return const StaticResourceRepository().articles();
+      }
+      return snapshot.docs
+          .map((doc) => ResourceArticle.fromJson(doc.data(), id: doc.id))
+          .toList();
+    } on Exception {
+      // See the class doc: a reader who cannot reach the live library still
+      // gets the trusted catalogue that shipped with the app, rather than a
+      // Resource Center with nothing in it.
       return const StaticResourceRepository().articles();
     }
-    return snapshot.docs
-        .map((doc) => ResourceArticle.fromJson(doc.data(), id: doc.id))
-        .toList();
   }
 }

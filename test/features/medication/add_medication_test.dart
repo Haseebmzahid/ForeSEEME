@@ -28,6 +28,10 @@ import 'package:fyp_foreseeme/features/medication/presentation/widgets/add_medic
 
 final DateTime _now = DateTime(2026, 5, 14, 13, 30);
 
+/// `AppBottomNavBar`'s laid-out height: a 68px bar with 8px above and 24px
+/// below it. Matches `check_in_orbit_test.dart`'s `kShellNavHeight`.
+const double kShellNavHeight = 100;
+
 /// No adherence history — the notification-refresh pipeline that
 /// `MedicationNotifier.addMedication` drives reads this; faked so the test
 /// never reaches real Firestore.
@@ -106,6 +110,7 @@ Widget _host({
   MedicationModel? medication,
   Brightness brightness = Brightness.dark,
   double textScale = 1.0,
+  bool shell = false,
 }) => ProviderScope(
   overrides: [
     authStateProvider.overrideWith(
@@ -129,10 +134,24 @@ Widget _host({
     // medication stream — subscribed for the whole session. The save path
     // awaits that pipeline, so a bare test host has to play the same role or
     // the save never completes.
-    home: Consumer(
-      builder: (context, ref, _) {
-        ref.watch(medicationsStreamProvider);
-        return AddMedicationScreen(medication: medication);
+    //
+    // `shell` additionally mirrors `AppShell`'s `Scaffold(extendBody: true)`
+    // with its floating navigation, which is what puts the bar's height on
+    // this screen's bottom inset — the seam the footer's clearance reads.
+    home: Builder(
+      builder: (context) {
+        final screen = Consumer(
+          builder: (context, ref, _) {
+            ref.watch(medicationsStreamProvider);
+            return AddMedicationScreen(medication: medication);
+          },
+        );
+        if (!shell) return screen;
+        return Scaffold(
+          extendBody: true,
+          body: screen,
+          bottomNavigationBar: const SizedBox(height: kShellNavHeight),
+        );
       },
     ),
     builder: (context, child) => MediaQuery(
@@ -467,14 +486,29 @@ void main() {
           addTearDown(tester.view.reset);
 
           await tester.pumpWidget(
-            _host(repo: _FakeMedicationRepository(), medication: _stored()),
+            _host(
+              repo: _FakeMedicationRepository(),
+              medication: _stored(),
+              shell: true,
+            ),
           );
           await tester.pump(const Duration(milliseconds: 600));
 
+          final navTop = size.height - kShellNavHeight;
           final cta = tester.getRect(find.byType(AddMedCta));
-          // 68px bar + 24px inset + 8px top padding, plus the 8px safe-area
-          // bottom the host supplies.
-          expect(cta.bottom, lessThan(size.height - 100));
+          expect(
+            cta.bottom,
+            lessThanOrEqualTo(navTop),
+            reason: 'the CTA overlaps the bottom navigation',
+          );
+          // …and settles against it rather than floating in a dead band. The
+          // footer's own inset is the prototype's 20px, so anything much
+          // larger means the navigation's height has been reserved twice.
+          expect(
+            navTop - cta.bottom,
+            lessThanOrEqualTo(32),
+            reason: 'the CTA is stranded above the bottom navigation',
+          );
           expect(tester.takeException(), isNull);
 
           // Nothing overflows once the form is scrolled to its end either.
@@ -498,6 +532,7 @@ void main() {
           repo: _FakeMedicationRepository(),
           medication: _stored(),
           brightness: Brightness.light,
+          shell: true,
         ),
       );
       await tester.pump(const Duration(milliseconds: 600));
@@ -519,6 +554,7 @@ void main() {
             repo: _FakeMedicationRepository(),
             medication: _stored(),
             textScale: scale,
+            shell: true,
           ),
         );
         await tester.pump(const Duration(milliseconds: 600));

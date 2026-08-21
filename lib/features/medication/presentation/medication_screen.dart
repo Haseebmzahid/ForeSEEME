@@ -181,7 +181,9 @@ class _MedicationScreenState extends ConsumerState<MedicationScreen> {
                 _BottomActions(
                   subtitle: _checkInSubtitle(hub.value),
                   onCheckIn: () => context.go('/check-in'),
-                  onAdd: () => context.go('/medications/add'),
+                  // A stacked child screen, not a tab switch: push so Back
+                  // returns to whichever screen opened the form.
+                  onAdd: () => context.push('/medications/add'),
                 ),
               ],
             ),
@@ -250,7 +252,11 @@ class _HubContent extends StatelessWidget {
             label: "TODAY'S SCHEDULE",
             trailing: _railSummary(summary),
             trailingColor: summary.missedCount > 0 ? theme.warn : theme.txt2,
-            onTrailingTap: () => context.go('/adherence-history'),
+            // Pushed, not `go` — `/adherence-history` is a second route in
+            // the Medications shell branch, so `go()` would *replace* the
+            // branch stack and leave nothing to pop back to (system Back would
+            // exit the app). Push keeps the Medications hub underneath.
+            onTrailingTap: () => context.push('/adherence-history'),
             trailingHint: 'Opens your adherence history',
           ),
         ),
@@ -599,10 +605,13 @@ class _BottomActions extends StatelessWidget {
         16,
         14,
         16,
-        // Clearance for `AppBottomNavBar` (68px bar + its 24px bottom inset +
-        // its 8px top padding), matching the prototype's own 18px gap between
-        // the slab and the bar.
-        100 + MediaQuery.of(context).padding.bottom,
+        // `AppShell` runs `Scaffold(extendBody: true)`, so Flutter already
+        // reports `AppBottomNavBar`'s laid-out height as this body's bottom
+        // padding — that inset *is* the bar's clearance. Adding the bar's
+        // height on top of it reserved the band twice and floated the actions
+        // ~100dp above the navigation. What remains is the gap between the
+        // action row and the bar, the same 24dp the Daily Check-In panel keeps.
+        24 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(gradient: theme.bottomScrim),
       // One action row: the Check-In slab takes the width it can, the Add

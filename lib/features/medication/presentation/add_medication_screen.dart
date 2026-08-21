@@ -913,10 +913,14 @@ class _AddMedicationScreenState extends ConsumerState<AddMedicationScreen> {
         18,
         12,
         18,
-        // Clearance for `AppBottomNavBar` (68px bar + its 24px bottom inset +
-        // its 8px top padding), which `AppShell` draws over this screen, plus
-        // the prototype's own 20px footer inset.
-        20 + 100 + MediaQuery.paddingOf(context).bottom,
+        // `AppShell` runs `Scaffold(extendBody: true)`, so Flutter already
+        // reports the floating bottom navigation's height as this body's
+        // bottom padding — the same seam `MedOrbitFocusPanel` reads on Daily
+        // Check-In. Adding the bar's height on top of that inset reserved the
+        // band twice and stranded the CTA ~120dp above the bar; the inset
+        // alone, plus the prototype's own 20px footer margin, settles it
+        // directly above the navigation.
+        20 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: BoxDecoration(gradient: theme.footerScrim),
       child: Column(

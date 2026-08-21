@@ -151,3 +151,10 @@ temp/
 **/.pub-cache/**
 backend/secure/
 *.json
+
+# The blanket `*.json` above exists to keep service-account credentials out of
+# the repo (GOLDEN_RULES #7). This one file is the opposite of a secret: it is
+# the Resource Center's public catalogue, generated from
+# `static_resource_repository.dart` and read by `seed_resource_articles.py`.
+# Without this exception the seed script has no payload on a fresh clone.
+!backend/scripts/resource_articles.json

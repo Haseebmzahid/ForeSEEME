@@ -22,6 +22,7 @@ const List<ResourceTopic> kDefaultTopicOrder = [
   ResourceTopic.lungs,
   ResourceTopic.asthma,
   ResourceTopic.heat,
+  ResourceTopic.heart,
 ];
 
 /// Topic priority order for the current [estimate] — most relevant first.
@@ -44,10 +45,14 @@ List<ResourceTopic> priorityTopicOrder(RiskEstimateModel? estimate) {
       ResourceTopic.airQuality,
       ResourceTopic.lungs,
       ResourceTopic.asthma,
+      ResourceTopic.heart,
       ResourceTopic.heat,
     ],
+    // Heat raises cardiovascular load, so heart guidance rises with it — the
+    // relationship WHO's own heat fact sheet draws, not a new claim.
     RiskDriverKind.heat => const [
       ResourceTopic.heat,
+      ResourceTopic.heart,
       ResourceTopic.airQuality,
       ResourceTopic.lungs,
       ResourceTopic.asthma,

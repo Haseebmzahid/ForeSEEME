@@ -1,0 +1,495 @@
+{
+  "lungs-smog": {
+    "title": "Protecting your lungs on smog days",
+    "summary": "Cut your exposure to fine particles when air quality is poor.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Before you go outside"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Check your local Air Quality Index before heading out, and limit prolonged or heavy outdoor exertion when it is high."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Keep windows and doors closed during peak smog hours to reduce indoor particle levels."
+      },
+      {
+        "kind": "heading",
+        "text": "If you must be outside"
+      },
+      {
+        "kind": "tip",
+        "text": "A well-fitted N95/FFP2 mask reduces the fine particles you inhale during heavy smog."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Indoors, a HEPA air purifier can lower fine-particle concentrations."
+      },
+      {
+        "kind": "warning",
+        "text": "Avoid adding indoor smoke — cigarettes, incense, or unventilated cooking — on top of outdoor smog."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/health-topics/air-pollution",
+    "topic": "lungs",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "lungs",
+      "airQuality"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "lungs-indoor-air": {
+    "title": "Indoor air quality on polluted days",
+    "summary": "Keep the air inside cleaner while outdoor smog is high.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Reduce indoor sources"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Most indoor air pollution comes from combustion — cooking smoke, candles, incense and tobacco — so cutting these sources matters as much as sealing out the smog outside."
+      },
+      {
+        "kind": "tip",
+        "text": "Use an extractor fan or open a window briefly while cooking, then reseal the room once smoke has cleared."
+      },
+      {
+        "kind": "heading",
+        "text": "When outdoor air improves"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Ventilate during the cleanest part of the day (check your AQI trend) rather than leaving windows open continuously."
+      },
+      {
+        "kind": "warning",
+        "text": "Never use an unvented gas or charcoal appliance indoors — it can raise indoor pollution and carbon-monoxide risk sharply."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/health-topics/air-pollution",
+    "topic": "lungs",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "lungs",
+      "airQuality"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "asthma-poor-air": {
+    "title": "Managing asthma when air quality is poor",
+    "summary": "Stay ahead of flare-ups on high-pollution days.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Stay ahead of a flare-up"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Keep your reliever (rescue) inhaler with you and follow your written asthma action plan."
+      },
+      {
+        "kind": "tip",
+        "text": "Move exercise indoors or to cleaner-air times of day when the Air Quality Index is high."
+      },
+      {
+        "kind": "heading",
+        "text": "At home"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Reduce indoor triggers: no smoking indoors, manage dust, and keep indoor air as clean as possible."
+      },
+      {
+        "kind": "warning",
+        "text": "If symptoms worsen — frequent coughing, wheezing or breathlessness — seek medical care promptly."
+      }
+    ],
+    "sourceName": "U.S. Centers for Disease Control and Prevention (CDC)",
+    "sourceUrl": "https://www.cdc.gov/asthma/",
+    "topic": "asthma",
+    "verified": true,
+    "authority": "cdc",
+    "categories": [
+      "asthma",
+      "lungs",
+      "airQuality"
+    ]
+  },
+  "asthma-action-plan": {
+    "title": "Building your asthma action plan",
+    "summary": "A written plan turns a bad day into a manageable one.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "What a plan covers"
+      },
+      {
+        "kind": "paragraph",
+        "text": "A written asthma action plan sets out your daily medicines, the early warning signs of a flare-up, and exactly what to do at each stage — agreed in advance with your clinician."
+      },
+      {
+        "kind": "tip",
+        "text": "Keep a copy where you can find it quickly, and share one with a family member or housemate."
+      },
+      {
+        "kind": "heading",
+        "text": "Reviewing it"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Revisit the plan with your clinician after any flare-up, or at least once a year, so it stays matched to how your asthma is behaving."
+      },
+      {
+        "kind": "warning",
+        "text": "A plan is guidance, not a diagnosis — always follow your own clinician's instructions over general guidance like this."
+      }
+    ],
+    "sourceName": "U.S. Centers for Disease Control and Prevention (CDC)",
+    "sourceUrl": "https://www.cdc.gov/asthma/",
+    "topic": "asthma",
+    "verified": true,
+    "authority": "cdc",
+    "categories": [
+      "asthma",
+      "lungs"
+    ]
+  },
+  "when-to-stay-indoors": {
+    "title": "When to stay indoors (Air Quality Index)",
+    "summary": "What each AQI band means for outdoor activity.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Reading the bands"
+      },
+      {
+        "kind": "paragraph",
+        "text": "AQI 0–50 (Good): air quality is satisfactory; no precautions needed."
+      },
+      {
+        "kind": "paragraph",
+        "text": "AQI 51–100 (Moderate): unusually sensitive people should consider limiting prolonged outdoor exertion."
+      },
+      {
+        "kind": "paragraph",
+        "text": "AQI 101–150 (Unhealthy for Sensitive Groups): sensitive groups (children, older adults, heart/lung conditions) should reduce prolonged outdoor exertion."
+      },
+      {
+        "kind": "heading",
+        "text": "When it gets serious"
+      },
+      {
+        "kind": "tip",
+        "text": "AQI 151–200 (Unhealthy): everyone should reduce prolonged outdoor exertion; sensitive groups should avoid it."
+      },
+      {
+        "kind": "warning",
+        "text": "AQI 201+ (Very Unhealthy/Hazardous): avoid outdoor activity and stay indoors with clean air where possible."
+      }
+    ],
+    "sourceName": "U.S. EPA — AirNow",
+    "sourceUrl": "https://www.airnow.gov/aqi/aqi-basics/",
+    "topic": "airQuality",
+    "verified": true,
+    "authority": "epa",
+    "categories": [
+      "airQuality",
+      "lungs"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "aqi-pm-sizes": {
+    "title": "Understanding PM2.5 vs PM10",
+    "summary": "The two particle sizes behind most AQI readings, explained.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "What the numbers mean"
+      },
+      {
+        "kind": "paragraph",
+        "text": "PM2.5 (particles under 2.5 micrometres) travel deepest into the lungs and bloodstream and drive most health guidance; PM10 (under 10 micrometres) affects the upper airway more."
+      },
+      {
+        "kind": "tip",
+        "text": "On a smoggy day, PM2.5 is usually the number worth checking — it is the more sensitive signal."
+      },
+      {
+        "kind": "heading",
+        "text": "Where they come from"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Vehicle exhaust, industrial smoke and burning are common PM2.5 sources; dust and pollen contribute more to PM10."
+      }
+    ],
+    "sourceName": "U.S. EPA — AirNow",
+    "sourceUrl": "https://www.airnow.gov/aqi/aqi-basics/",
+    "topic": "airQuality",
+    "verified": true,
+    "authority": "epa",
+    "categories": [
+      "airQuality"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "extreme-heat": {
+    "title": "Staying safe in extreme heat",
+    "summary": "Reduce heat-illness risk during hot spells.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Through the day"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Drink water regularly through the day, even before you feel thirsty."
+      },
+      {
+        "kind": "paragraph",
+        "text": "Avoid the sun during the hottest hours and limit strenuous activity."
+      },
+      {
+        "kind": "tip",
+        "text": "Keep your living space cool — shade windows, ventilate at night."
+      },
+      {
+        "kind": "heading",
+        "text": "Warning signs"
+      },
+      {
+        "kind": "warning",
+        "text": "Watch for heat exhaustion (dizziness, headache, nausea); move to a cool place, rest and rehydrate, and seek help if it does not improve. Never leave children or pets in a parked vehicle."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/health-topics/heatwaves",
+    "topic": "heat",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "heat"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "heat-exhaustion-vs-stroke": {
+    "title": "Recognizing heat exhaustion vs heat stroke",
+    "summary": "Know the difference — one of them is a medical emergency.",
+    "content": [
+      {
+        "kind": "heading",
+        "text": "Heat exhaustion"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Heavy sweating, dizziness, headache, nausea and cool clammy skin. Move to shade or air conditioning, loosen clothing, and rehydrate with water."
+      },
+      {
+        "kind": "heading",
+        "text": "Heat stroke"
+      },
+      {
+        "kind": "paragraph",
+        "text": "Hot, dry or flushed skin, confusion, or loss of consciousness are signs the body has stopped regulating its temperature."
+      },
+      {
+        "kind": "warning",
+        "text": "Heat stroke is a medical emergency. Call for emergency help immediately and cool the person while waiting — do not wait to see if it improves."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/health-topics/heatwaves",
+    "topic": "heat",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "heat"
+    ],
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-asthma": {
+    "title": "Asthma",
+    "summary": "WHO's fact sheet on asthma — what it is, how common it is, and how it is managed.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's asthma fact sheet describes what asthma is, how widespread it is, the symptoms it causes, and the broad principles behind long-term treatment and avoiding triggers."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It is written for a general audience rather than for clinicians, and it does not replace a treatment plan agreed with your own doctor."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/asthma",
+    "topic": "asthma",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "asthma",
+      "lungs",
+      "airQuality"
+    ],
+    "publishedAt": "2026-04-28T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-copd": {
+    "title": "Chronic obstructive pulmonary disease (COPD)",
+    "summary": "WHO's fact sheet on COPD, including air pollution and smoke among its risk factors.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's COPD fact sheet covers what the condition is, the breathing symptoms associated with it, and the risk factors it identifies — which include tobacco smoke and both outdoor and household air pollution."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It is background reading on the condition, not a diagnosis or a treatment plan."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/chronic-obstructive-pulmonary-disease-(copd)",
+    "topic": "lungs",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "lungs",
+      "airQuality"
+    ],
+    "publishedAt": "2026-06-10T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-cardiovascular": {
+    "title": "Cardiovascular diseases (CVDs)",
+    "summary": "WHO's fact sheet on heart and circulatory disease and the risk factors behind it.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's cardiovascular diseases fact sheet covers what conditions the term includes, how much illness they account for worldwide, and the behavioural and environmental risk factors associated with them."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It is general public-health information; anything about your own heart health belongs with your clinician."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)",
+    "topic": "heart",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "heart"
+    ],
+    "publishedAt": "2025-07-31T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-ambient-air-pollution": {
+    "title": "Ambient (outdoor) air pollution",
+    "summary": "WHO's fact sheet on outdoor air pollution and the health effects linked to it.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's ambient air pollution fact sheet sets out where outdoor pollution comes from, which pollutants are measured, and the respiratory and cardiovascular health effects associated with exposure to them."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It is the authority behind the air-quality guidance elsewhere in this catalogue, and the place to read the full picture."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/ambient-(outdoor)-air-quality-and-health",
+    "topic": "airQuality",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "airQuality",
+      "lungs",
+      "heart"
+    ],
+    "publishedAt": "2024-10-24T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-household-air-pollution": {
+    "title": "Household air pollution",
+    "summary": "WHO's fact sheet on indoor air pollution from cooking and heating fuels.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's household air pollution fact sheet covers pollution produced inside the home — largely by cooking and heating with solid fuels and kerosene — and the health effects associated with it."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It complements the outdoor air-quality guidance: on a bad-air day, indoor sources add to what comes in from outside."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/household-air-pollution-and-health",
+    "topic": "airQuality",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "airQuality",
+      "lungs",
+      "heart"
+    ],
+    "publishedAt": "2025-12-16T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  },
+  "who-heat-and-health": {
+    "title": "Heat and health",
+    "summary": "WHO's fact sheet on how heat affects health and who is most at risk.",
+    "content": [
+      {
+        "kind": "paragraph",
+        "text": "WHO's heat and health fact sheet covers how high temperatures affect the body, which groups are most at risk during hot weather, and the measures public-health authorities recommend for protection."
+      },
+      {
+        "kind": "paragraph",
+        "text": "It is the source behind the hot-weather guidance elsewhere in this catalogue."
+      },
+      {
+        "kind": "tip",
+        "text": "ForeSeeMe links to this fact sheet rather than reproducing it, so what you read is the current text as WHO publishes it."
+      }
+    ],
+    "sourceName": "World Health Organization (WHO)",
+    "sourceUrl": "https://www.who.int/news-room/fact-sheets/detail/climate-change-heat-and-health",
+    "topic": "heat",
+    "verified": true,
+    "authority": "who",
+    "categories": [
+      "heat",
+      "heart",
+      "lungs"
+    ],
+    "publishedAt": "2026-07-31T00:00:00.000Z",
+    "lastVerifiedAt": "2026-08-20T00:00:00.000Z"
+  }
+}

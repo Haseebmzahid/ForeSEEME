@@ -613,7 +613,10 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
                 dayLabel: _dayLabel,
                 onPreviousDay: _canGoBack ? () => _goDay(-1) : null,
                 onNextDay: _canGoForward ? () => _goDay(1) : null,
-                onAddMedication: () => context.go('/medications/add'),
+                // Pushed, not `go` — the form is a child screen of whatever
+                // opened it, so Back returns here rather than switching to the
+                // Medications tab.
+                onAddMedication: () => context.push('/medications/add'),
               ),
               Expanded(
                 child: isLoading
@@ -733,7 +736,7 @@ class _DailyCheckInScreenState extends ConsumerState<DailyCheckInScreen> {
         passiveLabel: null,
         onTake: () {},
         onSkip: () {},
-        onAddMedication: () => context.go('/medications/add'),
+        onAddMedication: () => context.push('/medications/add'),
         bottomInset: bottomInset,
       );
     }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +19,10 @@ import 'package:fyp_foreseeme/features/medication/presentation/medication_screen
 import 'package:fyp_foreseeme/features/medication/presentation/widgets/medication_hub_chrome.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/// `AppBottomNavBar`'s laid-out height: a 68px bar with 8px above and 24px
+/// below it. Matches `check_in_orbit_test.dart`'s constant of the same name.
+const double kShellNavHeight = 100;
 
 MedicationModel _medication({
   required String id,
@@ -280,6 +286,7 @@ void main() {
     List<AdherenceLogModel> logs = const [],
     Brightness brightness = Brightness.dark,
     Stream<List<MedicationModel>>? medicationStream,
+    bool shell = false,
   }) => ProviderScope(
     overrides: [
       authStateProvider.overrideWith(
@@ -305,7 +312,17 @@ void main() {
       themeMode: brightness == Brightness.dark
           ? ThemeMode.dark
           : ThemeMode.light,
-      home: const MedicationScreen(),
+      // `shell` mirrors `AppShell`: `Scaffold(extendBody: true)` with a
+      // floating bottom navigation, which is what puts the bar's height on
+      // this screen's bottom inset — the seam `_BottomActions` reads for its
+      // clearance.
+      home: shell
+          ? const Scaffold(
+              extendBody: true,
+              body: MedicationScreen(),
+              bottomNavigationBar: SizedBox(height: kShellNavHeight),
+            )
+          : const MedicationScreen(),
     ),
   );
 
@@ -504,6 +521,7 @@ void main() {
 
           await tester.pumpWidget(
             host(
+              shell: true,
               medications: [
                 for (var i = 0; i < 6; i++)
                   _medication(id: 'm$i', name: 'Med $i'),
@@ -539,6 +557,32 @@ void main() {
 
           // The two actions do not cover each other either.
           expect(fab.overlaps(cta), isFalse);
+
+          // Neither reaches into the navigation…
+          final navTop = size.height - kShellNavHeight;
+          for (final action in <(String, Rect)>[
+            ('Add Medication', fab),
+            ('Check-In', cta),
+          ]) {
+            expect(
+              action.$2.bottom,
+              lessThanOrEqualTo(navTop),
+              reason: '${action.$1} overlaps the bottom navigation',
+            );
+          }
+
+          // …and the action row settles against it rather than floating in a
+          // dead band. `_BottomActions` keeps a 24dp gap; anything much larger
+          // means the navigation's height has been reserved twice on top of
+          // the inset the shell already reports. Measured on whichever action
+          // reaches lowest — the FAB is the shorter of the two and rides
+          // centred in the row.
+          final rowBottom = math.max(fab.bottom, cta.bottom);
+          expect(
+            navTop - rowBottom,
+            lessThanOrEqualTo(32),
+            reason: 'the actions are stranded above the bottom navigation',
+          );
           expect(tester.takeException(), isNull);
         },
       );

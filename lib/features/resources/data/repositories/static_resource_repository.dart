@@ -21,6 +21,19 @@ import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_re
 class StaticResourceRepository implements ResourceRepository {
   const StaticResourceRepository();
 
+  /// The date a curator last opened every [_catalogueVerifiedOn]-stamped
+  /// source URL and confirmed it still serves the cited guidance.
+  ///
+  /// It is **not** applied to the CDC-sourced entries: cdc.gov refuses
+  /// automated requests, so that check could not be completed and claiming it
+  /// had been would be exactly the kind of invented provenance this catalogue
+  /// exists to avoid. Those entries carry no verification date until a curator
+  /// confirms them by hand.
+  static final DateTime _catalogueVerifiedOn = DateTime.utc(2026, 8, 20);
+
+  /// A publication date taken from the WHO page itself, never inferred.
+  static DateTime _whoDate(int y, int m, int d) => DateTime.utc(y, m, d);
+
   static const _who = 'World Health Organization (WHO)';
   static const _whoAirUrl = 'https://www.who.int/health-topics/air-pollution';
   static const _whoHeatUrl = 'https://www.who.int/health-topics/heatwaves';
@@ -28,6 +41,28 @@ class StaticResourceRepository implements ResourceRepository {
   static const _cdcAsthmaUrl = 'https://www.cdc.gov/asthma/';
   static const _epa = 'U.S. EPA — AirNow';
   static const _epaUrl = 'https://www.airnow.gov/aqi/aqi-basics/';
+
+  // WHO fact sheets. These are link-out catalogue entries: ForeSeeMe stores a
+  // short original description and the citation, and sends the reader to WHO
+  // for the guidance itself. Publication dates below are WHO's own, read from
+  // each page's structured data — none is inferred.
+  static const _whoAsthmaUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/asthma';
+  static const _whoCopdUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/'
+      'chronic-obstructive-pulmonary-disease-(copd)';
+  static const _whoCvdUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/'
+      'cardiovascular-diseases-(cvds)';
+  static const _whoAmbientUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/'
+      'ambient-(outdoor)-air-quality-and-health';
+  static const _whoHouseholdUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/'
+      'household-air-pollution-and-health';
+  static const _whoHeatHealthUrl =
+      'https://www.who.int/news-room/fact-sheets/detail/'
+      'climate-change-heat-and-health';
 
   @override
   EmergencyContact emergencyContact() => kRescue1122;
@@ -38,7 +73,7 @@ class StaticResourceRepository implements ResourceRepository {
   @override
   Future<List<ResourceArticle>> articles() => Future.value(_articles);
 
-  static const List<ResourceArticle> _articles = [
+  static final List<ResourceArticle> _articles = [
     ResourceArticle(
       id: 'lungs-smog',
       title: 'Protecting your lungs on smog days',
@@ -46,6 +81,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.lungs,
       sourceName: _who,
       sourceUrl: _whoAirUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.lungs, ResourceTopic.airQuality],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('Before you go outside'),
         ArticleBlock.paragraph(
@@ -78,6 +116,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.lungs,
       sourceName: _who,
       sourceUrl: _whoAirUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.lungs, ResourceTopic.airQuality],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('Reduce indoor sources'),
         ArticleBlock.paragraph(
@@ -107,6 +148,8 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.asthma,
       sourceName: _cdc,
       sourceUrl: _cdcAsthmaUrl,
+      authority: ResourceAuthority.cdc,
+      categories: const [ResourceTopic.asthma, ResourceTopic.lungs, ResourceTopic.airQuality],
       content: [
         ArticleBlock.heading('Stay ahead of a flare-up'),
         ArticleBlock.paragraph(
@@ -135,6 +178,8 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.asthma,
       sourceName: _cdc,
       sourceUrl: _cdcAsthmaUrl,
+      authority: ResourceAuthority.cdc,
+      categories: const [ResourceTopic.asthma, ResourceTopic.lungs],
       content: [
         ArticleBlock.heading('What a plan covers'),
         ArticleBlock.paragraph(
@@ -165,6 +210,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.airQuality,
       sourceName: _epa,
       sourceUrl: _epaUrl,
+      authority: ResourceAuthority.epa,
+      categories: const [ResourceTopic.airQuality, ResourceTopic.lungs],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('Reading the bands'),
         ArticleBlock.paragraph(
@@ -198,6 +246,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.airQuality,
       sourceName: _epa,
       sourceUrl: _epaUrl,
+      authority: ResourceAuthority.epa,
+      categories: const [ResourceTopic.airQuality],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('What the numbers mean'),
         ArticleBlock.paragraph(
@@ -223,6 +274,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.heat,
       sourceName: _who,
       sourceUrl: _whoHeatUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.heat],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('Through the day'),
         ArticleBlock.paragraph(
@@ -252,6 +306,9 @@ class StaticResourceRepository implements ResourceRepository {
       topic: ResourceTopic.heat,
       sourceName: _who,
       sourceUrl: _whoHeatUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.heat],
+      lastVerifiedAt: _catalogueVerifiedOn,
       content: [
         ArticleBlock.heading('Heat exhaustion'),
         ArticleBlock.paragraph(
@@ -268,6 +325,186 @@ class StaticResourceRepository implements ResourceRepository {
           'Heat stroke is a medical emergency. Call for emergency help '
           'immediately and cool the person while waiting — do not wait to '
           'see if it improves.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-asthma',
+      title: 'Asthma',
+      summary:
+          'WHO\'s fact sheet on asthma — what it is, how common it is, and '
+          'how it is managed.',
+      topic: ResourceTopic.asthma,
+      sourceName: _who,
+      sourceUrl: _whoAsthmaUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.asthma, ResourceTopic.lungs, ResourceTopic.airQuality],
+      publishedAt: _whoDate(2026, 4, 28),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s asthma fact sheet describes what asthma is, how widespread '
+          'it is, the symptoms it causes, and the broad principles behind '
+          'long-term treatment and avoiding triggers.',
+        ),
+        ArticleBlock.paragraph(
+          'It is written for a general audience rather than for clinicians, '
+          'and it does not replace a treatment plan agreed with your own '
+          'doctor.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-copd',
+      title: 'Chronic obstructive pulmonary disease (COPD)',
+      summary:
+          'WHO\'s fact sheet on COPD, including air pollution and smoke among '
+          'its risk factors.',
+      topic: ResourceTopic.lungs,
+      sourceName: _who,
+      sourceUrl: _whoCopdUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.lungs, ResourceTopic.airQuality],
+      publishedAt: _whoDate(2026, 6, 10),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s COPD fact sheet covers what the condition is, the breathing '
+          'symptoms associated with it, and the risk factors it identifies — '
+          'which include tobacco smoke and both outdoor and household air '
+          'pollution.',
+        ),
+        ArticleBlock.paragraph(
+          'It is background reading on the condition, not a diagnosis or a '
+          'treatment plan.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-cardiovascular',
+      title: 'Cardiovascular diseases (CVDs)',
+      summary:
+          'WHO\'s fact sheet on heart and circulatory disease and the risk '
+          'factors behind it.',
+      topic: ResourceTopic.heart,
+      sourceName: _who,
+      sourceUrl: _whoCvdUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.heart],
+      publishedAt: _whoDate(2025, 7, 31),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s cardiovascular diseases fact sheet covers what conditions '
+          'the term includes, how much illness they account for worldwide, '
+          'and the behavioural and environmental risk factors associated '
+          'with them.',
+        ),
+        ArticleBlock.paragraph(
+          'It is general public-health information; anything about your own '
+          'heart health belongs with your clinician.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-ambient-air-pollution',
+      title: 'Ambient (outdoor) air pollution',
+      summary:
+          'WHO\'s fact sheet on outdoor air pollution and the health effects '
+          'linked to it.',
+      topic: ResourceTopic.airQuality,
+      sourceName: _who,
+      sourceUrl: _whoAmbientUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.airQuality, ResourceTopic.lungs, ResourceTopic.heart],
+      publishedAt: _whoDate(2024, 10, 24),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s ambient air pollution fact sheet sets out where outdoor '
+          'pollution comes from, which pollutants are measured, and the '
+          'respiratory and cardiovascular health effects associated with '
+          'exposure to them.',
+        ),
+        ArticleBlock.paragraph(
+          'It is the authority behind the air-quality guidance elsewhere in '
+          'this catalogue, and the place to read the full picture.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-household-air-pollution',
+      title: 'Household air pollution',
+      summary:
+          'WHO\'s fact sheet on indoor air pollution from cooking and heating '
+          'fuels.',
+      topic: ResourceTopic.airQuality,
+      sourceName: _who,
+      sourceUrl: _whoHouseholdUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.airQuality, ResourceTopic.lungs, ResourceTopic.heart],
+      publishedAt: _whoDate(2025, 12, 16),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s household air pollution fact sheet covers pollution '
+          'produced inside the home — largely by cooking and heating with '
+          'solid fuels and kerosene — and the health effects associated with '
+          'it.',
+        ),
+        ArticleBlock.paragraph(
+          'It complements the outdoor air-quality guidance: on a bad-air '
+          'day, indoor sources add to what comes in from outside.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
+        ),
+      ],
+    ),
+    ResourceArticle(
+      id: 'who-heat-and-health',
+      title: 'Heat and health',
+      summary:
+          'WHO\'s fact sheet on how heat affects health and who is most at '
+          'risk.',
+      topic: ResourceTopic.heat,
+      sourceName: _who,
+      sourceUrl: _whoHeatHealthUrl,
+      authority: ResourceAuthority.who,
+      categories: const [ResourceTopic.heat, ResourceTopic.heart, ResourceTopic.lungs],
+      publishedAt: _whoDate(2026, 7, 31),
+      lastVerifiedAt: _catalogueVerifiedOn,
+      content: [
+        ArticleBlock.paragraph(
+          'WHO\'s heat and health fact sheet covers how high temperatures '
+          'affect the body, which groups are most at risk during hot '
+          'weather, and the measures public-health authorities recommend for '
+          'protection.',
+        ),
+        ArticleBlock.paragraph(
+          'It is the source behind the hot-weather guidance elsewhere in '
+          'this catalogue.',
+        ),
+        ArticleBlock.tip(
+          'ForeSeeMe links to this fact sheet rather than reproducing it, so '
+          'what you read is the current text as WHO publishes it.',
         ),
       ],
     ),

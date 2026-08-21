@@ -126,6 +126,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           location == '/register' ||
           location == '/forgot-password';
 
+      // `/health-profile` serves two jobs: the first-run completion gate the
+      // redirects below enforce, and Profile's pushed "edit my health profile"
+      // detail screen (which passes `isEditMode`). Only the gate is a
+      // root-level flow. Without this distinction the "you already have a
+      // profile" rule below sent every edit straight back to /home, replacing
+      // the pushed route and taking Profile off the stack with it.
+      final isHealthProfileEdit =
+          state.extra is Map && (state.extra! as Map)['isEditMode'] == true;
+
       if (authState.isLoading) {
         debugPrint(
           'AppRouter: Auth is loading, redirecting to / or null (splash).',
@@ -160,7 +169,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && hasProfile) {
-        if (isAuthRoute || location == '/health-profile' || location == '/') {
+        if (isAuthRoute ||
+            (location == '/health-profile' && !isHealthProfileEdit) ||
+            location == '/') {
           debugPrint(
             'AppRouter: Authenticated with profile, redirecting to /home.',
           );
