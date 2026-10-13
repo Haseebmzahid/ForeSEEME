@@ -1,3 +1,16 @@
+## Scheduled backend release readiness
+
+For compute-risk, follow [the backend deployment workflow](../backend/deploy/README.md#compute-risk-release-candidate-workflow-authoritative).
+Its `one-time` mode uses attached identity and explicit freshness settings,
+verifies one exact execution plus all five persisted city results, and never
+accesses Scheduler. The separately authorized recurring mode pauses existing
+recurrence, verifies the initial execution, then schedules.
+The compute-risk controller requires an explicit reviewed SHA-256 digest-pinned image;
+mutable tags and the empty example IMAGE fail preflight. Existing APIs/billing/IAM
+are prerequisites; local readiness testing does not grant
+permission to deploy or write live data. The mobile release guide below is
+separate and does not establish backend readiness.
+
 # Deployment Guide: ForeSeeMe
 
 ## Deployment Strategy

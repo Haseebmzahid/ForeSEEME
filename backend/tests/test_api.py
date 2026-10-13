@@ -114,9 +114,9 @@ def test_corrupt_artifact_falls_back_to_stub(tmp_path) -> None:
 # --- Train/serve feature parity (the key correctness guard) -----------------
 
 
-def test_serving_features_match_training_for_fixed_input() -> None:
+def test_serving_features_match_training_for_fixed_input(frozen_weekly_base) -> None:
     """Serving builds the SAME feature vector as training for a fixed city/week."""
-    base = pd.read_parquet(mlpaths.INTERIM_DIR / "weekly_base.parquet")
+    base = frozen_weekly_base
     train = pd.read_parquet(mlpaths.TRAIN_PATH)
     feature_names = load(predict.resolve_artifact_path())["feature_names"]
 

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from ml.pipelines.acquisition_base import Window
 from ml.pipelines.acquisition_common import (
     VariableSpec,
@@ -98,6 +100,17 @@ def test_clip_to_coverage_noop_when_within_bounds() -> None:
     clipped, was_clipped = clip_to_coverage(window, coverage)
     assert was_clipped is False
     assert clipped == window
+
+
+@pytest.mark.parametrize("window", [
+    Window("2026-07-20", "2026-10-12"),
+    Window("2000-01-01", "2000-02-01"),
+    Window("2026-06-28", "2026-06-01"),
+])
+def test_clip_to_coverage_rejects_empty_intersection(window):
+    with pytest.raises(ValueError, match="does not overlap"):
+        clip_to_coverage(window, {"earliest_confirmed": "2022-08-05",
+                                  "latest_confirmed": "2026-06-28"})
 
 
 # --- Variable presence ------------------------------------------------------

@@ -5,7 +5,8 @@ FROM python:3.12-slim
 # Predictable, log-friendly Python runtime.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PORT=8000
+    PORT=8000 \
+    FORESEEME_ML_DATA_DIR=/home/appuser/ml-cache
 
 WORKDIR /app
 
@@ -26,7 +27,9 @@ COPY ml/config ./ml/config
 COPY ml/artifacts ./ml/artifacts
 
 # Run as a non-root user (security: never run as root).
-RUN useradd --create-home --uid 1000 appuser
+RUN useradd --create-home --uid 1000 appuser \
+    && mkdir -p /home/appuser/ml-cache \
+    && chown appuser:appuser /home/appuser/ml-cache
 USER appuser
 
 EXPOSE 8000

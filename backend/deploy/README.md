@@ -1,149 +1,179 @@
-# Backend job deployment (Phase 2: `compute_risk` + `dispatch_alerts`)
+## Compute-risk release-candidate workflow (authoritative)
 
-Closes the gap found in the production investigation: both jobs write
-correct data when run, but nothing in production ever ran either — there
-was no Cloud Scheduler trigger for either. This directory provisions
-**two** jobs, per ADR-002 (Cloud Scheduler → Cloud Run). `weekly_report` is
-still **not** provisioned — that's a later phase, and its cadence is
-unchanged (weekly).
+### Scheduler-free one-time deployment
 
-Nothing in `app/jobs/*.py`, `compose.yaml`, or the `Dockerfile` is modified
-by this phase; these scripts only add infrastructure config targeting the
-existing, unchanged `python -m app.jobs.<name>` entrypoints. No Pub/Sub,
-Eventarc, Cloud Tasks, Cloud Workflows, or Firebase Scheduled Functions were
-introduced — the architecture stays exactly "independent Cloud Scheduler →
-Cloud Run Job" per job, as decided.
+In an explicitly authorized release session, export the reviewed non-secret
+compute settings from `config.env.example` (and the actual reviewed digest-pinned
+`IMAGE`). Do not overwrite the ignored local config. Then use the public mode:
 
-## Phase 2 architectural decision: `compute_risk` is now daily, not weekly
+```powershell
+Set-Location 'D:\FYP ForeSeeMe\fyp_foreseeme\backend'
+python -B deploy/compute_risk_control.py one-time
+```
 
-The model is already trained; a scheduled run only performs **inference**
-over fresh weather/AQI data, which is cheap. Users should never see a
-week-old "Updated 7 days ago" card. **No code change was needed**:
-`app/jobs/compute_risk.py`'s `document_id()` already names each scheduled
-document by the run's actual calendar date (`{city}_{YYYY-MM-DD}` from
-`generated_at.strftime('%Y-%m-%d')`), not by ISO week — only `backfill()`
-(a separate, manual, unscheduled operator path) uses the ISO-week Monday.
-Invoking the existing `run()` path daily therefore already produces one
-fresh `riskEstimates` doc per city per day, with no change to the model,
-the feature pipeline, or the Firestore write path. This is purely a
-`config.env` schedule-string change (`"0 0 * * *"` instead of a weekly cron).
-
-`dispatch_alerts` moves to daily too (10 minutes after `compute_risk`), so
-it evaluates each day's fresh estimate instead of stale week-old data — this
-also means its existing 24h throttle window is now actually exercised as
-designed (previously, with a weekly cadence, the 24h throttle was
-structurally unreachable). `weekly_report` is intentionally left alone.
-
-## Files
-
-| File | Purpose |
-|---|---|
-| `config.env.example` | Copy to `config.env` (git-ignored) and adjust; no secrets in it. Shared vars + a `COMPUTE_RISK_*` block + a `DISPATCH_ALERTS_*` block |
-| `common.sh` | Shared, idempotent `gcloud` helpers (Phase 2: factored out of Phase 1's single script once a second job needed the same steps) — sourced by both `provision_*.sh` scripts, not run directly |
-| `provision_compute_risk.sh` | Provisions `compute-risk-job` + `compute-risk-daily` scheduler |
-| `verify_compute_risk.sh` | Triggers one real execution now and checks it succeeded |
-| `provision_dispatch_alerts.sh` | Provisions `dispatch-alerts-job` + `dispatch-alerts-daily` scheduler; additionally grants the shared job SA `roles/firebasemessaging.admin` |
-| `verify_dispatch_alerts.sh` | Triggers two consecutive executions (proves idempotency), pulls logs + heartbeat |
-| `read_heartbeat.py` | Ops helper: read `jobHeartbeats/{job}` (service-only, not console-visible) |
-| `read_dispatch_audit.py` | Ops helper: read recent `alertDispatchLog` entries, or a user's `userAlerts/{uid}/items` (Notification Center contents) |
-
-## Prerequisites
-
-- `gcloud` CLI installed and authenticated (`gcloud auth login`), with
-  `gcloud config set project foreseeme-83587` — **not available in this dev
-  sandbox** (confirmed absent); run these from a machine or CI runner that
-  has it.
-- Billing enabled on the project (APIs are enabled by the scripts, but
-  billing itself must already be active).
-- No service-account JSON anywhere in this flow — each Cloud Run Job
-  authenticates as its attached service account via Application Default
-  Credentials, which `init_firestore_repository()` / `init_firestore()`
-  already support with **zero code change**. Keeps `GOLDEN_RULES.md` §7
-  intact.
-
-## Run it
+Equivalent Bash entrypoint, with the same exported settings:
 
 ```bash
 cd backend
-cp deploy/config.env.example deploy/config.env   # adjust only if needed
-source deploy/config.env
-
-./deploy/provision_compute_risk.sh
-./deploy/verify_compute_risk.sh
-
-./deploy/provision_dispatch_alerts.sh
-./deploy/verify_dispatch_alerts.sh
+bash deploy/provision_compute_risk.sh --one-time
 ```
 
-## What gets created (Phase 2 additions on top of Phase 1)
+This mode runs the mandatory read-only preflight, creates/updates the job, submits
+one execution, and verifies that exact execution and persisted Firestore evidence.
+It never reads or modifies Scheduler resources, including on failure. Scheduler
+API, account, service-agent/invoker bindings and all four scheduler config values
+(`SA_SCHEDULER`, `COMPUTE_RISK_SCHEDULER_NAME`, `COMPUTE_RISK_SCHEDULE`,
+`COMPUTE_RISK_TIME_ZONE`) are not required. The CLI transport also rejects any
+Scheduler command in this mode. No prerequisite infrastructure is provisioned.
 
-- Cloud Run Job `dispatch-alerts-job` — same shared image, command
-  overridden to `python -m app.jobs.dispatch_alerts`.
-- Cloud Scheduler job `dispatch-alerts-daily` — 00:10 UTC daily (10 minutes
-  after `compute-risk-daily`'s 00:00 UTC), OAuth as `scheduler-invoker-sa`.
-- `risk-jobs-sa` (the same shared SA from Phase 1) additionally granted
-  `roles/firebasemessaging.admin` — layered on now because this is the job
-  that actually needs it (least-privilege, phase-scoped: Phase 1's
-  `compute_risk` still only needed `roles/datastore.user`).
-- `compute-risk-weekly` is renamed to `compute-risk-daily` with a daily
-  schedule (Phase 1 never actually provisioned real cloud resources in this
-  sandbox — `gcloud` wasn't available to run it — so this is a rename in
-  the scripts, not a live migration of an existing Cloud Scheduler job).
+Required APIs: `run.googleapis.com`, `artifactregistry.googleapis.com`,
+`firestore.googleapis.com`, `iam.googleapis.com`,
+`cloudresourcemanager.googleapis.com`, `serviceusage.googleapis.com`,
+`logging.googleapis.com`, `cloudbilling.googleapis.com`. Billing must already
+be enabled; project/CLI identity, operator ADC, digest/image availability,
+enabled jobs service account, unconditional jobs-SA `roles/datastore.user`, and
+operator heartbeat/risk-query read access are checked before job mutation.
+Effective operator job create/update/execute, image-read and service-account
+actAs permissions still require authorized cloud validation, as in recurring mode.
+Specifically, the release operator needs `run.jobs.create`/`run.jobs.update`,
+`run.jobs.run`, job/execution read permissions and `iam.serviceAccounts.actAs`
+on the attached identity, plus registry/log read access. Operator ADC separately
+needs Firestore entity get/list access. Configuration and project IAM role
+read-back do not prove these effective permissions, inherited policies,
+conditions, deny policies or actual image pull/runtime behavior. Offline tests
+do not establish live authorization.
 
-**Ordering is soft, by design, not by a hard dependency:** if `compute_risk`
-runs late or fails on a given day, `dispatch_alerts` simply re-reads
-yesterday's still-valid "latest two" estimates, finds no transition, and
-grades the run `ok` (zero sends is not a failure — see
-`classify_run()`/`docs/observability.md`). No Pub/Sub or event chaining was
-introduced to make this "hard," per the architecture constraint — the
-failure mode of a schedule race is benign, not corrupting, and the
-idempotency key (`{uid}__{riskEstimateId}__{category}`) prevents any
-double-send regardless of timing.
+The shared heartbeat factory also requires the legacy dispatch initializer to
+use the same guarded client; this release includes only that runtime
+compatibility change, not the separate dispatch deployment-controller workflow.
 
-## Verification performed this session
+All other compute config remains required, with example resources/freshness:
+`PROJECT_ID=foreseeme-83587`, `REGION=us-central1`,
+`SA_JOBS=risk-jobs-sa@foreseeme-83587.iam.gserviceaccount.com`,
+`COMPUTE_RISK_JOB_NAME=compute-risk-job`, timeout `600s`, memory `512Mi`, CPU `1`,
+`LOG_LEVEL=INFO`, `FIRESTORE_AUTH_MODE=attached`, lookback `12`, data delay `5`,
+both source trailing gaps `0`, verification timeout/max age `900` seconds.
+Set `VERIFY_MIN_WRITTEN=5` for clarity. Even if the shared default is `1`,
+one-time acceptance requires every configured city and at least five fresh
+documents; partial output fails without printing successful verification.
 
-**compute_risk (Phase 1, unchanged):** real Firestore emulator + real
-Open-Meteo network calls + real model, run under Python 3.12. All 5 cities
-written, heartbeat `ok`. See prior session output.
+The exact-execution polling, runtime read-back, timestamp/count checks and
+bounded verification deadline are shared with recurring deployment. Failures
+are not retried and never trigger scheduler cleanup. A timeout/uncertain execute
+response does not cancel a task and is not permission to submit a second one.
+Existing triggers are untouched and uninspected: this mode guarantees one
+submission by this invocation, not absence of unrelated concurrent executions.
+The operator must independently establish an appropriate evaluation window.
+Do not bypass preflight by invoking internal deploy/verify methods directly.
+Do not run the separate verify wrapper after successful one-time deployment:
+it would submit another execution and uses recurring-mode scheduler prerequisites.
 
-**dispatch_alerts (Phase 2, new):**
-- *Business logic* (targeting, 24h throttle, idempotency, audit logging,
-  inbox write, token pruning): already covered by 9 existing unit tests in
-  `backend/tests/test_dispatch_alerts.py` against fakes — re-run this
-  session, still green (see verification log).
-- *Firestore integration* (the parts unit tests use fakes for and therefore
-  cannot prove): `FirestoreRiskHistoryProvider`, `FirestoreUserDirectory`,
-  `FirestoreDispatchRepository` were exercised for real against the local
-  emulator this session — seeded a risk transition + a matching test user,
-  ran the real `dispatch_alerts.run()` orchestration (only the FCM `send()`
-  seam was stubbed — see below), and confirmed a real `alertDispatchLog`
-  write, a real `userAlerts/{uid}/items` write, and idempotency on a second
-  run. Details and output in this session's transcript / the Phase 2
-  deliverables summary.
+### Existing recurring deployment and verify-only workflow
 
-**Not verified — external dependency, not a code or deployment gap:**
-genuine FCM push delivery to a physical/emulated device, and the Flutter
-Notification Center reflecting it live. Real FCM send requires a real,
-signed production service-account credential (this sandbox has none —
-confirmed the same way Phase 1 confirmed `gcloud` was absent) *and* a real
-device/emulator running the signed-in Flutter app to capture a genuine
-`fcmToken`. Both are unavailable in this environment. The `--message_id`
-returned by a real send, and the on-device notification banner + in-app
-Notification Center refresh, need to be confirmed once against a real
-device as part of this project's still-open "device e2e" item (tracked
-since Sprint 3's close-out).
+The remaining compute instructions below describe the unchanged recurring path.
+Without `--one-time`, provision enables recurrence after successful verification.
 
-## Rollback
+The compute-risk scripts now use `compute_risk_control.py`. They require Python
+with the existing backend requirements, gcloud CLI login, **operator ADC** for
+read-only Firestore verification, and a matching active gcloud project. The
+runtime uses its attached `SA_JOBS` identity, not a JSON key. Verification reads
+service-only documents, so the operator needs read access. Token output is
+captured and never printed.
+
+APIs, billing, Artifact Registry image, service accounts, Firestore access for
+`SA_JOBS`, and Cloud Run invoker access for `SA_SCHEDULER` must already exist and
+be reviewed separately. Compute-risk provisioning no longer enables APIs,
+builds/pushes images, creates service accounts, or grants IAM. No script in this
+workflow has been executed against cloud resources during the readiness fix.
+
+The compute-risk controller requires an explicit, reviewed **digest-pinned** `IMAGE` in the
+configured Artifact Registry project/region. Tags (including `latest` or a commit
+SHA tag) are mutable and rejected. The example intentionally leaves `IMAGE=`
+empty, so copying it without operator review fails preflight. Supply the full
+reference of an already existing image, for example
+`us-central1-docker.pkg.dev/foreseeme-83587/backend/foreseeme-backend@sha256:<64-lowercase-hex-digest>`.
+Replace the placeholder with the reviewed image digest obtained from existing
+release evidence or an authorized read-only registry inspection. These scripts
+never build, push, resolve a moving tag, or modify the ignored local config.
+In an authorized release session an operator must review/update/export local
+settings; old configuration fails preflight. Export settings (plain `source`
+does not export them to Python):
 
 ```bash
-gcloud scheduler jobs delete compute-risk-daily --location=us-central1
-gcloud run jobs delete compute-risk-job --region=us-central1
-gcloud scheduler jobs delete dispatch-alerts-daily --location=us-central1
-gcloud run jobs delete dispatch-alerts-job --region=us-central1
-# Service accounts and the Artifact Registry repo are left in place —
-# harmless if idle, and a future weekly_report phase reuses risk-jobs-sa.
-# To also remove the FCM permission dispatch_alerts added:
-gcloud projects remove-iam-policy-binding foreseeme-83587 \
-  --member="serviceAccount:risk-jobs-sa@foreseeme-83587.iam.gserviceaccount.com" \
-  --role="roles/firebasemessaging.admin"
+cd backend
+set -a
+source deploy/config.env
+set +a
+# Explicit cloud operations; execute only in an authorized release session:
+bash deploy/provision_compute_risk.sh
+# A separate verification pauses any existing recurring schedule and leaves it paused:
+bash deploy/verify_compute_risk.sh
 ```
+
+Compute-risk read-only preflight validates configuration (including freshness,
+command policy, resources and digest), matching active CLI/project identity,
+ACTIVE project ID/number, enabled billing, and already enabled Run, Scheduler,
+Artifact Registry, Firestore, IAM, Resource Manager, Service Usage, Logging and
+Cloud Billing APIs. It confirms the pinned image exists and both service accounts
+are enabled and match their configured identities. Required unconditional roles
+are `roles/datastore.user` for `SA_JOBS`, `roles/run.invoker` for `SA_SCHEDULER`
+at project or existing-job scope, and `roles/cloudscheduler.serviceAgent` for the
+project-number Scheduler service agent. First job creation requires a project
+invoker binding. Custom/inherited/conditional equivalents fail conservatively.
+Operator ADC must read the heartbeat and a limited risk collection query; an
+absent first-run heartbeat is allowed. No FCM API/role is required for compute-risk.
+The CLI operator's effective job/scheduler write and service-account actAs rights
+still require authorized cloud validation; role read-back is not a complete
+effective-permission evaluator. Desired runtime configuration is validated before
+mutation; deployed runtime configuration is read back after job update and before
+execution. All CLI calls use closed stdin, `--quiet`, API-enable prompt suppression
+and bounded timeouts. The transport rejects prerequisite provisioning and direct
+scheduler-run commands. Provision checks these prerequisites before mutation.
+It pauses an existing named schedule, creates/updates the job with one
+task and no retries, checks the deployed command (`python -m
+app.jobs.compute_risk`), image, identity and environment, and executes the job
+directly. It captures the execution returned by that invocation, never a latest
+execution list. It polls `Completed` by type and rejects unsuccessful/cancelled
+states, failed tasks, absent proof and timeout. CLI calls, log polling and
+Firestore reads share a bounded verification deadline. Timeout does not cancel
+the running task; the recurring schedule remains paused/absent.
+
+Only after successful execution AND post-run assertions does provision
+create/update and enable the named scheduler. Failures leave the existing
+schedule paused or the new one absent; scheduler creation/activation failures
+attempt a compensating pause with a fresh timeout budget. All failures after
+preflight also attempt pause, including uncertain pause/update responses. If
+cleanup fails, the original exception remains the cause, both exception types
+are reported without raw error text, and the named schedule state is explicitly
+unknown: an operator must inspect and pause it before retrying. A cloud outage can
+prevent cleanup; successful cleanup is never assumed. The separate verify
+command never enables a schedule. It intentionally requires the same full configuration.
+
+Required runtime settings: `FIREBASE_PROJECT_ID` is explicitly set from
+`PROJECT_ID`; `FIRESTORE_AUTH_MODE=attached`; `RISK_LOOKBACK_WEEKS=12`;
+`RISK_DATA_DELAY_DAYS=5`; both `RISK_*_MAX_TRAILING_GAP_DAYS=0`. These retain the
+current five-day source lag and real, valid observation freshness requirements.
+The schedule accepts numeric cron fields and UTC only; LOG_LEVEL must retain
+INFO evidence (INFO or DEBUG). All runtime settings are validated and read back
+before execution. No schema or Flutter
+contract changed. Writable ML cache and manifest ownership remain as implemented
+in the existing Dockerfile/acquisition changes.
+
+Verification requires execution-scoped `run_evidence` logs, exactly the configured
+city set from `cities.yaml`, consistent per-status counts, at least
+`VERIFY_MIN_WRITTEN` fresh documents (default 1), and a persisted heartbeat whose
+start/finish timestamps and counts exactly match that run. Every written risk
+document must have the exact run `generatedAt`. The source freshness gate runs
+before inference; a regenerated timestamp alone does not bypass it. Log delivery
+is retried until `VERIFY_TIMEOUT_SECONDS` (900 by default); evidence older than
+`VERIFY_MAX_AGE_SECONDS` (900) is rejected. A later/concurrent heartbeat overwrite
+fails closed; verify again while schedules are paused.
+
+All cities written means `ok`. Partial output remains an allowed **degraded**
+result, printed with actual counts; it is never described as full success. Zero
+output fails. A heartbeat write failure changes the caller's report to `failed`,
+emits an alert with the exception type (no raw secret-bearing error text), and
+the scheduled entrypoint exits nonzero. Partial runs exit zero per the existing
+contract, while their structured logs/heartbeat retain `degraded` and alert=true.
+Changing `VERIFY_MIN_WRITTEN` strengthens only deployment acceptance, not runtime
+freshness. It must be between 1 and the configured city count.

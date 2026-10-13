@@ -23,14 +23,15 @@ Run (standalone, container-friendly)::
 
     # emulator (no credentials):
     FIRESTORE_EMULATOR_HOST=localhost:8080 python -m app.jobs.compute_risk
-    # real project:
-    GOOGLE_APPLICATION_CREDENTIALS=/secure/sa.json python -m app.jobs.compute_risk
+    # real project (local ADC or attached Cloud Run service account):
+    FIREBASE_PROJECT_ID=foreseeme-83587 python -m app.jobs.compute_risk
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -81,6 +82,10 @@ class RiskRepository(Protocol):
     def upsert(self, doc_id: str, body: dict[str, Any]) -> None: ...
 
 
+class InsufficientObservations(ValueError):
+    """A source is absent or older than the configured trailing-data policy."""
+
+
 # --- Outcome ----------------------------------------------------------------
 
 
@@ -112,14 +117,6 @@ def load_cities() -> list[dict[str, Any]]:
 # --- Core: one city's estimate ----------------------------------------------
 
 
-def _latest_finite(frame: pd.DataFrame, column: str) -> float | None:
-    """Last non-null value of ``column`` in the (time-sorted) window, or None."""
-    if column not in frame.columns:
-        return None
-    series = frame[column].dropna()
-    return float(series.iloc[-1]) if not series.empty else None
-
-
 def estimate_for_city_full(
     bundle: dict[str, Any],
     city_name: str,
@@ -137,18 +134,18 @@ def estimate_for_city_full(
     if base is None or base.empty:
         return None
 
+    base_sorted = base.sort_values(KEY)
+    latest = base_sorted.iloc[-1]
+    conditions = [latest.get(column) for column in ("temperature", "humidity", "us_aqi")]
+    if any(value is None or pd.isna(value) or not math.isfinite(float(value)) for value in conditions):
+        return None  # Never substitute an older week's conditions or missing AQI.
+    temperature, humidity, aqi = map(float, conditions)
+
     feature_names = bundle["feature_names"]
     engineered = engineer_serving_features(base, feature_names).sort_values(KEY)
     latest_features = engineered.iloc[[-1]][feature_names].astype(float)
     disease, risk_level, confidence = classify_dominant(bundle, latest_features)
     confidence = round(confidence, 4)
-
-    base_sorted = base.sort_values(KEY)
-    temperature = _latest_finite(base_sorted, "temperature")
-    humidity = _latest_finite(base_sorted, "humidity")
-    aqi = _latest_finite(base_sorted, "us_aqi")
-    if temperature is None or humidity is None:
-        return None  # current conditions missing -> skip this city
 
     response = RiskEstimateResponse(
         city=city_name,
@@ -157,7 +154,7 @@ def estimate_for_city_full(
         confidence=confidence,
         temperature=round(temperature, 2),
         humidity=round(humidity, 2),
-        aqi=round(aqi, 2) if aqi is not None else 0.0,  # contract requires aqi >= 0
+        aqi=round(aqi, 2),
         generated_at=generated_at,
         model_version=bundle["model_version"],
         low_confidence=confidence < resolve_low_confidence_threshold(bundle),
@@ -235,6 +232,9 @@ def run(
         name = city["name"]
         try:
             base = provider.recent_weekly_base(city)
+        except InsufficientObservations:
+            outcomes.append(CityOutcome(name, "skipped_insufficient"))
+            continue  # Provider already logged source/variable freshness details.
         except Exception as exc:  # one city's fetch failure must not kill the run
             logger.error("city_fetch_failed", extra={"city": name, "error": str(exc)})
             outcomes.append(CityOutcome(name, "error"))
@@ -380,6 +380,7 @@ def run_and_report(
     """
     cities = cities or load_cities()
     started_at = datetime.now(timezone.utc)
+    generated_at = generated_at or started_at
     try:
         outcomes = run(
             provider, repository, bundle=bundle, cities=cities,
@@ -399,6 +400,13 @@ def run_and_report(
         counts=observability.count_by_status(outcomes),
     )
     observability.emit(report, sink=heartbeat, logger=logger)
+    logger.info("run_evidence", extra={
+        "event": "run_evidence", "startedAt": report.started_at.isoformat(),
+        "finishedAt": report.finished_at.isoformat(), "generatedAt": generated_at.isoformat(),
+        "status": report.status, "counts": report.counts,
+        "heartbeatWritten": not (report.error or "").startswith("heartbeat_write_failed:"),
+        "cities": [{"city": o.city, "status": o.status, "doc_id": o.doc_id} for o in outcomes],
+    })
     return report, outcomes
 
 
@@ -416,34 +424,14 @@ class FirestoreRiskRepository:
 
 
 def init_firestore_repository() -> FirestoreRiskRepository:
-    """Initialise the Admin SDK from the environment (Sprint 1 seed-script pattern).
+    """Use ADC for real Firestore, anonymous credentials for the emulator.
 
-    Prefers a real service account (``GOOGLE_APPLICATION_CREDENTIALS``); falls back
-    to the emulator (``FIRESTORE_EMULATOR_HOST``). Never hardcodes credentials or a
-    project id. ``firebase_admin`` is imported lazily so the API service does not
-    depend on it.
+    ADC supports local gcloud login, optional credential files, and Cloud Run's
+    attached identity. An explicitly configured project must match a reused app.
     """
-    import firebase_admin
-    from firebase_admin import credentials, firestore
+    from app.jobs.firestore_runtime import get_firestore_client
 
-    if not firebase_admin._apps:
-        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        emulator = os.getenv("FIRESTORE_EMULATOR_HOST")
-        if cred_path:
-            logger.info("firestore_auth", extra={"mode": "service_account"})
-            firebase_admin.initialize_app(credentials.Certificate(cred_path))
-        elif emulator:
-            project_id = (os.getenv("FIREBASE_PROJECT_ID")
-                          or os.getenv("GCLOUD_PROJECT") or "demo-foreseeme")
-            logger.info("firestore_auth", extra={"mode": "emulator",
-                                                 "host": emulator, "project": project_id})
-            firebase_admin.initialize_app(options={"projectId": project_id})
-        else:
-            raise SystemExit(
-                "Set GOOGLE_APPLICATION_CREDENTIALS (real project) or "
-                "FIRESTORE_EMULATOR_HOST (emulator) before running the job."
-            )
-    return FirestoreRiskRepository(firestore.client().collection(COLLECTION))
+    return FirestoreRiskRepository(get_firestore_client().collection(COLLECTION))
 
 
 # --- Real provider: recent Open-Meteo weather + AQI -> weekly base ----------
@@ -462,19 +450,35 @@ class OpenMeteoWeeklyBaseProvider:
         self,
         *,
         lookback_weeks: int = 12,
+        data_delay_days: int = 5,
+        weather_max_trailing_gap_days: int | None = None,
+        aqi_max_trailing_gap_days: int | None = None,
         data_dir: Any | None = None,
         get: Any | None = None,
     ) -> None:
         from ml.pipelines.acquisition_base import AcquisitionBase
 
+        if lookback_weeks < 1 or data_delay_days < 0:
+            raise ValueError("Lookback must be positive and data delay must be non-negative")
         self._client = AcquisitionBase(data_dir=data_dir, get=get)
         self._lookback_weeks = lookback_weeks
+        # ERA5 archive data can lag by five days. Use one common historical
+        # window for weather and AQI rather than including today's partial data.
+        self._data_delay_days = data_delay_days
+        self._freshness = {
+            WEATHER_SOURCE: int(os.getenv("RISK_WEATHER_MAX_TRAILING_GAP_DAYS", "0"))
+            if weather_max_trailing_gap_days is None else weather_max_trailing_gap_days,
+            AQI_SOURCE: int(os.getenv("RISK_AQI_MAX_TRAILING_GAP_DAYS", "0"))
+            if aqi_max_trailing_gap_days is None else aqi_max_trailing_gap_days,
+        }
+        if any(gap < 0 for gap in self._freshness.values()):
+            raise ValueError("Freshness trailing gaps must be non-negative")
         self._sources = clean.load_sources()
         self._cleaning = clean.load_cleaning_config()
         self._aliases = clean._canonical_aliases(clean.load_cities())
 
     def _recent_window(self) -> Window:
-        end = datetime.now(timezone.utc).date()
+        end = datetime.now(timezone.utc).date() - timedelta(days=self._data_delay_days)
         start = end - timedelta(weeks=self._lookback_weeks)
         return Window(start=start.isoformat(), end=end.isoformat())
 
@@ -484,7 +488,11 @@ class OpenMeteoWeeklyBaseProvider:
     ) -> pd.DataFrame:
         source = self._sources[source_key]
         specs = aw.variable_specs(source)
-        effective, clipped = aw.clip_to_coverage(window, source.get("coverage", {}))
+        # latest_confirmed is a training-time observation, not a live API limit.
+        coverage = source.get("coverage", {})
+        effective, clipped = aw.clip_to_coverage(
+            window, {"earliest_confirmed": coverage.get("earliest_confirmed")},
+        )
         if clipped:
             logger.info("window_clipped", extra={"city": city["name"],
                                                  "source": source_key})
@@ -496,10 +504,23 @@ class OpenMeteoWeeklyBaseProvider:
         raw = json.loads(result.path.read_text(encoding="utf-8"))
         cleans = clean.variable_cleans(source, self._cleaning)
         max_gap = int(self._cleaning["max_interpolation_gap_days"])
-        daily, _stats = clean.clean_city(
+        daily, stats = clean.clean_city(
             raw, source_key, city["name"], effective, cleans, max_gap,
             self._aliases, add_aqi_flag=add_aqi_flag,
         )
+        # coverage_end describes real, range-valid observations BEFORE any
+        # interpolation; cached payloads are revalidated on every use.
+        cutoff = date.fromisoformat(window.end) - timedelta(days=self._freshness[source_key])
+        for variable in stats.variables:
+            if variable.coverage_end is None or date.fromisoformat(variable.coverage_end) < cutoff:
+                logger.warning("city_skipped_observations", extra={
+                    "city": city["name"], "source": source_key,
+                    "variable": variable.variable, "last_observation": variable.coverage_end,
+                    "required_since": cutoff.isoformat(), "requested_end": window.end,
+                    "max_trailing_gap_days": self._freshness[source_key],
+                    "reason": "unavailable" if variable.coverage_end is None else "stale",
+                })
+                raise InsufficientObservations("Required source observations unavailable or stale")
         return daily
 
     def recent_weekly_base(self, city: dict[str, Any]) -> pd.DataFrame | None:
@@ -546,7 +567,9 @@ def main(argv: list[str] | None = None) -> int:
     if is_backfill:
         lookback = max(lookback, weeks + 8)
 
-    provider = OpenMeteoWeeklyBaseProvider(lookback_weeks=lookback)
+    provider = OpenMeteoWeeklyBaseProvider(
+        lookback_weeks=lookback, data_delay_days=int(os.getenv("RISK_DATA_DELAY_DAYS", "5")),
+    )
     repository = init_firestore_repository()
 
     # Backfill is a manual operator operation (prints its own summary, no

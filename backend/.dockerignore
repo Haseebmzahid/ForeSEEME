@@ -1,0 +1,16 @@
+# Backend-only context. Only reviewed runtime files reach a future builder.
+# Use backend as the context; Git ignore rules do not protect Docker contexts.
+**
+!Dockerfile
+!.dockerignore
+!requirements.txt
+!app/
+!app/**/*.py
+!ml/
+!ml/__init__.py
+!ml/pipelines/
+!ml/pipelines/**/*.py
+!ml/config/
+!ml/config/*.yaml
+!ml/artifacts/
+!ml/artifacts/model_*.joblib

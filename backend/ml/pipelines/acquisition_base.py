@@ -262,7 +262,8 @@ class AcquisitionBase:
         self.now = now or _utcnow_iso
         self.data_dir = Path(data_dir) if data_dir is not None else paths.DATA_DIR
         self.manifest_path = (
-            Path(manifest_path) if manifest_path is not None else paths.MANIFEST_PATH
+            Path(manifest_path) if manifest_path is not None
+            else self.data_dir / "raw" / "manifest.json"
         )
         self.log = logger_ or logger
         timeout = self.config.retry.timeout_seconds

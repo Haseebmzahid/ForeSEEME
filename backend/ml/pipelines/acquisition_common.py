@@ -92,6 +92,8 @@ def clip_to_coverage(window: Window, coverage: dict[str, Any]) -> tuple[Window, 
     latest = coverage.get("latest_confirmed")
     start = max(window.start, earliest) if earliest else window.start
     end = min(window.end, latest) if latest else window.end
+    if start > end:
+        raise ValueError("Requested date window does not overlap source coverage")
     clipped = (start != window.start) or (end != window.end)
     return Window(start=start, end=end), clipped
 

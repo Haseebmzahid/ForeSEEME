@@ -15,7 +15,7 @@ deterministic id so those gates can build on it.
 Run (sibling of compute_risk)::
 
     FIRESTORE_EMULATOR_HOST=localhost:8080 python -m app.jobs.dispatch_alerts
-    GOOGLE_APPLICATION_CREDENTIALS=/secure/sa.json python -m app.jobs.dispatch_alerts
+    FIREBASE_PROJECT_ID=foreseeme-83587 FIRESTORE_AUTH_MODE=attached python -m app.jobs.dispatch_alerts
 """
 
 from __future__ import annotations
@@ -598,51 +598,10 @@ class FirestoreDispatchRepository:
 
 
 def init_firestore():
-    """Initialise the Admin SDK from the environment (compute_risk pattern)."""
-    import firebase_admin
-    from firebase_admin import credentials, firestore
+    """Guarded ADC/attached identity or anonymous emulator client; no key required."""
+    from app.jobs.firestore_runtime import get_firestore_client
 
-    if not firebase_admin._apps:
-        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        emulator = os.getenv("FIRESTORE_EMULATOR_HOST")
-        if cred_path:
-            logger.info("firestore_auth", extra={"mode": "service_account"})
-            firebase_admin.initialize_app(credentials.Certificate(cred_path))
-        elif emulator:
-            project_id = (
-                os.getenv("FIREBASE_PROJECT_ID")
-                or os.getenv("GCLOUD_PROJECT")
-                or "demo-foreseeme"
-            )
-            logger.info(
-                "firestore_auth",
-                extra={"mode": "emulator", "host": emulator, "project": project_id},
-            )
-
-            class _EmulatorCredential(credentials.Base):
-                """Never touches Application Default Credentials. Required
-                because passing no explicit credential defaults to
-                ``credentials.ApplicationDefault()``, which eagerly calls
-                ``google.auth.default()`` and raises when no real GCP
-                credentials are configured (as in a pure local-emulator
-                sandbox) — the emulator host env var alone does not prevent
-                that lookup. The emulator itself does not validate tokens, so
-                an anonymous credential is sufficient."""
-
-                def get_credential(self):
-                    from google.auth.credentials import AnonymousCredentials
-
-                    return AnonymousCredentials()
-
-            firebase_admin.initialize_app(
-                _EmulatorCredential(), options={"projectId": project_id}
-            )
-        else:
-            raise SystemExit(
-                "Set GOOGLE_APPLICATION_CREDENTIALS (real project) or "
-                "FIRESTORE_EMULATOR_HOST (emulator) before running the job."
-            )
-    return firestore.client()
+    return get_firestore_client()
 
 
 # --- Entry point ------------------------------------------------------------

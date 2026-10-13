@@ -105,15 +105,17 @@ def failed_report(
 def emit(report: RunReport, *, sink: HeartbeatSink, logger: logging.Logger) -> None:
     """Write the heartbeat document and the structured run-summary log.
 
-    A heartbeat-write failure is itself logged but never raised — observability must
-    not break the job it observes (the log signal still fires as a fallback).
+    A heartbeat-write failure marks the caller's report failed and emits an
+    alert. The fallback log still fires; the stored document shape is unchanged.
     """
     try:
         sink.write_heartbeat(report.job, report.to_document())
-    except Exception as exc:  # telemetry must never crash the job
+    except Exception as exc:  # retain the fallback signal and expose failure
+        report.status = STATUS_FAILED
+        report.error = f"heartbeat_write_failed: {type(exc).__name__}"
         logger.error(
             "heartbeat_write_failed",
-            extra={"job": report.job, "error": f"{type(exc).__name__}: {exc}"},
+            extra={"job": report.job, "error": type(exc).__name__},
         )
 
     level = logging.INFO if report.ok else logging.ERROR
@@ -122,6 +124,9 @@ def emit(report: RunReport, *, sink: HeartbeatSink, logger: logging.Logger) -> N
         "job_run",
         extra={
             "event": "job_run",
+            "startedAt": report.started_at.isoformat(),
+            "finishedAt": report.finished_at.isoformat(),
+            "heartbeatWritten": report.error is None or not report.error.startswith("heartbeat_write_failed:"),
             "job": report.job,
             "status": report.status,
             "alert": not report.ok,  # log-based alert policies match alert==true
@@ -150,6 +155,6 @@ class FirestoreHeartbeatSink:
 def init_firestore_heartbeat_sink() -> FirestoreHeartbeatSink:
     """Build a :class:`FirestoreHeartbeatSink` from the already-initialised Admin
     SDK app (the job initialises Firebase before calling this)."""
-    from firebase_admin import firestore
+    from app.jobs.firestore_runtime import get_firestore_client
 
-    return FirestoreHeartbeatSink(firestore.client())
+    return FirestoreHeartbeatSink(get_firestore_client())
