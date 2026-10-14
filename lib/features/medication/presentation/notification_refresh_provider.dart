@@ -1,6 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import '../data/services/medication_schedule_ledger.dart';
+import '../domain/services/notification_identity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/routes/app_router.dart';
@@ -15,6 +17,7 @@ import 'package:fyp_foreseeme/features/medication/domain/services/notification_s
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_analytics_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey_provider.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
+import 'medication_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/services/medication_notification_tap_handler.dart';
 
 // ── Core building blocks ────────────────────────────────────────────────────
@@ -22,6 +25,13 @@ import 'package:fyp_foreseeme/features/medication/presentation/services/medicati
 final notificationSchedulerProvider = Provider<NotificationScheduler>((ref) {
   return const LocalNotificationSchedulerAdapter();
 });
+
+final medicationRefreshQueueProvider = Provider(
+  (ref) => MedicationRefreshQueue(),
+);
+final medicationNotificationClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
 
 final medicationCoachingServiceProvider = Provider<MedicationCoachingService>((
   ref,
@@ -65,8 +75,8 @@ final medicationNotificationTapHandlerProvider =
 /// `ConsumerStatefulWidget` (`MedicationCardWidget`, after a check-in).
 ///
 /// Best-effort refresh of every medication-coaching notification for [uid].
-/// Reuses the already-computed journey/stats providers (no new Firestore
-/// reads beyond what the Adherence Journey screen already performs); never
+/// Reads a fresh medication/log snapshot and rebuilds the existing journey
+/// calculation. Serializes reconciliation and rejects superseded reads; never
 /// throws to its caller — a failed refresh just means the next trigger
 /// (app open, check-in, medication edit) tries again, and today's already-
 /// scheduled reminder keeps whatever content was last set successfully.
@@ -75,42 +85,83 @@ Future<void> refreshMedicationNotifications(
   String uid,
 ) async {
   if (uid.isEmpty) return;
-  try {
-    final medications = await container.read(medicationsStreamProvider.future);
-    final stats = await container.read(adherenceAnalyticsProvider(uid).future);
-    final journey = await container.read(adherenceJourneyProvider(uid).future);
+  await container.read(medicationRefreshQueueProvider).run((current) async {
+    try {
+      final platform = container.read(notificationSchedulerProvider);
+      if (platform is! MedicationNotificationInventory) {
+        return;
+      }
+      final ledger = MedicationScheduleLedger(
+        preferences: container.read(sharedPreferencesProvider),
+        platform: platform,
+        inventory: platform as MedicationNotificationInventory,
+        uid: uid,
+        clock: container.read(medicationNotificationClockProvider),
+      );
+      if (!current() || container.read(authStateProvider).value?.uid != uid) {
+        return;
+      }
+      await ledger.pruneExpiredAndLegacy();
+      final medications = await container
+          .read(medicationRepositoryProvider)
+          .getMedications(uid)
+          .first;
+      container.invalidate(adherenceAnalyticsProvider(uid));
+      final stats = await container.read(
+        adherenceAnalyticsProvider(uid).future,
+      );
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startDate = today.subtract(const Duration(days: 29));
-    final logs = await container
-        .read(adherenceLogRepositoryProvider)
-        .getLogsForDateRange(uid, startDate, today)
-        .first;
+      final now = container.read(medicationNotificationClockProvider)();
+      final today = DateTime(now.year, now.month, now.day);
+      final startDate = today.subtract(const Duration(days: 29));
+      final logs = await container
+          .read(adherenceLogRepositoryProvider)
+          .getLogsForDateRange(uid, startDate, today)
+          .first;
+      final journey = container
+          .read(adherenceJourneyServiceProvider)
+          .buildJourney(
+            medications: medications,
+            stats: stats,
+            logs: logs,
+            now: now,
+          );
 
-    final orchestrator = container.read(medicationNotificationOrchestratorProvider);
-    await orchestrator.refresh(
-      medications: medications,
-      stats: stats,
-      logs: logs,
-      journey: journey,
-      now: now,
-    );
+      if (!current() || container.read(authStateProvider).value?.uid != uid) {
+        return;
+      }
+      final orchestrator = MedicationNotificationOrchestrator(
+        scheduler: ledger,
+        coaching: container.read(medicationCoachingServiceProvider),
+      );
+      await orchestrator.refresh(
+        medications: medications,
+        stats: stats,
+        logs: logs,
+        journey: journey,
+        now: now,
+      );
 
-    await _refreshWeeklyReflection(container, journey, now);
-    await _maybeCelebrateMissionComplete(container, journey, now);
-  } catch (e, st) {
-    FlutterError.reportError(
-      FlutterErrorDetails(
-        exception: e,
-        stack: st,
-        library: 'notifications',
-        context: ErrorDescription(
-          'refreshing medication coaching notifications',
+      await _refreshWeeklyReflection(container, journey, now, uid, ledger);
+      bool valid() =>
+          current() && container.read(authStateProvider).value?.uid == uid;
+      await ledger.reconcile(valid);
+      if (valid()) {
+        await _maybeCelebrateMissionComplete(container, journey, now, uid);
+      }
+    } catch (e, st) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: e,
+          stack: st,
+          library: 'notifications',
+          context: ErrorDescription(
+            'refreshing medication coaching notifications',
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
+  });
 }
 
 /// Reschedules the Sunday-evening weekly summary (Phase 2.4) as a one-off
@@ -120,14 +171,25 @@ Future<void> _refreshWeeklyReflection(
   ProviderContainer container,
   AdherenceJourneyModel journey,
   DateTime now,
+  String uid,
+  NotificationScheduler scheduler,
 ) async {
-  final scheduler = container.read(notificationSchedulerProvider);
   final coaching = container.read(medicationCoachingServiceProvider);
   await scheduler.scheduleOnce(
     notificationId: LocalNotificationService.generateCoachingNotificationId(
       'weekly_reflection',
     ),
-    content: coaching.buildReflectionContent(journey.reflection),
+    content: coaching
+        .buildReflectionContent(journey.reflection)
+        .identified(
+          medicationEventKey(
+            uid,
+            'reflection',
+            'weekly',
+            '0',
+            nextSundayEvening(now).toIso8601String(),
+          ),
+        ),
     time: nextSundayEvening(now),
   );
 }
@@ -139,25 +201,54 @@ Future<void> _maybeCelebrateMissionComplete(
   ProviderContainer container,
   AdherenceJourneyModel journey,
   DateTime now,
+  String uid,
 ) async {
   if (journey.todaysMission.state != MissionState.allComplete) return;
 
-  final preferences = container.read(sharedPreferencesProvider);
   final todayKey = '${now.year}-${now.month}-${now.day}';
-  if (preferences.getString(_kMissionCelebratedDateKey) == todayKey) return;
+  if (!await container.read(missionCelebrationClaimsProvider).claim(uid, now)) {
+    return;
+  }
 
   final scheduler = container.read(notificationSchedulerProvider);
   final coaching = container.read(medicationCoachingServiceProvider);
   await scheduler.showNow(
     notificationId: LocalNotificationService.generateCoachingNotificationId(
-      'mission_complete_$todayKey',
+      'mission_complete_${uid}_$todayKey',
     ),
-    content: coaching.buildMissionCompleteContent(journey.todaysMission),
+    content: coaching
+        .buildMissionCompleteContent(journey.todaysMission)
+        .identified(
+          medicationEventKey(uid, 'celebration', 'mission', '0', todayKey),
+        ),
   );
-  await preferences.setString(_kMissionCelebratedDateKey, todayKey);
 }
 
-const _kMissionCelebratedDateKey = 'notif_mission_complete_celebrated_date';
+final missionCelebrationClaimsProvider = Provider(
+  (ref) => MissionCelebrationClaims(ref.read(sharedPreferencesProvider)),
+);
+
+Future<void> cancelOwnedMedicationNotifications(
+  ProviderContainer container,
+  String uid,
+  String medicationId,
+) async {
+  await container.read(medicationRefreshQueueProvider).run((_) async {
+    final platform = container.read(notificationSchedulerProvider);
+    if (platform is! MedicationNotificationInventory) {
+      return;
+    }
+    final ledger = MedicationScheduleLedger(
+      preferences: container.read(sharedPreferencesProvider),
+      platform: platform,
+      inventory: platform as MedicationNotificationInventory,
+      uid: uid,
+      clock: container.read(medicationNotificationClockProvider),
+    );
+    await ledger.pruneExpiredAndLegacy();
+    await ledger.cancelMedication(medicationId);
+  });
+}
 
 /// The next Sunday at 18:00 strictly after [now].
 DateTime nextSundayEvening(DateTime now) {
@@ -193,7 +284,22 @@ DateTime nextSundayEvening(DateTime now) {
 /// current on every app open. Activated by watching it once from an
 /// always-mounted widget (`AppShell`); Riverpod keeps the underlying
 /// listener alive for the rest of the app session.
+class _MedicationResumeObserver extends WidgetsBindingObserver {
+  final void Function() refresh;
+  _MedicationResumeObserver(this.refresh);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) refresh();
+  }
+}
+
 final notificationRefreshProvider = Provider<void>((ref) {
+  final observer = _MedicationResumeObserver(() {
+    final uid = ref.read(authStateProvider).value?.uid ?? '';
+    unawaited(refreshMedicationNotifications(ref.container, uid));
+  });
+  WidgetsBinding.instance.addObserver(observer);
+  ref.onDispose(() => WidgetsBinding.instance.removeObserver(observer));
   ref.listen(medicationsStreamProvider, (previous, next) {
     next.whenData((_) {
       final uid = ref.read(authStateProvider).value?.uid ?? '';

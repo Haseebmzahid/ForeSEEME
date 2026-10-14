@@ -7,6 +7,7 @@ import 'package:fyp_foreseeme/features/medication/domain/models/medication_model
 import 'package:fyp_foreseeme/features/medication/domain/services/dose_state_engine.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/medication_coaching_service.dart';
 import 'package:fyp_foreseeme/features/medication/domain/services/notification_scheduler.dart';
+import 'notification_identity.dart';
 
 /// Decides *what* to schedule and cancel across the whole notification
 /// pipeline (Sprint UX-M2.5, Phases 3/4/8) and executes it through the
@@ -47,7 +48,8 @@ class MedicationNotificationOrchestrator {
   }) async {
     final activeMedications = medications.where((m) => m.isActive).toList();
     final today = DateTime(now.year, now.month, now.day);
-    final missionComplete = journey.todaysMission.state == MissionState.allComplete;
+    final missionComplete =
+        journey.todaysMission.state == MissionState.allComplete;
 
     final logsByMedAndTime = <String, Map<String, AdherenceLogModel>>{};
     for (final log in logs) {
@@ -62,17 +64,6 @@ class MedicationNotificationOrchestrator {
       for (var slot = 0; slot < medication.reminderTimes.length; slot++) {
         final reminderTime = medication.reminderTimes[slot];
 
-        // Phase 3: personalise the primary reminder's time when the data
-        // supports it — still a daily-repeating alarm, just re-tuned.
-        final recommendation = coaching.analyzeTimingRecommendation(
-          medication: medication,
-          reminderTime: reminderTime,
-          logs: logs,
-          now: now,
-        );
-        final effectiveReminderTime =
-            recommendation?.recommendedTime ?? reminderTime;
-
         final actionContent = coaching.buildActionContent(
           medication: medication,
           reminderTime: reminderTime,
@@ -81,20 +72,31 @@ class MedicationNotificationOrchestrator {
           now: now,
         );
         await scheduler.scheduleDaily(
-          notificationId: LocalNotificationService.generateMedicationNotificationId(
-            medication.id,
-            slot,
+          notificationId:
+              LocalNotificationService.generateMedicationNotificationId(
+                medication.id,
+                slot,
+              ),
+          content: actionContent.identified(
+            medicationEventKey(
+              medication.uid,
+              'primary',
+              medication.id,
+              '$slot',
+              'daily',
+            ),
           ),
-          content: actionContent,
-          time: _timeToday(effectiveReminderTime, now),
+          time: _timeToday(reminderTime, now),
         );
 
-        final motivationalId = LocalNotificationService.generateCoachingNotificationId(
-          'motivational_${medication.id}_$slot',
-        );
-        final recoveryId = LocalNotificationService.generateCoachingNotificationId(
-          'recovery_${medication.id}_$slot',
-        );
+        final motivationalId =
+            LocalNotificationService.generateCoachingNotificationId(
+              'motivational_${medication.id}_$slot',
+            );
+        final recoveryId =
+            LocalNotificationService.generateCoachingNotificationId(
+              'recovery_${medication.id}_$slot',
+            );
 
         final log = logsByMedAndTime[medication.id]?[reminderTime];
         final doseState = DoseStateEngine.determineDoseState(
@@ -119,20 +121,40 @@ class MedicationNotificationOrchestrator {
         final baseTime = _timeToday(reminderTime, now);
         await scheduler.scheduleOnce(
           notificationId: motivationalId,
-          content: coaching.buildMotivationalContent(
-            medication: medication,
-            reminderTime: reminderTime,
-            now: now,
-          ),
+          content: coaching
+              .buildMotivationalContent(
+                medication: medication,
+                reminderTime: reminderTime,
+                now: now,
+              )
+              .identified(
+                medicationEventKey(
+                  medication.uid,
+                  'motivational',
+                  medication.id,
+                  '$slot',
+                  baseTime.add(motivationalDelay).toIso8601String(),
+                ),
+              ),
           time: baseTime.add(motivationalDelay),
         );
         await scheduler.scheduleOnce(
           notificationId: recoveryId,
-          content: coaching.buildRecoveryContent(
-            medication: medication,
-            reminderTime: reminderTime,
-            now: now,
-          ),
+          content: coaching
+              .buildRecoveryContent(
+                medication: medication,
+                reminderTime: reminderTime,
+                now: now,
+              )
+              .identified(
+                medicationEventKey(
+                  medication.uid,
+                  'recovery',
+                  medication.id,
+                  '$slot',
+                  baseTime.add(recoveryDelay).toIso8601String(),
+                ),
+              ),
           time: baseTime.add(recoveryDelay),
         );
       }

@@ -263,7 +263,7 @@ void main() {
       expect(scheduler.daily.containsKey(primaryId('m1', 0)), isTrue);
     });
 
-    test('a consistent earlier-taken pattern re-times the primary daily alarm', () async {
+    test('an earlier-taken pattern does not automatically alter the requested time', () async {
       final scheduler = FakeNotificationScheduler();
       final orchestrator = MedicationNotificationOrchestrator(scheduler: scheduler);
       final logs = [
@@ -284,8 +284,8 @@ void main() {
         now: now,
       );
 
-      expect(scheduler.daily[primaryId('m1', 0)]!.time.hour, 20);
-      expect(scheduler.daily[primaryId('m1', 0)]!.time.minute, 40);
+      expect(scheduler.daily[primaryId('m1', 0)]!.time.hour, 21);
+      expect(scheduler.daily[primaryId('m1', 0)]!.time.minute, 0);
     });
   });
 

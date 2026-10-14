@@ -86,7 +86,7 @@ be reviewed separately. Compute-risk provisioning no longer enables APIs,
 builds/pushes images, creates service accounts, or grants IAM. No script in this
 workflow has been executed against cloud resources during the readiness fix.
 
-The compute-risk controller requires an explicit, reviewed **digest-pinned** `IMAGE` in the
+Both controllers require an explicit, reviewed **digest-pinned** `IMAGE` in the
 configured Artifact Registry project/region. Tags (including `latest` or a commit
 SHA tag) are mutable and rejected. The example intentionally leaves `IMAGE=`
 empty, so copying it without operator review fails preflight. Supply the full
@@ -177,3 +177,82 @@ the scheduled entrypoint exits nonzero. Partial runs exit zero per the existing
 contract, while their structured logs/heartbeat retain `degraded` and alert=true.
 Changing `VERIFY_MIN_WRITTEN` strengthens only deployment acceptance, not runtime
 freshness. It must be between 1 and the configured city count.
+
+## Dispatch-alert release workflow
+
+`provision_dispatch_alerts.sh` and `verify_dispatch_alerts.sh` now use
+`dispatch_alerts_control.py`. The former enables recurring dispatch only after
+one verified initial execution; the latter performs one execution with the
+schedule paused and leaves it paused. Verification no longer triggers a second
+potentially sending run to claim idempotency; the existing offline dispatch and
+pipeline tests cover that property. A zero-send run is healthy and does not prove
+FCM device delivery. Any degraded/failed run blocks deployment acceptance while
+the runtime's existing dispatch semantics and exit policy remain unchanged.
+
+Export the shared config using `set -a; source deploy/config.env; set +a`, then
+use the dispatch entrypoints in an explicitly authorized cloud release session.
+Do not run them as an offline readiness test: they execute the real dispatch job,
+which can send FCM messages and write the audit/inbox/heartbeat collections.
+All `DISPATCH_ALERTS_*` values, `PROJECT_ID`, `REGION`, `IMAGE`, `SA_JOBS`,
+`SA_SCHEDULER`, `FIRESTORE_AUTH_MODE=attached`, `LOG_LEVEL=INFO` (or DEBUG),
+`VERIFY_TIMEOUT_SECONDS` and `VERIFY_MAX_AGE_SECONDS` are required. The shared
+900-second verification timeout must exceed the 300-second task timeout.
+Numeric five-field cron and UTC are supported. The ignored local `config.env`
+is not updated automatically and must include/export the required settings.
+
+Before any deployment/scheduler mutation, read-only preflight checks require:
+
+- Matching active gcloud project, a CLI identity and usable operator ADC.
+- Already enabled Run, Scheduler, Artifact Registry, Firestore, FCM, IAM,
+  Resource Manager, Service Usage, Logging and Cloud Billing APIs.
+- An ACTIVE project with the expected identifier/number and already enabled
+  billing (read-only checks; never linked/enabled by the controller).
+- An existing reviewed digest-pinned Artifact Registry image in the configured region/project.
+- Existing, enabled `SA_JOBS` and `SA_SCHEDULER` accounts in that project.
+- Unconditional project bindings for `SA_JOBS`: `roles/datastore.user` and
+  `roles/firebasemessaging.admin`; `SA_SCHEDULER`: `roles/run.invoker` at the
+  project or already-existing job. For a first job creation, scheduler invoker
+  access must already exist at project scope. Preflight conservatively rejects
+  custom/inherited/conditional equivalents; those need a reviewed authorization
+  strategy rather than an implicit IAM grant.
+- The project-number Scheduler service agent with its existing unconditional
+  `roles/cloudscheduler.serviceAgent` binding.
+- Operator ADC read access to `jobHeartbeats/dispatch_alerts` (an absent first-run
+  document is permitted). The CLI operator also needs job/scheduler write and
+  service-account actAs permissions; those actual operations remain unvalidated
+  until an authorized cloud session. Preflight requires permission to read
+  project/billing/IAM state; it cannot grant missing permissions.
+
+No deploy path enables APIs, grants IAM, creates accounts/repositories, or builds
+or pushes images. Both CLI transports allow only the required read/job/scheduler
+commands,
+disable SDK API-enable prompts, and run noninteractively.
+`common.sh` is retired and fails closed for old callers; no
+supported entrypoint sources it. Compute-risk shares the prerequisite safety
+policy, excluding dispatch-only FCM requirements; its freshness policy is
+unchanged. Legacy `read_heartbeat.py` / `read_dispatch_audit.py` remain
+operator helpers, not exact-execution proof.
+
+Dispatch uses the guarded Firestore factory with attached ADC in Cloud Run,
+explicit `FIREBASE_PROJECT_ID`, and no key/emulator override. The verifier uses
+operator ADC in its fresh CLI process. Deployment reads back the command
+`python -m app.jobs.dispatch_alerts`, image, service account, project/auth/log
+settings, single-task configuration and zero retries before executing.
+
+An existing schedule is paused and its state confirmed before deployment or
+execution. The execution returned by the current direct `gcloud run jobs execute`
+invocation is polled by exact name and creation timestamp under a shared bounded
+deadline. Failed/cancelled/unsuccessful terminals, timeout, missing/ambiguous
+execution-scoped `job_run` logs and degraded/failed signals are rejected. Logs
+are scoped to project, region, job and execution. The persisted heartbeat must
+match that run's start/finish times, counts, total and successful status; stale
+or overwritten heartbeats fail closed. Zero sends is permitted. No new document
+field, target predicate, throttle, idempotency key or FCM behavior was introduced.
+
+Failures after preflight attempt a compensating scheduler pause, including after
+a timed-out create/resume response. Cleanup has a fresh timeout budget. If it
+also fails, the error names both failure types and explicitly reports unknown
+schedule state requiring operator action. A network outage can prevent cleanup;
+a verification timeout does not cancel the running task. Device delivery, actual
+cloud response/IAM behavior, the image and end-to-end runtime remain unvalidated
+by offline tests.

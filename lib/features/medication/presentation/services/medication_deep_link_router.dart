@@ -3,6 +3,10 @@
 /// `features/alerts` — no navigation, no side effects, fully unit-testable.
 /// The payload is simply the `NotificationCategory.name` the notification
 /// was built with (see `MedicationCoachingService`).
+library;
+
+import 'dart:convert';
+
 class MedicationDeepLinkRouter {
   MedicationDeepLinkRouter._();
 
@@ -24,7 +28,17 @@ class MedicationDeepLinkRouter {
   };
 
   static String resolve(String? payload) {
-    final category = payload?.trim();
+    var category = payload?.trim();
+    if (category != null && category.startsWith('{')) {
+      try {
+        final data = jsonDecode(category);
+        category = data['owner'] == 'medication_v1'
+            ? data['category'] as String?
+            : null;
+      } catch (_) {
+        return fallbackRoute;
+      }
+    }
     if (category == null || category.isEmpty) return fallbackRoute;
     if (_checkInCategories.contains(category)) return '/check-in';
     if (_journeyCategories.contains(category)) return '/adherence-history';

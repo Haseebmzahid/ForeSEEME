@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import '../../features/medication/domain/services/notification_identity.dart';
 
 class LocalNotificationService {
   LocalNotificationService._();
@@ -143,7 +144,10 @@ class LocalNotificationService {
     required String payload,
   }) async {
     await _ensureInitialized();
-    if (!scheduledTime.isAfter(DateTime.now())) return;
+    if (!scheduledTime.isAfter(DateTime.now())) {
+      await _notificationsPlugin.cancel(id: notificationId);
+      return;
+    }
 
     final zoned = tz.TZDateTime.from(scheduledTime, tz.local);
     try {
@@ -226,16 +230,14 @@ class LocalNotificationService {
   }
 
   static int generateMedicationNotificationId(String medicationId, int index) {
-    return Object.hash(medicationId, index) & 0x7fffffff;
+    return medicationNotificationId('primary:$medicationId:$index');
   }
 
-  /// A distinct ID namespace for coaching-layer notifications (escalation
-  /// stages, celebrations, reflections) — hashing a descriptive [key] rather
-  /// than sharing [generateMedicationNotificationId]'s (medicationId, index)
-  /// space, so a motivational or recovery nudge can never collide with, or
-  /// silently overwrite, the primary reminder for the same slot.
+  /// Deterministic candidate for coaching notifications. Production scheduling
+  /// resolves collisions through the persisted medication ownership ledger;
+  /// immediate celebrations use their own persisted allocation range.
   static int generateCoachingNotificationId(String key) {
-    return key.hashCode & 0x7fffffff;
+    return medicationNotificationId('coaching:$key');
   }
 
   static Future<void> _ensureInitialized() async {

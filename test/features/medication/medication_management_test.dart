@@ -2,6 +2,13 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/notification_refresh_provider.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_analytics_provider.dart';
+import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey_provider.dart';
+import 'package:fyp_foreseeme/features/medication/domain/services/adherence_journey_service.dart';
+import 'medication_schedule_ledger_test.dart' show PlatformFake;
 
 import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
@@ -112,6 +119,122 @@ class _FakeMedicationRepository implements MedicationRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  Future<ProviderContainer> notificationContainer(
+    _FakeMedicationRepository repo,
+    PlatformFake platform,
+    DateTime Function() clock, {
+    bool disposeAtTearDown = true,
+  }) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        medicationRepositoryProvider.overrideWithValue(repo),
+        authStateProvider.overrideWith((ref) => Stream.value(_testUser())),
+        adherenceLogRepositoryProvider.overrideWithValue(
+          _FakeAdherenceLogRepository(),
+        ),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        notificationSchedulerProvider.overrideWithValue(platform),
+        medicationNotificationClockProvider.overrideWithValue(clock),
+        adherenceAnalyticsProvider('user-1').overrideWith((ref) async => []),
+        adherenceJourneyProvider('user-1').overrideWith(
+          (ref) async => const AdherenceJourneyService().buildJourney(
+            stats: [],
+            logs: [],
+            medications: repo.store.values.toList(),
+            now: clock(),
+          ),
+        ),
+      ],
+    );
+    container.listen(authStateProvider, (_, _) {});
+    container.listen(medicationsStreamProvider, (_, _) {});
+    container.listen(adherenceAnalyticsProvider('user-1'), (_, _) {});
+    await container
+        .read(authStateProvider.future)
+        .timeout(const Duration(seconds: 5));
+    if (disposeAtTearDown) addTearDown(container.dispose);
+    return container;
+  }
+
+  test(
+    'concurrent provider refresh and edit/slot reduction/archive/delete reconcile platform state',
+    () async {
+      final repo = _FakeMedicationRepository();
+      repo.store['m1'] = _medication(
+        id: 'm1',
+        reminderTimes: ['09:00', '10:00'],
+      );
+      final platform = PlatformFake();
+      final container = await notificationContainer(
+        repo,
+        platform,
+        () => DateTime(2026, 6, 30, 8),
+      );
+      await Future.wait(
+        List.generate(
+          8,
+          (_) => refreshMedicationNotifications(container, 'user-1'),
+        ),
+      );
+      expect(platform.entries, hasLength(7));
+      final notifier = container.read(medicationNotifierProvider.notifier);
+      await notifier.updateMedication(
+        repo.store['m1']!.copyWith(reminderTimes: ['11:00']),
+      );
+      expect(platform.entries, hasLength(4));
+      expect(
+        platform.times.values.any((t) => t.hour == 9 || t.hour == 10),
+        false,
+      );
+      await notifier.archiveMedication('user-1', 'm1');
+      expect(platform.entries, hasLength(1));
+      repo.store['m2'] = _medication(id: 'm2', reminderTimes: ['12:00']);
+      await refreshMedicationNotifications(container, 'user-1');
+      expect(platform.entries, hasLength(4));
+      await notifier.deleteMedication('user-1', 'm2');
+      expect(platform.entries, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'startup listener and resume observer reconcile without duplicates or backlog',
+    (tester) async {
+      final repo = _FakeMedicationRepository();
+      repo.store['m1'] = _medication(id: 'm1', reminderTimes: ['09:00']);
+      final platform = PlatformFake();
+      var clock = DateTime(2026, 6, 30, 8);
+      final container = await notificationContainer(
+        repo,
+        platform,
+        () => clock,
+        disposeAtTearDown: false,
+      );
+      container.listen(notificationRefreshProvider, (_, _) {});
+      for (var i = 0; i < 20; i++) {
+        await tester.pump();
+      }
+      expect(platform.entries, hasLength(4));
+      clock = DateTime(2026, 7, 10, 12);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump();
+      }
+      expect(platform.entries, hasLength(2));
+      expect(platform.times.values.every((t) => t.isAfter(clock)), true);
+      expect(platform.shown, 0);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      for (var i = 0; i < 20; i++) {
+        await tester.pump();
+      }
+      expect(platform.entries, hasLength(2));
+      container.dispose();
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
   // ── Firestore repository round-trip (real impl, fake backend) ──────────────
   group('FirestoreMedicationRepository', () {
     test(
@@ -159,41 +282,48 @@ void main() {
 
   // ── MedicationNotifier (fake repo — no Firestore or platform channels) ─────
   group('MedicationNotifier', () {
-    test('updateMedication persists edits without creating a duplicate', () async {
-      final repo = _FakeMedicationRepository();
-      repo.store['m1'] = _medication(id: 'm1', name: 'Paracetamol', dosage: '500mg');
+    test(
+      'updateMedication persists edits without creating a duplicate',
+      () async {
+        final repo = _FakeMedicationRepository();
+        repo.store['m1'] = _medication(
+          id: 'm1',
+          name: 'Paracetamol',
+          dosage: '500mg',
+        );
 
-      final container = ProviderContainer(
-        overrides: [
-          medicationRepositoryProvider.overrideWithValue(repo),
-          // updateMedication now routes through the notification-refresh
-          // pipeline directly (MedicationNotificationOrchestrator) — these
-          // keep it off real Firebase/Firestore in this repo-fake test.
-          authStateProvider.overrideWith((ref) => Stream.value(_testUser())),
-          adherenceLogRepositoryProvider.overrideWithValue(
-            _FakeAdherenceLogRepository(),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-      // Keeps medicationsStreamProvider's subscription pumping for
-      // `container.read(...future)` below — in the real app `AppShell`'s
-      // permanent `ref.listen` (notificationRefreshProvider) plays this
-      // role; a bare test container has nothing else doing so.
-      container.listen(medicationsStreamProvider, (previous, next) {});
+        final container = ProviderContainer(
+          overrides: [
+            medicationRepositoryProvider.overrideWithValue(repo),
+            // updateMedication now routes through the notification-refresh
+            // pipeline directly (MedicationNotificationOrchestrator) — these
+            // keep it off real Firebase/Firestore in this repo-fake test.
+            authStateProvider.overrideWith((ref) => Stream.value(_testUser())),
+            adherenceLogRepositoryProvider.overrideWithValue(
+              _FakeAdherenceLogRepository(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        // Keeps medicationsStreamProvider's subscription pumping for
+        // `container.read(...future)` below — in the real app `AppShell`'s
+        // permanent `ref.listen` (notificationRefreshProvider) plays this
+        // role; a bare test container has nothing else doing so.
+        container.listen(medicationsStreamProvider, (previous, next) {});
 
-      final updated = repo.store['m1']!.copyWith(
-        name: 'Paracetamol Extra',
-        dosage: '650mg',
-      );
-      await container
-          .read(medicationNotifierProvider.notifier)
-          .updateMedication(updated);
+        final updated = repo.store['m1']!.copyWith(
+          name: 'Paracetamol Extra',
+          dosage: '650mg',
+        );
+        await container
+            .read(medicationNotifierProvider.notifier)
+            .updateMedication(updated);
 
-      expect(repo.store, hasLength(1)); // no duplicate record
-      expect(repo.store['m1']!.name, 'Paracetamol Extra');
-      expect(repo.store['m1']!.dosage, '650mg');
-    });
+        expect(repo.store, hasLength(1)); // no duplicate record
+        expect(repo.store['m1']!.name, 'Paracetamol Extra');
+        expect(repo.store['m1']!.dosage, '650mg');
+      },
+    );
 
     test(
       'archiveMedication soft-deletes via deactivateMedication (history preserved)',
@@ -220,7 +350,9 @@ void main() {
 
   // ── Medication Detail Bottom Sheet ──────────────────────────────────────────
   group('MedicationDetailSheet', () {
-    testWidgets('shows the medication details and Active status', (tester) async {
+    testWidgets('shows the medication details and Active status', (
+      tester,
+    ) async {
       final medication = _medication(
         name: 'Metformin',
         dosage: '850mg',

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/local_notification_service.dart';
 import '../domain/models/medication_model.dart';
 import '../domain/repositories/medication_repository.dart';
 import '../data/repositories/firestore_medication_repository.dart';
@@ -77,7 +76,9 @@ class MedicationNotifier extends AsyncNotifier<void> {
       await repository.deactivateMedication(uid, medicationId);
 
       try {
-        await LocalNotificationService.cancelMedicationReminders(
+        await cancelOwnedMedicationNotifications(
+          ref.container,
+          uid,
           medicationId,
         );
       } catch (e, st) {
@@ -98,5 +99,13 @@ class MedicationNotifier extends AsyncNotifier<void> {
       state = AsyncValue.error(e, st);
       Error.throwWithStackTrace(e, st);
     }
+  }
+
+  Future<void> deleteMedication(String uid, String medicationId) async {
+    await ref
+        .read(medicationRepositoryProvider)
+        .deleteMedication(uid, medicationId);
+    await cancelOwnedMedicationNotifications(ref.container, uid, medicationId);
+    await refreshMedicationNotifications(ref.container, uid);
   }
 }

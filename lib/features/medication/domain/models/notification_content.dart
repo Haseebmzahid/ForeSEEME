@@ -6,7 +6,13 @@ library;
 /// The five notification categories (Phase 2). Every notification answers
 /// exactly one of: what should I do / why does it matter / what happens if I
 /// do it / how am I progressing / how can I improve.
-enum NotificationCategory { action, recovery, celebration, reflection, coaching }
+enum NotificationCategory {
+  action,
+  recovery,
+  celebration,
+  reflection,
+  coaching,
+}
 
 /// A fully-formed notification, ready to hand to a `NotificationScheduler`.
 /// [payload] encodes the category (and optional context) so a tap can be
@@ -16,13 +22,23 @@ class NotificationContent {
   final String title;
   final String body;
   final String payload;
+  final String? identity;
 
   const NotificationContent({
     required this.category,
     required this.title,
     required this.body,
     required this.payload,
+    this.identity,
   });
+
+  NotificationContent identified(String key) => NotificationContent(
+    category: category,
+    title: title,
+    body: body,
+    payload: payload,
+    identity: key,
+  );
 }
 
 /// A deterministic, explainable suggestion to shift a medication's reminder
