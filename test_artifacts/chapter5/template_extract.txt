@@ -1,0 +1,1246 @@
+0: 
+1: COMSATS University, Islamabad Pakistan
+2: 
+3: Project Name
+4: 
+5: By
+6: 
+7: Student Name 1       CIIT/ SP09-BCS-xxx/ISB
+8: Student Name 2       CIIT/ SP09-BCS-xxx/ISB
+9: 
+10: 
+11: Supervisor Supervisor  Name
+12: 
+13: 
+14: Bachelor of Science in Computer Science / Software Engineering (20xx-20xx)
+15: 
+16: 
+17: The candidate confirms that the work submitted is their own and appropriate  credit has been given where reference has been made to the work of others .
+18: 
+19: 
+20: COMSATS University, Islamabad Pakistan
+21: 
+22: 
+23: Project Name
+24: 
+25: 
+26: A project presented to
+27: COMSATS University, Islamabad
+28: 
+29: 
+30: In partial fulfillment
+31: of the requirement for the degree of
+32: 
+33: 
+34: 
+35: Bachelors of Science  in Computer Science / Software Engineering (20xx-20xx)
+36: 
+37: By
+38: 
+39: 
+40: Student Name 1 CIIT/ SP09-BCS-xxx/ISB
+41: Student Name 2 CIIT/ SP09-BCS-xxx/ISB
+42: 
+43: DECLARATION
+44: We hereby declare that this software, neither whole nor as a part, has been copied out from any source. It is further declared that we have developed this software and accompanied report entirely  on the basis of  our personal efforts. If any part of this project is proved to be copied out from any source or found to be a reproduction of some other, we will stand by the consequences. No Portion of the work presented has been submitted of any application for any other degree or qualification of this or any other university or institute of learning.
+45: 
+46: Student Name 1                                                                                Student Name 2
+47: 
+48: ---------------------------                                                                        ---------------------------
+49: 
+50: 
+51: 
+52: 
+53: 
+54: 
+55: CERTIFICATE OF APPROVAL
+56: It is to certify that the final year project of BS (CS) Dukan was developed by  MUZAMAL RIAZ (CIIT/SP19-BSE-092)  and  UMAIR KHALID (CIIT/SP19-BCS-004)  under the supervision of SARA ALI and co supervisor “CO-SUPERVISOR NAME” and that in (their/his/her) opinion; it is fully adequate, in scope and quality for the degree of  Bachelors of Science  in Computer Sciences / Software Engineering.
+57: 
+58: 
+59: 
+60: 
+61: 
+62: 
+63: ---------------------------------------
+64: Supervisor
+65: 
+66: 
+67: 
+68: ---------------------------------------
+69: External Examiner
+70: 
+71: 
+72: 
+73: 
+74: ---------------------------------------
+75: Head of Department
+76: (Department of Computer Science)
+77: 
+78: 
+79: 
+80: 
+81: EXECUTIVE SUMMARY
+82: In public places, there is often a need for monitoring people and different activities going on, which can be referred later for many reasons including security. Appointing humans for this task involves many problems such as increased employee hiring, accuracy problems, trust, no proof for later use,  and also  the fact that a human can remember things till a certain time limit. Talking about the current security system, they use still cameras with a continuous recording facility irrespective of the fact that any event may happen or not. Moreover, they are usually pointing at a specific user defined locations so more than one camera is required to cover the entire region.
+83: 
+84: To prevent all these problems from prevailing, the CSCS is developed. It is a surveillance system, which provides solutions to many of these problems. It is a stand-alone application which doesn’t require any computer to operate. It monitors different situations using a camera which can rotate intelligently based on sensor messages and captures the scene in the form of video or photos later reference as well.
+85: 
+86: C ustomizable  S urveillance  C ontrol  S ystem  (CSCS)  is a surveillance system that can be assigned to a sensor type as in our case a heat sensor is used, it works accordingly, rotates the camera upon event detection and perform user defined actions like capturing video and storing them, for the future use.
+87: 
+88: It is an embedded system consisting of Linux fox kit with embedded a running server application also a camera, USB storage device and a sensor node base station is attached with fox kit. LAN communication is used by users to download videos and to operate the system manually. 
+89: 
+90: Abstract
+91: Write a one-paragraph abstract following the guidelines below:
+92: Rationale:  Provide the reason for creating the proposed software/project.  (1 sentence)
+93: Existing System:  Discuss the current state of the existing systems or practices.  (2 sentences)
+94: Targeted Challenges:  Highlight the problems or opportunities that the proposed project aims to address.  (2 sentences)
+95: Grey Area:  Identify the gap or unmet need that the proposed project will fulfill.  (1 sentence)
+96: Objectives:  Clearly state the goals that the proposed project intends to achieve.  (3 sentences)
+97: Significance of the Project:  Summarize the key benefits and impact of the proposed project as a final product.  (1 sentence)
+98: 
+99: 
+100: 
+101: 
+102: 
+103: 
+104: 
+105: 
+106: 
+107: 
+108: 
+109: Acknowledgement
+110: All praise is to Almighty Allah who bestowed upon us a minute portion of His boundless knowledge by virtue of which we were able to accomplish this challenging task.
+111: 
+112: We are greatly indebted to our project supervisor “_______” and our  Co- Supervisor “_____”. Without their personal supervision, advice and valuable guidance, completion of this project would have been doubtful. We are grateful to them for their encouragement and continual help during this work.
+113: 
+114: And we are also thankful to our parents and family who have been a constant source of encouragement for us and brought us with the values of honesty & hard work.
+115: 
+116: 
+117: 
+118: 
+119: Student Name 1                                                                               Student Name 2
+120: 
+121: ---------------------------                                                                        ---------------------------
+122: 
+123: 
+124: 
+125: 
+126: 
+127: 
+128: 
+129: 
+130: 
+131: Abbreviations
+132: SRS Software Require Specification PC Personal Computer
+133: 
+134: Table of Contents
+135: Abstract v
+136: 1 Chapter 1: Introduction and Problem Definition 1
+137: 1.1 Overview of the Project 1
+138: 1.2 Vision Statement 1
+139: 1.3 Problem Statement 2
+140: 1.4 Problem Solution 2
+141: 1.5 Objectives of the Proposed System 2
+142: 1.6 Scope 2
+143: 1.6.1 Limitations/Constraints 2
+144: 1.7 Modules 3
+145: 1.7.1 Module 1: Module Name 3
+146: 1.8 Related System Analysis/Literature Review 3
+147: 1.8.1 Literature Review 3
+148: 1.8.2 Related System Analysis 4
+149: 1.9 Tools and Technologies 4
+150: 1.10 Project Contribution 4
+151: 1.11 Relevance to Course Modules 5
+152: 2 Chapter 2: Requirement Analysis 6
+153: 2.1 User Classes and Characteristics 6
+154: 2.2 Operating Environment 6
+155: 2.3 Design and Implementation Constraints 6
+156: 2.4 Use case Diagram 6
+157: 2.5 Requirement Identifying Technique 7
+158: 2.6 Functional Requirements 8
+159: 2.6.1 Recommended Format: 8
+160: 2.7 Non-Functional Requirements 9
+161: 2.7.1 Reliability 9
+162: 2.7.2 Usability 9
+163: 2.7.3 Performance 9
+164: 2.7.4 Security 10
+165: 2.8 External Interface Requirements 10
+166: 2.8.1 User Interfaces Requirements 10
+167: 2.8.2 Software interfaces 11
+168: 2.8.3 Hardware interfaces 11
+169: 2.8.4 Communications interfaces 11
+170: 3 Chapter 3: Design and Architecture 12
+171: 3.1 System Architecture Overview 12
+172: 3.1.1 Purpose 12
+173: 3.2 Guidelines for Students 12
+174: 3.2.1 Technologies and Services 13
+175: 3.3 Architecture Style / Pattern 13
+176: 3.3.1 Guidelines for Students 13
+177: 3.4 Design Models 13
+178: 3.4.1 Design Models for Object Oriented Development Approach 14
+179: 3.4.2 Design Models for Procedural Approach 14
+180: 3.5 Data Design 14
+181: 4 Chapter 4: Implementation 15
+182: 4.1 Project Methodology & Algorithms 15
+183: 4.1.1 Project Methodology (Step-by-Step Approach) 15
+184: 4.1.2 Algorithm 17
+185: 4.1.3 Guideline for Students 18
+186: 4.2 Training Results & Model Evaluation (Mandatory for AI/ML/Data Science Projects) 18
+187: 4.3 Security Techniques (if applicable) 18
+188: 4.4 External APIs/SDKs 18
+189: 4.5 User Interface 19
+190: 4.5.1 Login Screen     4.5.2 Home Screen 19
+191: 4.5.3 Assignee Dashboard 20
+192: 4.5.4 New Complaint 21
+193: 4.6 Deployment 21
+194: 5 Chapter 5: Testing and Evaluation 22
+195: 5.1 Unit Testing 22
+196: 5.2 Functional Testing 22
+197: 5.3 Business Rules Testing 23
+198: 5.4 Integration Testing 23
+199: 5.5 Automated Testing (Mandatory for Software Engineering FYPs) 24
+200: 5.5.1 Automated Testing Strategy 24
+201: 5.5.2 Automation Tools and Environment 24
+202: 5.5.3 Automated Test Cases 25
+203: 5.5.4 Automated Test Execution and Results 25
+204: 5.5.5 Requirement Traceability for Automated Testing 26
+205: 6 Chapter 6: Conclusion and Future Work 27
+206: 6.1 Conclusion 27
+207: 6.2 Future Work 27
+208: 7 Chapter 7: References 28
+209: 8 Chapter 8: Plagiarism Report 29
+210: Appendix A 30
+211: Example: Context Diagram 30
+212: Example: User Classes and Characteristics 31
+213: Example: Use case Diagram 32
+214: Syntax for Use case Diagram 33
+215: Example: Mockup-Based Requirement Analysis 34
+216: Mockup M1 – Login Page 34
+217: Functional Requirements Derived from Mockup M1 – Login Page 34
+218: Mockup M2 – Dashboard Page 35
+219: Functional Requirements Derived from Mockup M2– Dashboard Page 35
+220: Appendix B 39
+221: Conceptual Architecture Example – Online Shopping Mall 39
+222: Example: 39
+223: Example of Architecture Pattern: 41
+224: Appendix C 43
+225: Design Models 43
+226: Activity Diagram 43
+227: Activity Diagram Syntax 44
+228: Class Diagram 45
+229: Example 45
+230: Class Diagram Syntax 46
+231: Sequence Diagram 47
+232: Exampl 47
+233: Sequence diagram Syntax 48
+234: Behavioral State Machine Diagram 49
+235: Exam 49
+236: Behavioral State Machine Diagram Syntax 50
+237: Data Flow Diagram 51
+238: Guidelines for Drawing DFDs 51
+239: Appendix D 55
+240: General Coding Standards & Guidelines 55
+241: Appendix E 57
+242: Business rules testing 57
+243: Example: 57
+244: 
+245: 
+246: List of Figures
+247: 
+248: Figure 4.3 Assignee Dashboard 29
+249: Figure A 1: Context diagram of the Cafeteria Ordering System. 36
+250: Figure A-2: Use Case Diagram of an Appointment System 38
+251: 
+252: 
+253: 
+254: 
+255: Chapter 1:  Introduction  and Problem Definition
+256: This chapter provides  an  overview of the project. The first paragraph of every chapter should provide the chapter summary.
+257: Overview of the Project
+258: Briefly introduce the project and its context. Mention the domain, users, problem scope, and the need for automation or improvement.
+259: 
+260: Example:   The Cafeteria Automation System is an intelligent, mobile-based application designed to digitize and streamline the food ordering and management process in university and institutional cafeterias. The system bridges the gap between users (students and faculty) and the cafeteria staff by enabling online ordering, real-time availability tracking, and administrative control, reducing queues and manual order handling. The proposed solution offers a scalable and user-friendly interface while improving transparency, hygiene, and efficiency in daily operations.
+261: Vision Statement
+262: Write a  concise  statement that summarizes the long-term purpose, intent and significance of the product. The vision statement should reflect a balanced view that will satisfy the expectations of diverse stakeholders. It can be somewhat idealistic but should be grounded in the realities of existing or anticipated markets. The following keyword template works well for crafting a product vision statement:
+263: 
+264: For  [target customer]
+265: Who  [statement of the need or opportunity]
+266: The  [product name]
+267: Is  [product category]
+268: That  [major capabilities, key benefit, compelling reason to buy or use]
+269: Unlike  [primary competitive alternative, current system, current business process]
+270: Our product  [statement of primary differentiation and advantages of new product]
+271: 
+272: Here’s a sample vision statement for the Chemical Tracking System, with the keywords in boldface:
+273: 
+274: Example:   For  employees  who  want to order meals from the company cafeteria or from local restaurants online,  the  Cafeteria Ordering System  is  an Internet-based and smartphone-enabled application  that  will accept individual or group meal orders, process payments, and trigger delivery of the prepared meals to a designated location on the Process Impact campus.  Unlike  the current telephone and manual ordering processes, employees who use  our product  (the Cafeteria Ordering System) will not have to go to the cafeteria to get their meals, which will save them time and will increase the food choices available to them.
+275: Problem Statement
+276: Explain how your project will solve the problems mentioned above. List  specific  objectives of  the system 
+277: will accomplish.
+278: 
+279: Example:   Employees at the company Process Impact presently spend an average of 65 minutes per day going to the cafeteria to select, purchase, and eat lunch. About 20 minutes of this time is spent walking to and from the cafeteria, selecting their meals, and paying by cash or  with credit card . When employees go out for lunch, they spend an average of 90 minutes off-site. Some employees phone the cafeteria in advance to order a meal to be ready for them to pick up. Employees  don‘ t always pet the selections they want because the cafeteria runs out of certain items. The cafeteria wastes a significant quantity of food that is not purchased and must be thrown away. These same issues apply to breakfast and supper, although far fewer employees use the cafeteria for those meals than for lunch.
+280: Problem Solution
+281: Explain how your project will solve the problems mentioned above. List specific objectives the system will accomplish.
+282: 
+283: Example:   Many employees have requested a system that would permit a cafeteria user to order meals (defined as a set of one or more food items selected from the cafeteria menu) online, to be picked up at the cafeteria or delivered to a company location at a specified time and date. Such a system would save employees time, and it would increase their chance of getting the items they prefer. Knowing what food items customers want in advance would reduce waste in the cafeteria and would improve the efficiency of cafeteria staff. The future ability for employees to order meals for delivery from local restaurants would make a wide range of choices available to employees and provide the possibility of cost savings through volume discount agreements with the restaurants.
+284: Objectives of the Proposed System
+285: Example:
+286: BO-1: Reduce the cost of cafeteria food wastage by 40%.
+287: BO-2: Reduce cafeteria operating costs by 15%.
+288: BO-3: Increase average effective work time by 15 minutes per cafeteria-using employee per day.
+289: Scope
+290: Write down the scope of your project in a paragraph. Briefly define the main functionalities of the proposed project. Scope defines the  boundaries and range  of the proposed solution, that  what would be the part of your project.  Write down in logical flow with consistency. 
+291: (Usually in 14-18 sentences)
+292: 
+293: 
+294: 
+295: 
+296: 
+297: 
+298: Limitations/Constraints
+299: Write down the limitations and constraints of the proposed project. 
+300: 
+301: Example:   LI-1: Some food items that are available from the cafeteria will not be suitable for delivery, so the delivery menus available to patrons of the COS must be a subset of the full cafeteria menus.
+302: LI-2: The COS shall be used only for the cafeteria at the Process Impact campus in Clackamas, Oregon.
+303: Modules
+304: Write down the modules of the proposed project.   
+305: Each module should  highlight features , using  bulleted /numbered notation . 
+306: When developing both a mobile app and a web app, group the modules according to the system types,  such as  Client Web App, Client Mobile App, Admin Web App etc.
+307: 
+308: 
+309: Module 1 : Module  Name
+310: [List of features]
+311: 
+312: Example:
+313: 
+314: Module 1 : Order  Meal
+315: FE-1: Order and pay for meals from the cafeteria menu to be picked up or delivered. 
+316: FE-2: Order and pay for meals from local restaurants to be delivered.
+317: 
+318: Module 2: Menu Operations
+319: FE-1: Create, view, modify, and cancel meal subscriptions for standing or recurring meal orders, or for daily special meals.
+320: FE-2: Create, view, modify, delete, and archive cafeteria menus.
+321: FE-3: View ingredient lists and nutritional information for cafeteria menu items.
+322: Related System Analysis/Literature Review
+323: 
+324: Literature Review
+325: If the system includes advanced techniques such as artificial intelligence, machine learning, simulation, complex data analytics, or applies data and information security techniques, a literature review becomes essential. This section should explore prior academic or industry research relevant to the chosen domain. Highlight key findings, strengths and weaknesses of previous systems, and clearly outline how your project addresses any identified gaps.
+326: 
+327: Example:  Previous research in  smart cafeteria systems  and  digital ordering platforms  (e.g., Singh et al., 2022; Zhao et al., 2021) emphasizes the role of  real-time data analytics  in reducing waiting times and enhancing customer experience. However, many existing systems still rely on manual inventory checks and lack predictive features. Our project addresses this gap by integrating  IoT-enabled inventory management  with  AI-driven demand forecasting  to ensure accurate, real-time availability of meals.
+328: Similar approaches have been explored by  Ahmed et al. (2023) , who applied machine learning for predictive demand management, and  Lee et al. (2022) , who experimented with dynamic pricing to minimize food waste. While these studies highlight the potential of AI in cafeteria operations, they often neglect secure transaction handling and personalized meal recommendations. Our system extends the literature by combining  blockchain-based transaction security  with  AI-powered recommendation algorithms , offering a holistic cafeteria management solution.
+329: Related System Analysis
+330: Write  about the existing/similar systems related to your proposed project. 
+331: Don’t use more than 4 sentences for explaining a single system/application.
+332: 
+333: Briefly provide an analysis of the related system which may help you to specify the contribution of the proposed project. 
+334: 
+335: Table  1 .1     Related System Analysis with proposed project solution
+336: Application Name Weakness  Proposed Project Solution The name of related application(s). Weaknesses may include limited features,  low quality  functionality and processes. The way the proposed project mitigates the weaknesses. 
+337: 
+338: Tools and Technologies
+339: Identify the tools, frameworks, and technologies used. Explain why each was selected.
+340: 
+341: Example:  
+342: Table  1. 2  Tools and Technologies for Proposed Project
+343: Tools And Technologies Tool/Technology Purpose Rationale Flutter Mobile App UI Cross-platform and fast development Firebase Real-time Database & Auth Scalable, low-latency, and secure Node.js/Django Backend APIs REST API creation and middleware handling React/Vue Admin Panel Lightweight, modular front-end libraries Stripe/PayPal Payment Gateway Secure and widely adopted transaction tools
+344: 
+345: Project Contribution
+346: Write a detailed description of the technical and conceptual contributions introduced through the proposed system. The purpose of this section is to clearly identify the  original value  added through the project — whether through innovation, improvement, or unique implementation.
+347: You may write this in paragraph or bullet point form. The contribution should be highlighted:
+348: Innovations or improvements  over existing solutions
+349: Unique design or technical decisions
+350: New features  introduced
+351: Efficiency, usability, or performance enhancements
+352: Integration of technologies or tools in a novel way
+353: Avoid generic descriptions like “we implemented the system.” Focus on  what is new, better, different, or done in a novel way  in the project.
+354: 
+355: Example:
+356: The  Advanced Cafeteria Ordering System  introduces several technical and conceptual contributions compared to existing manual and digital solutions:
+357: AI-Powered Demand Forecasting : Uses machine learning models to predict peak demand, helping kitchen staff plan resources effectively.
+358: IoT-Enabled Inventory Management : Smart sensors automatically track stock levels and update menu availability in real-time.
+359: Dynamic Pricing for Waste Reduction : Predictive analytics adjusts prices for perishable items nearing expiration, reducing waste while boosting sales.
+360: Blockchain-Based Transaction Logging : Secure and transparent order/payment records prevent manipulation and improve financial accountability.
+361: Personalized Meal Recommendations : Recommendation algorithms suggest meals tailored to user preferences, improving satisfaction and engagement.
+362: Analytics Dashboard for Managers : Provides real-time insights into sales patterns, food waste, and customer behavior for data-driven decision-making.
+363: Contribution Impact : By integrating  AI, IoT, blockchain, and data analytics , the system transforms a simple ordering platform into a  smart, adaptive cafeteria ecosystem . These contributions significantly improve efficiency, transparency, customer satisfaction, and sustainability compared to conventional cafeteria solutions.
+364: Relevance to Course Modules
+365: Explain how your project is aligned with your cou rsework and academic knowledge.
+366: Example:
+367: Software Engineering:  Applied SDLC phases, requirement gathering, design modeling.
+368: Database Systems:  Structured data storage and queries using Firebase.
+369: Mobile App Development:  Implemented with Flutter for Android support.
+370: Web Technologies:  Developed Admin Panel using React.
+371: Cybersecurity:  Integrated secure authentication and payment encryption.
+372: Chapter  2 :  Requirement Analysis
+373: Provide an introduction to  the chapter in a few lines. Write details in each of the sections provided ahead.
+374: 
+375: User Classes and C haracteristics
+376: Identify the various user classes that you anticipate will use this product and describe their pertinent characteristics. See Appendix A for an example of how to present user classes and characteristics.
+377: Operating  E nvironment
+378: Describe the environment in which the software will operate, which might include the hardware platform; operating systems and versions; geographical locations of users, servers, and databases; and organizations that host the related databases, servers, and websites. 
+379: Example:
+380: 
+381: OE- 1:  The  System shall operate correctly with the following web browsers: Windows Internet Explorer versions 7, 8, and 9; Firefox versions 12 through 26; Google Chrome (all versions); and Apple Safari versions 4.0 through 8.0.
+382: Design and Implementation Constraints
+383: There are times when a certain programming language must be used, a code library that has already had time invested to develop it needs to be used, and so forth. Describe any factors that will restrict the options available to the developers and the rationale for each constraint.   Constraints are described further in Chapter 14 , “Beyond functionality.” 
+384: Example:
+385: 
+386: CO N -1:   The system shall use the current corporate standard Oracle database engine
+387: CON-2:  The application must use Microsoft .NET framework 4.5. 
+388: CON-3:  Online payments may be made only through PayPal. 
+389: CON-3:  All textual data used by the application shall be stored in the form of XML files. 
+390: Use case Diagram
+391: Provide a Use Case Diagram to illustrate the interactions between identified user classes (actors)  and the system. This diagram will establish the scope of user roles and access rights, and it will also serve as the basis for later modeling such as activity and sequence diagrams. See Appendix A for detailed guidelines on how to develop Use Case Diagrams.
+392: Requirement Identifying Technique
+393: This section describes the technique used to identify and document the functional requirements of the system.
+394: For this project,  Mockup-Based Requirement Analysis  is used. In this approach, user interface mockups are created using UI/UX tools such as Figma, Adobe XD, or Balsamiq. These mockups visually represent how users will interact with the system. Functional requirements are then derived from each screen’s elements and behaviors.
+395: Steps to Follow:
+396: Identify key features and break them down into individual  screens .
+397: Assign a  Mockup ID  to each screen (e.g., M1 for Login Page, M2 for Dashboard).
+398: Create  mockups  of the screens using any UI/UX design tool.
+399: Identify  interactive elements  on each screen (buttons, forms, menus, etc.).
+400: Derive a functional requirement from each element, describing what the system should do in response.
+401: Organize all functional requirements using the table format provided in Section  2.2.1 .
+402: Backend Process Requirements
+403: While mockups are effective for capturing  frontend interactions , some system functionalities take place entirely at the  backend   (e.g., order processing, payment gateway callbacks, email/SMS notifications, scheduled jobs, data validation, account security, and real-time tracking in ride-hailing apps). In addition, there are systems that operate almost entirely at the backend with  minimal or no user interface, such as traffic signal control systems or industrial monitoring systems.” .
+404: To capture these processes, the  Event–Response Table  technique is used.
+405: It is effective for  modelling  backend or real-time system  behaviours  where user interface interactions are not directly involved.
+406: It describes the system’s response to specific events, often including conditions under which different actions occur.
+407: This ensures backend workflows are captured in the requirements phase without going into design-level details.
+408: For detailed guidelines and examples of both Mockup-Based Requirement Analysis and Event–Response Tables, please see  Appendix A.
+409: Functional Requirements
+410: This section describes the functional requirements of the system derived from user interactions and mockups. To ensure clarity and maintain a stable specification, each requirement should be documented at the  feature level  (e.g.,  User Sign-In, Product Checkout ), with optional reference to the specific UI element(s) from which the feature is derived.   Each functional requirement must include:
+411: A  unique identifier  (e.g., FR1.1, FR1.2).
+412: A  clear and  testable  requirement   statement  written at the feature level.
+413: A reference to the  originating mockup screen and (if needed) the UI element that demonstrates the feature.
+414: An  optional Business Rule , if the behavior is governed by a domain-specific policy, condition, or constraint.
+415: Where applicable, Business Rules help clarify why a requirement must behave in a certain way and ensure that system behavior aligns with organizational rules, legal constraints, or client policies.
+416: Recommended Format:
+417: Use the following table structure to document mockup-based, feature-level functional requirements:
+418: Table 2.1 : Mockup-Based Functional Requirement Template
+419: Feature (derived from UI) Functional Requirement (FR-ID: Statement) Business Rule [Element e.g.,  User Sign-In ] FRx.y : The system shall [describe expected behavior or action]. [Any business rules if applicable]
+420: Examples of this technique are provided in  Appendix A .
+421: Non-Functional Requirements
+422: This section specifies non-functional requirements (NFRs) other than constraints (recorded in Section 2.3) and external interface requirements (described in Section 7). Non-functional requirements define the quality attributes of the system, such as reliability, usability, performance, and security. To avoid vague statements, these requirements must be written in  specific, quantitative, and verifiable terms  (e.g., using percentages, thresholds, or time limits).
+423: 
+424: To learn how to write non-functional requirements in measurable ways, students should refer to  Chapter 14 “Beyond Functionality” , which provides practical guidelines and examples of quality attribute requirements.
+425: Reliability  
+426: Requirements about how often the software fails. The measurement is often expressed in MTBF ( mean  time between failures). The definition of  failure  must be clear. Also, don't confuse reliability with  availability,  which is quite a different kind of requirement.  Be sure to specify the consequences of software failure, how to protect from failure, a strategy for error detection, and a strategy for correction.
+427: Usability
+428: Usability requirements deal with ease of learning, ease of use, error avoidance and recovery, the efficiency of interactions, and accessibility. The usability requirements specified here will help the user interface designer create the optimum user experience.
+429: Example:
+430: 
+431: USE-1: The COS shall allow a user to retrieve the previous meal ordered with a single interaction.
+432: Performance
+433: State specific  performance  requirements for various system operations. If different functional requirements or features have different performance requirements, it’s appropriate to specify those performance goals right with the corresponding functional requirements, rather than collecting them in this section. 
+434: Example:
+435: 
+436: PER-1:  95% of webpages generated by the COS shall download completely within 4 seconds from the time the user requests the page over a 20 Mbps or faster Internet connection.
+437: Security  
+438: One or more requirements about protection of your system and its data. The measurement can be expressed in a variety of ways (effort, skill level, and time) to break into the system.  Do not discuss solutions (e.g. passwords) in  the  requirements document.
+439: External Interface Requirements
+440: This section provides information to ensure that the system will communicate properly with users and with external hardware or software elements. A complex system with multiple subcomponents should create a separate interface specification or system architecture specification. The interface documentation could incorporate material from other documents by reference. For instance, it could point to a hardware device manual that lists the error codes that the device could send to the software. 
+441: User Interfaces Requirements
+442: Describe the logical characteristics of each user interface that the system needs. Some possible items to include are
+443: References to GUI standards or product family style guides that are to be followed.
+444: Standards for fonts, icons, button labels, images, color schemes, field tabbing sequences, commonly used controls, and the like.
+445: Screen layout or resolution constraints.
+446: Standard buttons, functions, or navigation links that will appear on every screen, such as a help button.
+447: Shortcut keys.
+448: Message display conventions.
+449: Layout standards to facilitate software localization.
+450: Accommodation for visually impaired users.
+451: Document the user interface design details, such as specific dialog box layouts, in a separate user interface specification, not in the SRS. Including screen mock-ups in the SRS to communicate  another view of the requirements is helpful but making it clear that the mock-ups are not the committed screen designs. If the SRS is specifying an enhancement to an existing system, it sometimes makes sense to include screen displays exactly as they are to be implemented. The developers are already constrained by the current reality of the existing system, so it's possible to know up front just what the modified, and perhaps the new, screens should look like.  
+452: Software interfaces
+453: Describe the connections between this product and other software components (identified by name and version), including other applications, databases, operating systems, tools, libraries, websites, and integrated commercial components (If any).
+454: Example:
+455: 
+456: SI-1: Cafeteria Inventory System
+457: SI-1.1: The COS shall transmit the quantities of food items ordered to the Cafeteria Inventory System through a programmatic interface .
+458: Hardware interfaces
+459: Describe the characteristics of each interface between the software components and hardware components, if any, of the system. This description might include the supported device types, the data and control interactions between the software and the hardware, and the communication protocols to be used. For more about specifying requirements for systems containing hardware, see Chapter 26, “Embedded and other real-time systems projects.”
+460: Communications interfaces
+461: State the requirements for any communication functions the product will use, including email, web browser, network protocols, and electronic forms.
+462: 
+463: Example:
+464: 
+465: CI-1: The COS shall send an email or text message (based on user account settings) to the Patron to confirm acceptance of an order, price, and delivery instructions.
+466: Chapter 3 :  Design and Architecture
+467: This chapter presents the high-level architectural design of the proposed system. It integrates the conceptual system architecture, architectural design patterns, and design models to provide a comprehensive understanding of how the system is structured and implemented. It also includes data design and a data dictionary for full system clarity.
+468: 
+469: 
+470: 
+471: System Architecture Overview
+472: This section describes the overall external architecture of the software system, which reflects the system's conceptual design, major components, services, technologies, and security considerations . Unlike internal architectural styles (e.g., Layered, MVC), this section focuses on helping stakeholders understand how the entire system operates at a macro level.
+473: Purpose
+474: To provide a conceptual view of the system that illustrates the big-picture design, showing where each module resides, what technologies are used, and how data and control flow between system components.
+475:   Guidelines for Students
+476: Create a  conceptual architecture diagram  using tools like Draw.io or  Lucidchart .
+477: Represent modules such as:
+478: Frontend (Web/Mobile App)
+479: Backend Services/API
+480: Database Layer
+481: Authentication and Authorization Services
+482: Admin Panel
+483: External APIs / Integrations
+484: Security Services (e.g., Role-Based Access Control, Firewall)
+485: Label each module clearly.
+486: Show flow of control/data using arrows.
+487: Provide explanations about:
+488: The responsibility of each module
+489: Communication between components
+490: Technologies and security mechanisms used
+491: Technologies and Services
+492: Table  3 .1  Technologies, Components, and Security Mechanisms Used in the System Architecture
+493: Component Description Technology Used Security Mechanism Frontend App User-facing interface Flutter SSL/TLS, Input Validation Backend API Business logic and communication Django / Node.js JWT, OAuth2.0 Database Data storage PostgreSQL / Firebase Role-based Access Control Admin Panel Admin management interface React / Vue Admin Auth, 2FA Payment Gateway Payment transactions Stripe / PayPal Tokenization / Encryption
+494: 
+495: A complete example of  conceptual architecture  is provided in  Appendix B .
+496:   Architecture Style / Pattern
+497: After presenting the conceptual architecture, describe the internal architecture pattern used to decompose the system into logical modules.
+498: Guidelines for Students
+499: Select and name the architecture pattern: Layered, MVC, Client-Server, Microservices, etc.
+500: Justify why this style was chosen.
+501: Provide a diagram showing components mapped to the architecture style.
+502: Describe interactions among components.
+503: 
+504: A complete example of  architecture  style and pattern  implementation is provided in  Appendix B .
+505: Design Models
+506: Create and include all relevant design models for your system. For each model,  provide a clear and concise description that explains its purpose, what it represents, and how it contributes to the overall system.  The description should help the reader understand the function of the model within the system. Be sure to explain key elements within the diagram so the reader can easily interpret and comprehend the model's significance and role.   you  are required to prepare design models for their projects, but the focus should be on  core workflows and critical processes , not on trivial operations.
+507: 
+508: Design Models for Object Oriented Development Approach
+509: The applicable models for the project using object-oriented development approach may include:
+510: 
+511: Activity Diagram  ( Activity diagrams are not required for trivial use cases such as Login, Logout, Edit Profile, View Profile, or other basic view/edit operations. )
+512: Class Diagram
+513: Sequence Diagram  ( Sequence diagrams are not required for trivial use cases such as Login, Logout, Edit/View Profile, or other basic view/edit operations. )
+514: State Transition Diagram (for the projects which include event handling and backend processes)
+515: Design Models for Procedural Approach
+516: The applicable models for the project using a procedural approach may include:
+517: 
+518: Activity Diagram
+519: Data Flow Diagram (data flow diagram should be extended to 2-3 levels. It should clearly list all processes, their sources/sinks and data stores.)
+520: State Transition Diagram (for the projects which include event handling and backend processes)
+521: 
+522: To view examples of all the above models, see Appendix C
+523: Data Design
+524: Explain how the information domain of your system is transformed into data structures. Describe how the major data or system entities are stored, processed, and organized. 
+525: 
+526: List any databases or data storage items.
+527: 
+528: 
+529: 
+530: 
+531: 
+532: 
+533: 
+534: 
+535: 
+536: 
+537: 
+538: 
+539: 
+540: Chapter 4 :  I mplementation
+541: This chapter discusses the implementation details of the project. You are not required to insert source code here; however, you must document the core module functionalities using pseudocode where applicable. Note: You are required to follow proper coding  standards  to write your source code. For guidelines,  General Coding Standards & Guidelines  are provided in Appendix D.
+542: In addition to pseudocode and UI/API documentation, if your implementation includes any techniques from Artificial Intelligence (AI), Machine Learning (ML), Deep Learning (DL), Data Science, or  Cyber security , you must also include the following details wherever applicable:
+543: 
+544: The specific technique/model/algorithm applied (e.g., Decision Trees, CNNs,  Autoencoders , Encryption Algorithms).
+545: The dataset used (source, size, format, any preprocessing applied).
+546: Training procedure and evaluation methodology.
+547: Achieved metrics (accuracy, precision, recall, F1-score, confusion matrix, etc.).
+548: Explanation of how the implementation meets or supports the project’s objectives.
+549: 
+550: Project Methodology & Algorithms
+551: This section explains the  methodology  (step-by-step approach) and the  core algorithms  that power the system. Students should avoid trivial operations (e.g., login, logout, simple CRUD) and instead focus on the methods and algorithms that:
+552: Enforce business rules
+553: Perform optimization or scheduling
+554: Implement intelligent features such as prediction, classification, or recommendation
+555: Project  Methodology (Step-by-Step Approach)
+556: The methodology describes the  overall approach taken to  implement  the system . Students must clearly describe each stage of their implementation pipeline, including  what was done, how it was done, and why it was necessary .
+557: 
+558: Template:
+559: 
+560: Data Collection
+561: What : Describe the type of data collected (e.g., logs, sensor data, datasets).
+562: How : Mention the source (e.g., CICIDS dataset, IoT sensors, API).
+563: Why : Explain why this data is important for the project.
+564: Data Preprocessing
+565: Missing Values : Explain how you handled them (e.g., mean substitution, forward fill).
+566: Duplicates : Describe how duplicates were removed (e.g., unique IDs, timestamps).
+567: Normalization : Mention scaling technique if used (e.g., Min-Max scaling, standardization).
+568: Feature Extraction & Selection
+569: What : List the key features used (e.g., packet size, user review keywords, image attributes).
+570: How : Explain how features were extracted and irrelevant ones removed (e.g., correlation filtering, PCA).
+571: Model Training
+572: Algorithm(s) : State the machine learning or AI models used (e.g., Random Forest, CNN, LSTM).
+573: Training : Mention dataset split (train/test) and evaluation method.
+574: Why : Explain why this model was chosen for the problem.
+575: Advanced Techniques (if applicable)
+576: NLP : If analyzing text (e.g., logs, reviews), describe tokenization, sentiment analysis, etc.
+577: Blockchain : If securing data, explain how transactions are stored immutably.
+578: Computer Vision : If using images, mention detection or classification methods.
+579: Deployment
+580: What : Describe the final system (web app, dashboard, mobile app).
+581: How : Mention deployment platform (e.g., cloud, server).
+582: Why : State the value of real-time access or monitoring.
+583: 
+584: Example: 
+585: 
+586: Project Methodology
+587: 
+588: The implementation of the  Cybersecurity Threat Detection System  followed the steps below:
+589: Data Collection
+590: Network traffic data was gathered from firewall logs and intrusion detection systems.
+591: Public cybersecurity datasets such as  CICIDS  and  UNSW-NB15  were used to train and test the model.
+592: Data Preprocessing
+593: Missing values  were filled using forward filling or average substitution.
+594: Duplicates  were identified using session IDs and removed.
+595: Data was normalized using  Min-Max scaling  to prepare it for machine learning algorithms.
+596: Feature Extraction & Selection
+597: Key features such as packet size, protocol type, and connection duration were extracted.
+598: Highly correlated or redundant features were removed using correlation analysis to reduce noise.
+599: Machine Learning Model Training
+600: Random Forest  and  Deep Neural Networks  were trained to classify traffic into normal or attack.
+601: Models were evaluated using accuracy, precision, recall, and F1-score.
+602: NLP-Based Log Analysis
+603: Security logs were processed with  tokenization and keyword extraction .
+604: Suspicious activities (e.g., repeated login failures) were detected through pattern recognition.
+605: Blockchain-Based Security
+606: Detected attack records and alerts were logged in a  blockchain ledger .
+607: This ensured that all events were  tamper-proof  and auditable.
+608: Deployment & Monitoring
+609: The trained models were deployed on a  cloud platform .
+610: A  real-time dashboard  displayed alerts, anomalies, and system health for administrators.
+611: Algorithm  
+612: This section documents the  major algorithms  that power the system. Students should avoid trivial operations such as login, logout, or simple CRUD actions. Instead, they should describe algorithms that:
+613: Enforce  business rules
+614: Perform  optimization or scheduling
+615: Implement  intelligent features  such as prediction, classification, or recommendation
+616: Each algorithm must include its name, input, output, and pseudocode steps. Following are some examples of documenting algorithms in pseudocode format.
+617: 
+618: Table 4.1: Examples of Algorithms
+619: Algorithm Name Details DiscountCalculation   (Business Rule) Input:  OrderAmount   Output:  FinalPrice   Pseudocode:  1: procedure  DiscountCalculation ( OrderAmount )  2:   Discount ← 0  3:   if  OrderAmount  ≥ 5000 then Discount ← 0.20  4:   else if  OrderAmount  ≥ 2000 then Discount ← 0.10  5:   else Discount ← 0.0  6:    FinalPrice  ←  OrderAmount  – ( OrderAmount  * Discount)  7:   return  FinalPrice   8: end procedure AppointmentScheduling   (Optimization) Input:   DoctorSchedule ,  PatientPreferredSlot   Output:   ConfirmedAppointment  or “Slot Unavailable”  Pseudocode:   1: procedure  AppointmentScheduling ( DoctorSchedule ,  PatientPreferredSlot )  2:   for each Slot in  DoctorSchedule  do  3:     if Slot ==  PatientPreferredSlot  AND Slot is Available then  4:        ConfirmedAppointment  ← Book(Patient, Slot)  5:       return  ConfirmedAppointment   6:     end if  7:   end for  8:   return "Slot Unavailable"  9: end procedure SentimentPrediction   (AI/Data Science) Input:   TrainedModel ,  InputText   Output:  Sentiment (Positive/Negative)  Pseudocode:   1: procedure  SentimentPrediction (Model, Text)  2:    CleanedText  ← preprocess(Text)  3:   Features ← vectorize( CleanedText )  4:   Prediction ←  Model.predict (Features)  5:   if Prediction ≥ 0.5 then return “Positive”  6:   else return “Negative”  7: end procedure
+620: Guideline for Students
+621: Document  1–3 algorithms  depending on your project.
+622: Use  pseudocode  instead of actual programming code.
+623: Select algorithms that represent  core rules, optimization, or intelligent logic  in the system.
+624: Training Results & Model Evaluation (Mandatory for  AI /ML/Data Science Projects)
+625: Describe:
+626: Dataset used (name, source, pre-processing)
+627: Training setup (platform, GPU/CPU, batch size, epochs)
+628: Performance metrics
+629: Screenshots of graphs (loss, accuracy, confusion matrix, ROC if applicable)
+630: Security Techniques (if applicable)
+631: Describe techniques used for:
+632: Authentication (JWT, OAuth)
+633: Encryption (AES, RSA)
+634: Attack prevention (XSS, SQLi handling)
+635: If using a model for intrusion detection or anomaly detection, explain its results.
+636: External APIs /SDKs
+637: Describe the third-party APIs/SDKs used in the project implementation in the following table. Few examples of APIs are provided in the table.
+638: 
+639: Table  4.2  Details of APIs used in the project
+640: Name of API and version Description of API Purpose of usage List down the API endpoint/function/class in which it is used Stripe (version 2020-08-27) Credit Card payment integration Sandbox used for the orders payment  stripe.paymentMethods.create Cloudinary Image and Video management solution Uploading Product Images on  Cloudinary  server https://api.cloudinary.com/v1_1/demo/image/upload
+641: User Interface
+642: Details about user interface with descriptions. Provide the User Interface for each sub-system (such as Mobile App, Web App, Client App, Admin App). Provide description of each User Interface explaining the details.
+643: When inserting User Interfaces, use appropriate size of the image, for example, for mobile app, 2-4 screens can be placed on a single page.
+644: 
+645: Following are few examples of User Interfaces:
+646: Login Screen 4.5. 2 Home Screen
+647: Login screen of our mobile app where user  Home  screen where total, delayed and 
+648: have to  choose its role and its company. Other complaints are shown.
+649: 
+650: 
+651: Figure 4.2  Home Screen Figure 4.2  Home Screen Figure  4.1  Login Screen
+652: Assignee Dashboard
+653: Complain Assignee can view the graphs of month-wise complains, Resolved complains, summary and a list of submitted complains.
+654: 
+655: 
+656: Figure  4. 3  Assignee Dashboard
+657: New Complaint  
+658: Figure 4.4  New Complaint Figure 4.4  New Complaint Complain  Assignee and Complainer can create a new  complain  by providing Description, Category, Title, Location etc.
+659: Deployment
+660: Specify the deployment environment used to host and test the application (e.g., Firebase, AWS, Azure, VPS). Mention details of cloud hosting, server configuration, backend frameworks, and relevant software stack including versions.
+661: Chapter 5 :  Testing and Evaluation
+662: 
+663: 
+664: Once the system has been successfully developed, testing  has to  be  conducted  to ensure that the system  works  as intended. This is also to check that the system meets the requirements stated earlier. Besides that, system testing will help in finding the errors that may be hidden from the user. The testing must be completed before it is deployed for use. 
+665: 
+666: There are few types of testing which  include   unit  testing, functional testing and integration testing. 
+667: You are  required  to perform each of these in-depth to ensure system quality.
+668: Unit Testing
+669: Unit testing verifies the  smallest testable components  of the software (e.g., individual functions, methods, or classes) in isolation. The purpose is to ensure that each unit performs as expected, independent of the full system.
+670: At the FYP level:
+671: Software Engineering students  must implement automated testing for the core features of their project using appropriate testing frameworks such as JUnit,  PyTest , Selenium, or equivalent tools. Detailed documentation  of  automated testing shall be provided in  Section 5.5.
+672: Other programs (CS, AI, Cybersecurity, Data Science)  may show simplified unit-level tests where functions or algorithms are executed with inputs and outputs compared  against   the  expected results.
+673: 
+674: Unit Testing 1:    validateEmail () function with valid and invalid credentials
+675: Testing Objective:   To ensure the email validation function works correctly with valid and invalid inputs.
+676: No. Test case/Test script Attribute and  Value Expected Result Actual Result 1 Call  validateEmail ()  with valid email "abc@gmail.com" Validates as correct email (True) True 2 Call  validateEmail ()  with invalid email "abc.gmail.com" Rejects input and returns False False 3 Call  validateEmail ()  with empty string "" Rejects input and returns False False
+677: Functional Testing
+678: Functional testing validates that the  system modules  work correctly as a whole, ensuring that the developed system meets its specifications and requirements. Unlike unit testing, which focuses on internal functions, functional testing evaluates  user-facing features  through the UI or APIs.
+679: 
+680: Functional Testing 1:  Login with different roles (Management, Patient, Doctor) 
+681: Objective : To ensure that the correct page with the correct navigation bar is loaded.    
+682: 
+683: No. Test Case Attribute and value Expected Result Actual Result Result 1 Login as ‘Management’ Username: M003, Password: 1234 Management dashboard with navigation bar is displayed Redirected to Management main page Pass 2 Login as ‘Doctor’ Username: D003, Password: 1234 Doctor dashboard with navigation bar is displayed Login failed – invalid credentials error Fail
+684: Business Rules Testing
+685: Decision  table based  testing technique is used to test business rules. The business rules were defined in FRs and Use Cases
+686: Decision based testing uses a systematic approach where input and outputs are provided in tabular form. It is a precise and compact way to model complicated logic. The table contains conditions and  actions  are used for test cases where conditions as inputs and actions as outputs.
+687: 
+688: Detailed example is as given in Appendix E.
+689: Integration Testing
+690: Integration testing verifies that different modules of the system work together correctly. Unlike unit testing (which checks isolated functions) and functional testing (which checks features from a user’s perspective), integration testing focuses on the  interfaces, linkages, and data flow between modules developed by different team members.
+691: 
+692: Since FYPs are team-based,  integration testing is essential  to ensure that the combined work of individual members forms a functioning system. Students must design at least one or two integration scenarios to demonstrate how modules interact and exchange data.
+693: 
+694: Integration Testing 1:    Scheduling Patient Appointment
+695: Testing Objective:  To ensure the scheduling is being done correctly and  the  interface  between  module ‘Patient/Doctor Management’ and module ‘Appointment/Scheduling’  is running correctly .
+696: 
+697: No. Test case/Test script  Attribute and value  Expected result  Actual result Result  1 Create Appointment (Patient ↔ Doctor ↔ Scheduler) Doctor schedule, Patient’s preferred date/time Appointment record created with correct doctor, patient, and date/time Appointment created successfully Pass 2 Update Appointment (Scheduler ↔ Database ↔ Notification) Select new date/time Appointment updated and linked records (database + notification) reflect change Appointment updated successfully Pass
+698: Automated Testing   (Mandatory for Software Engineering FYPs)
+699: Software Engineering students are required to demonstrate  automated testing  as part of their Final Year Project. Automated testing complements the manual testing activities described in the preceding sections by executing predefined test cases using an appropriate automation framework or tool. Its purpose is to verify that the implemented system behaves as expected and that previously working functionality continues to operate correctly after modifications.
+700: 
+701: Students should perform  manual testing where applicable , particularly for activities requiring human observation, usability assessment, visual inspection, exploratory testing, or subjective judgment. Students are  not required to automate every test case ; instead, they should select appropriate and meaningful functionalities for automation.
+702: 
+703: Automation should primarily target  core features and main use cases  of the system. Good candidates for automation include functionalities that:
+704: 
+705: represent core or critical system requirements;
+706: are frequently executed or require repeated regression testing;
+707: contain important business rules and validations;
+708: require testing with multiple input/data combinations;
+709: involve APIs, algorithms, calculations, or data processing with clearly defined expected results;
+710: involve important interactions or data flow between modules; and
+711: represent important end-to-end user workflows.
+712: The selected automated tests should provide meaningful coverage of important  positive, negative, boundary, and exception scenarios , where applicable. Simple or trivial interface operations should not be automated merely to demonstrate the use of an automation tool unless they represent an important system requirement.
+713: The automation framework should be selected according to the  application type, programming language, architecture, and testing objective.  For example,  PyTest  may be used for Python-based applications, JUnit for Java-based applications, Selenium, Cypress, or Playwright for web applications, and appropriate automation frameworks may be used for Android, iOS, Flutter, React Native, or other mobile applications.
+714: 
+715: Where applicable,  Jira with Zephyr Scale  may be used for test management, including test case organization, test cycles, execution tracking, and requirement traceability. Automated test scripts should be implemented using an automation framework appropriate to the project.
+716: The report should provide evidence of the  automated test implementation, execution results, and traceability to the corresponding system requirements.
+717: Automated Testing Strategy
+718: Descrisbe   the  overall automated testing strategy adopted for the project . The strategy should explain  what is automated, why it was selected for automation, how it is automated, and where the automated tests are executed .
+719: 
+720: The description should identify:
+721: the  type(s) of testing automated , such as unit, API, functional, integration, UI, end-to-end, or regression testing;
+722: the  modules, core features, or main use cases  selected for automation;
+723: the  reason for selecting these functionalities/test cases for automation ;
+724: the functionalities that remain  manually tested , where applicable, with a brief justification;
+725: the  automation framework/tool(s)  used; and
+726: the  test environment  in which the automated tests are executed, such as browser/device, operating system, application build/version, test database, or development/staging environment.
+727: 
+728: The strategy should focus on automating  meaningful and important functionality  rather than selecting test cases simply because they are easy to  automate.
+729: Example:
+730: The project uses  PyTest  for automated unit and API testing of the core Appointment Management module. Appointment creation, available-slot validation, duplicate-booking prevention, appointment cancellation, and appointment filtering are selected for automation because these are core system functionalities involving important business rules and are expected to be executed repeatedly during regression testing. Positive, negative, and boundary scenarios are automated where applicable. Usability and visual interface checks are performed manually because they require human observation and judgment. The automated tests are executed in the development environment using a dedicated test database.
+731: Automation Tools and Environment
+732: Document the tools and  testing  environment using the following format.
+733: 
+734: Table  5.1  Automated Testing Tools and Environment
+735: Tool / Framework Purpose Version Test Type Platform/Environment PyTest /Junit Automated testing of application components, functions,  methods, and backend logic x.x Unit / Integration / API Java / Python / Development Environment Selenium Browser-based automation x.x UI / Functional Testing Web / Chrome, Firefox, Edge Cypress Web application test automation x.x Functional / UI / API Web / Supported Browsers Playwright Cross-browser web application automation x.x Functional / UI / End-to-End / Regression Web / Chromium, Firefox, WebKit Espresso Android application automation x.x Functional / UI Android / Emulator or Physical Device Postman/Newman Automated API execution x.x API Testing REST API
+736: Students should include only the tools  actually used  in their project.
+737: Automated Test Cases
+738: 
+739: Each automated test case must have a  unique Test Case ID . The same Test Case ID should be identifiable in the automated test implementation and in the Requirement Traceability Matrix.
+740: 
+741: Document the automated tests using the following format.
+742: 
+743: Table  5 .2  Automated Test Cases
+744: Test Case ID Related Requirement Test Objective Test Input / Condition Expected Result Actual Result Status ATC-01 FR-01 Verify appointment booking with a valid slot Valid patient and available slot Appointment is successfully created Appointment created Pass ATC-02 FR-01 Verify mandatory field validation Required field left empty Booking is rejected Booking rejected Pass ATC-03 FR-02 Verify prevention of duplicate booking Same doctor, date and time Duplicate booking is prevented Booking prevented Pass
+745: Students should include automated tests for the  important positive, negative, boundary, and exception scenarios , where applicable.
+746: Automated Test Execution and Results
+747: Run the automated test suite and provide evidence of its execution.
+748: 
+749: The report should include:
+750: 
+751: the command or procedure used to execute the tests;
+752: total number of automated tests executed;
+753: number of tests passed and failed;
+754: relevant screenshots of the test execution/results; and
+755: a brief explanation of failed tests, if any.
+756: Example:
+757: Test Execution Command:  pytest  tests/ Total Automated Tests: 25 Passed: 23 Failed: 2
+758: Students should provide the relevant automated test script/code for selected representative test cases, showing the corresponding Test Case ID. The complete automated test suite should be available for demonstration during FYP evaluation. For example, if  ATC-02  is implemented in JUnit, Cypress, or Playwright, the evaluator should be able to connect:
+759: FR-01 → ATC-02 → Automated Script → Execution Result → RTM
+760: Figure 5. 1 : Automated Test Execution Result
+761: [Insert screenshot of the test execution/result here]
+762: If a test fails, students should briefly state the reason for failure and indicate whether the issue was corrected or remains as a known limitation.
+763: Requirement Traceability for Automated Testing
+764: A Requirement Traceability Matrix (RTM) must be provided to demonstrate the relationship between functional requirements and automated test cases. The RTM should allow the evaluator to verify which requirements have been tested automatically and the  current status  of those tests.
+765: 
+766: Functional Requirement → Use Case / Feature → Automated Test Case → Automated Test Implementation → Execution Status
+767: 
+768: 
+769: Table 5. 3 : Requirement Traceability Matrix for Automated Testing
+770: Requirement ID Requirement Description Use Case / Feature Automated Test Case ID Automation Tool / Framework Automated (Y/N) Status FR-01 Book appointment with a valid slot Appointment Booking ATC-01 Selenium Yes Pass FR-01 Reject booking when required information is missing Appointment Booking ATC-02 Selenium Yes Pass FR-02 Prevent duplicate appointment booking Appointment Management ATC-03 JUnit /  PyTest Yes Pass FR-03 Filter appointments by date range Appointment Search ATC-04 Cypress Yes Fail
+771: 
+772: The RTM should maintain traceability with the Functional Requirements documented in  Chapter 2 . Every Automated Test Case ID reported in the RTM must correspond to an actual automated test implemented in the project. This reflects the faculty guideline that automated test IDs in the RTM should exist in the code and test naming should remain consistent.
+773: 
+774: 
+775: 
+776: 
+777: 
+778: 
+779: 
+780: 
+781: 
+782: 
+783: 
+784: 
+785: 
+786: 
+787: 
+788: 
+789: 
+790: 
+791: Chapter 6 :  Conclusion and Future Work
+792: This chapter concludes the project and highlights future work. 
+793: 
+794: Conclusion
+795: The conclusion section should provide a reflective summary of the entire project, linking back to the original objectives stated in the introduction. It serves to consolidate the project’s achievements and highlight how effectively the problem was addressed.
+796: Summarize the overall project goal and what has been achieved.
+797: Reflect on how the system solves the defined problem presented in Chapter 1.
+798: Highlight the major features and functionalities implemented.
+799: Discuss any limitations encountered during development or deployment.
+800: Comment on how the system improves the experience for users and administrators.
+801: Future Work
+802: The future work section outlines possible enhancements, extensions, or research directions that can improve the system beyond its current scope. This demonstrates forward-thinking and helps future developers or researchers build upon the foundation laid by your project.
+803: Identify features that were planned but not implemented due to time or scope constraints.
+804: Suggest technical enhancements (e.g., AI-based recommendation engine, advanced analytics, chatbot integration).
+805: Recommend UI/UX improvements based on user feedback or usability testing.
+806: Propose system scaling strategies, such as multi-branch deployment or cloud-based hosting.
+807: Mention potential integrations with external systems (e.g., ERP, biometric attendance, IoT devices).
+808: Highlight opportunities for applying machine learning, automation, or predictive analysis.
+809: Discuss how future versions could better align with evolving user needs or emerging technologies.
+810: 
+811: 
+812: Chapter 7 :  References
+813: List any documents or other resources to which this SRS refers, if any. These might include user interface style guides, standards, system requirements specifications, interface specifications, or the SRS for a related product.  The following are a few examples of different resources.
+814: 
+815: Example:
+816: 
+817: 
+818: Book 
+819: Author(s). Book title. Location: Publishing company, year, pp. 
+820: Example: 
+821: W.K. Chen. Linear Networks and Systems. Belmont, CA: Wadsworth, 1993, pp. 123-35.
+822: 
+823: Article in a Journal 
+824: Author(s). “Article title”. Journal title, vol., pp, date. 
+825: Example: 
+826: G.  Pevere . “Infrared Nation.” The International Journal of Infrared Design, vol. 33, pp. 56-99, Jan. 1979.
+827: 
+828: Articles from Conference Proceedings (published) 
+829: Author(s). “Article title.” Conference proceedings, year, pp. 
+830: Example: 
+831: D.B. Payne and H.G.  Gunhold . “Digital sundials and broadband technology,” in Proc. IOOC-ECOC, 1986, pp. 557-998.
+832: 
+833: World Wide Web 
+834: Author(s)*. “Title.” Internet: complete URL, date updated* [date accessed]. 
+835: M. Duncan. “Engineering Concepts on Ice. Internet:  www.iceengg.edu/staff.html , Oct. 25, 2000 [Nov. 29, 2003].
+836: 
+837: 
+838: 
+839: Chapter 8 :  Plagiarism Report
+840: Attach the Plagiarism report of your project scope document from library staff of  turnitin  tool ( http://turnitin.com ) 
+841: 
+842: Appendix A
+843: Example: Context Diagram
+844: 
+845: The Cafeteria Ordering System is a new software system that replaces the current manual and telephone processes for ordering and picking up meals in the Process Impact cafeteria. The context diagram in Figure 1 illustrates the external entities and system interfaces. 
+846: 
+847: 
+848: Figure A 1 : Context diagram of the Cafeteria Ordering System.
+849: 
+850: Example: User Classes and Characteristics
+851: Table A- 1  Shows user classes and character
+852: User class Description Patron  A Patron is a Process Impact employee who wants to order meals to be delivered from the company cafeteria. There are about 600 potential Patrons, of which 300 are expected to use the COS an average of 5 times per week each. Patrons will sometimes order multiple meals for group events or guests. An estimated 60 percent of orders will be placed using the corporate intranet, with 40 percent of orders being placed from home or by smartphone or tablet apps. Cafeteria Staff The Process Impact cafeteria employs about 20 Cafeteria Staff who will receive orders from the COS, prepare meals, package them for delivery, and request delivery. Most of the Cafeteria Staff will need training in the use of the hardware and software for the COS. Menu Manager The Menu Manager is a cafeteria employee who establishes and maintains daily menus of the food items available from the cafeteria. Some menu items may not be available for delivery. The Menu Manager will also define the cafeteria’s daily specials. The Menu Manager will need to edit existing menus periodically. Meal Deliverer As the Cafeteria Staff prepare orders for delivery, they will issue delivery requests  to  a Meal Deliverer’s smartphone. The Meal Deliverer will pick up the food and deliver it to the Patron. A Meal Deliverer's other interactions with the COS will be to confirm that a meal was (or was not) delivered.
+853: 
+854: 
+855: 
+856: Example: Use case Diagram
+857: 
+858: Following use case diagram  is of  an appointment system in which all the use case diagram relationships are presented. In further in  Table A-2  to the detail of use case diagram syntax is provided.
+859: 
+860: 
+861: 
+862: Figure A- 2 : Use Case Diagram of an Appointment System
+863: 
+864: 
+865: 
+866: 
+867: 
+868: 
+869: Syntax for Use case Diagram
+870: Table A- 2  Syntax for Use case Diagram
+871: An actor: ■ Is a person or system that derives benefit from and is external to the subject. ■ Is depicted as either a stick figure (default) or, if a nonhuman actor is involved, a rectangle with <<actor>> in it (alternative). ■ Is labeled with its role. ■ Can be associated with other actors using a specialization/superclass association, denoted by an arrow with a hollow arrowhead. ■ Is placed outside the subject boundary. A use case: ■ Represents a major piece of system functionality. ■ Can extend another use case. ■ Can include another use case. ■ Is placed inside the system boundary. ■ Is labeled with a descriptive verb–noun phrase. subject boundary: ■ Includes the name of the subject inside or on top. ■ Represents the scope of the subject, e.g., a system or an individual business process. An association relationship: ■ Links an actor with the use case(s) with which it interacts. An  include relationship: ■ Represents the inclusion of the functionality of  one use  case within another. ■ Has an arrow drawn from the base use case to the used use case. An  extend  relationship: ■ Represents the extension of the use case to include optional behavior. ■ Has an arrow drawn from the extension use case to the base use case. A generalization relationship: ■ Represents a specialized use case to a more generalized one. ■ Has an arrow drawn from the specialized use case to the base use case.
+872: Example: Mockup-Based Requirement Analysis  
+873: This appendix presents a sample application of Mockup-Based Requirement Analysis, demonstrating how functional requirements can be systematically derived from UI mockups. This approach replaces traditional use case descriptions with a more visual, interaction-driven technique suitable for modern, user-centric applications.
+874: The example includes:
+875: Annotated UI mockups
+876: Functional requirements identified from screen elements
+877: A structured tabular format using Mockup IDs for traceability
+878: Mockup M1 – Login Page
+879: 
+880: Figure A- 3 : Mockup M1 for Login Page
+881: Functional Requirements Derived from Mockup M1 – Login Page
+882: Table A-3: Functional Requirements Derive from Mockup M1
+883: Feature (derived from UI) Functional Requirement (FR-ID: Statement) Business Rule User Sign-In FR1.1: The system shall allow the user to provide valid login credentials (email and password). The email must follow standard format (e.g., name@example.com). The password must be at least 8 characters and contain letters and numbers. User Authentication FR1.2: The system shall validate the provided credentials against stored records. Accounts will be locked after 5 failed login attempts. Password Recovery FR1.3: The system shall allow users to initiate password recovery when requested. Only registered users can initiate password recovery. Remember Me Option FR1.4: The system shall allow users to stay signed in on the same device by selecting “Remember Me”. The session should remain active until the user logs out manually or clears cookies.
+884: Mockup M2 – Dashboard Page
+885: 
+886: 
+887: Figure A-4 : Mockup M2 for Dashboard Page
+888: Functional Requirements Derived from Mockup M2– Dashboard Page
+889: Table A-4: Functional Requirements Derive from Mockup M2
+890: Feature (derived from UI) Functional Requirement (FR-ID: Statement) Business Rule Navigation & Access Control FR2.1: The system shall provide access to different sections such as Dashboard, Orders, Products, Customers, and Settings through a vertical navigation menu. Menu items depend on the user’s role and permissions. Personalized Dashboard FR2.2: The system shall display a personalized welcome message showing the authenticated user’s name. User’s name is retrieved from the authenticated session. Order Metrics FR2.3: The system shall display the total number of orders in real-time. Order count is updated directly from the orders database. Product Metrics FR2.4: The system shall display the total number of active products. Displayed product count includes only active products. Customer Metrics FR2.5: The system shall display the total number of verified customers. Customer count includes only verified accounts. Recent Orders Listing FR2.6: The system shall display a list of recent orders including order ID, customer name, and order status. Orders must be sorted by most recent date. Scrollable Order List FR2.7: The system shall allow scrolling or pagination in the recent orders section if the list exceeds the visible area. Maximum 10 orders are shown per page before scrolling is required. Order Status Indicators FR2.8: The system shall display visual indicators (badges) to represent order statuses (Pending, Shipped, Delivered). Color codes must follow the design system: Yellow=Pending, Blue=Shipped, Green=Delivered.
+891: 
+892: Event-Response Tables
+893: Example System: “Buy a Product” Feature in an E-Commerce System
+894: To  develop an Event–Response Table, it is first required to identify all possible events that may occur in the system. The following example presents an event list and event–response table for the  Buy a Product  feature of an E-Commerce System.
+895: The “Buy a Product” feature must handle various operational and exceptional events, including the following:
+896: A user attempts to log in to the system.
+897: The payment gateway confirms  the transaction .
+898: The warehouse updates order shipment status.
+899: The delivery carrier reports delivery failure.
+900: The system detects that product stock has reached zero.
+901: 
+902: Identified Events for “Buy a Product” Feature
+903: User Authentication Success – triggered when the authentication server confirms valid credentials.
+904: User Authentication Failure – triggered when the authentication server rejects credentials.
+905: Payment Confirmation Received – triggered when the payment gateway confirms successful transaction.
+906: Order Shipped – triggered when warehouse updates order status to shipped.
+907: Delivery Failed – triggered when shipping carrier reports unsuccessful delivery.
+908: Stock Depleted Notification – triggered when product inventory reaches zero.
+909: 
+910: Note for Students :  When preparing an Event–Response Table, additional attributes may be included for detailed requirement analysis, such as:
+911: Required input data elements
+912: Preconditions
+913: System state before the event
+914: System state after the response
+915: Exception handling mechanisms
+916: These details improve completeness, traceability, and clarity in requirement specification.
+917: 
+918: Table A- 5:  Event–Response Table for “Buy a Product” Feature
+919: Event Name Trigger Source System State (Before) Response System State (After) Exception Handling User Authentication Success Credentials validated External Authentication Server Login request pending 1. Grant access 2. Create user session 3. Load dashboard User session active None User Authentication Failure Invalid credentials External Authentication Server Login request pending 1. Deny access  2. Log attempt  3. Increment failure counter Login failed Lock account after 5 failed attempts; notify user Payment Confirmation Received Gateway callback External Payment Gateway Order status = Pending Payment 1. Update order status to Confirmed 2. Generate confirmation 3. Notify user Order ready for shipment Retry confirmation if failure; notify admin if repeated Order Shipped Warehouse status update Warehouse Module Order status = Confirmed 1. Update status to Shipped  2. Send shipment notification with tracking ID Order in transit Log error if notification fails Delivery Failed Carrier delivery report External Delivery System Order status = Out for Delivery 1. Update status to Delivery Failed  2. Notify user 3. Provide rescheduling option Awaiting reschedule Notify support team if repeated failure Stock Depleted Notification Inventory count reaches zero Inventory Module Product available for purchase 1. Mark product Out of Stock  2. Notify administrator Product unavailable for purchase Log repeated depletion events
+920: 
+921: Derived Functional Requirements from Events
+922: Event analysis supports the derivation of clear functional requirements as follows:
+923: 
+924: Table A- 6 : Functional Requirements Derived from Event–Response Table for “Buy a Product” Feature
+925: Event Functional Requirement (FR-ID: Statement) Business Rule User Authentication Success FR1.1: The system shall grant access to a user upon successful authentication. Account shall be locked after 5 consecutive failed attempts. User Authentication Failure FR1.2: The system shall deny access and record unsuccessful login attempts. User  shall be notified after repeated failures. Payment Confirmation Received FR2.1: The system shall update order status to Confirmed upon receiving payment confirmation. Payment must be verified through a secure gateway. Order Shipped FR3.1: The system shall notify the user when an order is shipped. Shipment notification must include tracking information. Delivery Failed FR4.1: The system shall update order status to Delivery Failed and allow rescheduling. Support team shall be notified if rescheduling fails. Stock Depleted Notification FR5.1: The system shall notify the administrator when product stock reaches zero. Products with zero stock shall not be available for purchase.
+926: 
+927: 
+928: 
+929: 
+930: 
+931: 
+932: 
+933: 
+934: 
+935: 
+936: 
+937: 
+938: 
+939: 
+940: 
+941: 
+942: 
+943: 
+944: 
+945: Appendix  B
+946: Conceptual Architecture Example – Online Shopping Mall
+947: 
+948: This appendix provides a detailed example of conceptual system architecture for an Online Shopping Mall platform. It includes a conceptual view diagram, a brief explanation of major components, and a tabular representation of associated technologies, services, and responsibilities to guide students in developing their own architecture models.
+949: Example:
+950: 
+951: 
+952: 
+953: 
+954: 
+955: 
+956: 
+957: 
+958: 
+959: 
+960: 
+961: 
+962: 
+963: 
+964: 
+965: 
+966: 
+967: 
+968: 
+969: 
+970: 
+971: 
+972: B- 1   This diagram presents a high-level conceptual architecture for an online shopping mall, showing major system components, service layers, and technology mapping. B- 1   This diagram presents a high-level conceptual architecture for an online shopping mall, showing major system components, service layers, and technology mapping.
+973: Table  B-1   Key Components and Services in Online Shopping Mall Architecture
+974: Component Description Technology Used Security/Integration User Interface Layer Web and mobile interfaces for users to browse, order, and interact with the system. Flutter, React, HTML5/CSS3 HTTPS, Token-based Auth Application Layer Handles business logic like order management, cart updates, and payment workflows. Node.js, Django Role-Based Access, Logging Database Layer Stores user data, product catalogs, order histories, and payment records. MySQL, Firebase Encrypted Storage, Backup Payment Gateway Facilitates secure payment transactions and confirmation of order placements. Stripe, PayPal PCI-DSS Compliance Admin Panel Accessible to sellers/admins to add products, view orders, manage customers. Angular, Spring Boot Admin-Only Access, Logs APIs and Services Provides modular communication between client and backend layers. REST,  GraphQL OAuth2, API Gateway Notification Service Sends  email, SMS, or push updates for order status and promotions. Firebase Cloud Messaging Verified Sender ID
+975: Note:
+976: For a detailed understanding of conceptual system architecture, refer to the following textbooks: - Ian Sommerville, “Software Engineering”, 10th Edition, Chapter 6 (Architectural Design) - Roger Pressman & Bruce R. Maxim, “Software Engineering: A Practitioner’s Approach”, 9th Edition, Chapter 13 (Architectural Design)
+977: 
+978: 
+979: 
+980: 
+981: 
+982: 
+983: 
+984: 
+985: 
+986: 
+987: 
+988: 
+989: 
+990: 
+991: 
+992: 
+993: 
+994: 
+995: 
+996: 
+997: 
+998: 
+999: 
+1000: 
+1001: 
+1002: 
+1003: 
+1004: Example of Architecture Pattern:
+1005: 
+1006: The  figure  B-2  shows an example of the logical package organization of the layered architecture. The  top level  deals with user interface, the next level is for utilities, and the one below utility provides core services. Each layer gets support from its lower adjacent layer by an interface implementation and from the related classes in the same layer.
+1007: 
+1008: A simple software system may consist of two layers: an interaction layer and a processing layer:
+1009: The interaction layer provides user interfaces to clients, takes requests, validates and forwards requests to the processing layer for processing, and responds to clients.
+1010: The processing layer receives the forwarded requests and performs the business logic process, accesses the database, returns the results to its upper layer, and lets the upper layer respond to clients since the upper layer has the GUI interface responsibility.
+1011: B-2  Component-based Layered Architecture B-2  Component-based Layered Architecture
+1012: Note:  The Architecture pattern shall be selected according to the targeted system’s requirements and quality attributes. Above example is provided to  demonstrate  how the system architecture is required to be presented.
+1013: 
+1014: 
+1015: 
+1016: 
+1017: Appendix  C
+1018: Design Models
+1019: Activity Diagram
+1020: 
+1021: Following activity diagram is of an appointment system presenting  make an appointment  process in which all diagram’s elements are presented. In further in  Table C-1  to the detail of activity diagram syntax is provided.
+1022: 
+1023: Figure C-1 Activity Diagram for Make an Appointment Process Figure C-1 Activity Diagram for Make an Appointment Process Example
+1024: 
+1025: 
+1026: Activity Diagram Syntax
+1027: Table C- 1   Activity Diagram Syntax
+1028: Term and definition Symbol An action: Is a simple, non-decomposable piece of behavior. Is labeled by its name. An activity: Is used to represent a set of actions. Is labeled by its name. An object node: Is used to represent an object that is connected to a set of object flows. Is labeled by its class name. A control flow: Shows the sequence of execution. An object flow: Shows the flow of an object from one activity (or action) to another activity (or action). An initial node: Portrays the beginning of a set of actions or activities. A final-activity node: Is used to stop all control flows and object flows in an activity (or action). A final-flow node: Is used to stop a specific control flow or object flow. A decision node: Is used to represent a test condition to ensure that the control flow or object flow only goes down one path. Is labeled with the decision criteria to continue down the specific path. A merge node: Is used to bring back together different decision paths that were created using a  decision node. A fork node: Is used to split behavior into a set of parallel or concurrent flows of activities (or action) A join node: Is used to bring back together a set of parallel or concurrent flows of activities (or action) A  swimlane : Is used to break up an activity diagram into rows and columns to assign the individual activities (or actions) to the individuals or objects that are responsible for executing the activity (or action) Is labeled with the name of the individual or object responsible
+1029: Class Diagram
+1030: 
+1031: Following class diagram is of an appointment system in which all class diagrams elements are presented. In further in  Table C-2  to the detail of class diagram syntax is provided.
+1032: Example
+1033: 
+1034: 
+1035: 
+1036: 
+1037: 
+1038: 
+1039: Figure C-2 Class Diagram for an Appointment System Figure C-2 Class Diagram for an Appointment System
+1040: 
+1041: 
+1042: 
+1043: 
+1044: 
+1045: 
+1046: 
+1047: Class Diagram Syntax
+1048: Table C-  2  Class Diagram Syntax
+1049: Term and definition Symbol A class: Has a name typed in bold and centered in its top compartment. Has a list of attributes in its middle compartment. Represents a kind of person, place, or thing about which the system will need to capture and store information. Has a list of operations in its bottom compartment. Does not explicitly show operations that are available to all classes. An attribute : Represents properties that describe the state of an object. Can be derived from other attributes, shown by placing a slash before the attribute’s name. attribute name / derived  attribute name An operation:   Represents the actions or functions that a class can perform. Can be classified as a constructor, query, or update operation. Includes parentheses that may contain parameters or information needed to perform the operation. operation name () An association: Represents a relationship between multiple classes or a class and itself. Is labeled using a verb phrase or a role name, whichever better represents the relationship. Can exist between one or more classes. Contains multiplicity symbols, which represent the minimum and maximum times a class instance can be associated with the related class instance. A generalization: Represents  a-kind-of  relationship between multiple classes. An aggregation: Represents a  logical a- part-of relationship between multiple classes or a class and itself. Is a special form of an association. A composition: Represents a physical a-part-of relationship between multiple classes or a class and itself Is a special form of an association.
+1050: 
+1051: 
+1052: 
+1053: 
+1054: 
+1055: Sequence Diagram
+1056: 
+1057: Following example shows an instance sequence diagram that depicts the objects and messages for the Make Old Patient Appt use case, which describes the process by which an existing patient creates a new appointment or cancels or reschedules an appointment. In further in  Table C-3  to the detail of class diagram syntax is provided.
+1058: 
+1059: Exampl e
+1060: Figure C-3 Example Sequence Diagram Figure C-3 Example Sequence Diagram
+1061: 
+1062: 
+1063: 
+1064: 
+1065: 
+1066: 
+1067: 
+1068: 
+1069: 
+1070: 
+1071: 
+1072: 
+1073: 
+1074: 
+1075: 
+1076: 
+1077: 
+1078: 
+1079: Sequence diagram Syntax
+1080: Table C- 3  Sequence Diagram Syntax
+1081: Term and definition Symbol An actor: Is a person or system that derives benefit from and is external to the system. Participates in a sequence by sending and/or receiving messages. Is placed across the top of the diagram. Is depicted either as a stick figure (default) or, if a nonhuman actor is involved, as a rectangle with <<actor>> in it (alternative). An object: Participates in a sequence by sending and/or receiving messages. Is placed across the top of the diagram. A lifeline: Denotes the life of an object during a sequence. Contains an X at the point at which the class no longer interacts. An execution occurrence: Is a long narrow rectangle placed atop a lifeline. Denotes when an object is sending or receiving messages. A message: Conveys information from one object to another one. An operation call is labeled with the message being sent and a solid arrow, whereas a return is labeled with the value being returned and shown as a dashed arrow. A guard condition: Represents a test that must be met for the message to be sent. For object destruction: An X is placed at the end of an object’s lifeline to show that it is going out of existence. A frame:  Indicates the context of the sequence diagram.
+1082: 
+1083: 
+1084: 
+1085: 
+1086: 
+1087: 
+1088: 
+1089: 
+1090: 
+1091: Behavioral State Machine Diagram
+1092: 
+1093: Following example of a behavioral state machine representing the patient class in the context of a hospital environment. From this diagram, we can tell that a patient enters a hospital and is admitted after checking in. If a doctor finds the patient to be healthy, he or she is released and is no longer considered a patient after two  weeks   elapse . If a patient is found to be unhealthy, he or she remains under observation until the diagnosis changes.
+1094: 
+1095: Exam ple
+1096: Figure C-4 Sample Behavioral State Machine Diagram Figure C-4 Sample Behavioral State Machine Diagram
+1097: 
+1098: 
+1099: 
+1100: 
+1101: 
+1102: 
+1103: 
+1104: 
+1105: 
+1106: 
+1107: 
+1108: 
+1109: 
+1110: 
+1111: 
+1112: 
+1113: 
+1114: 
+1115: 
+1116: 
+1117: 
+1118: 
+1119: 
+1120: 
+1121: 
+1122: Behavioral State Machine Diagram Syntax
+1123: 
+1124: Table C- 4  Behavioral State Machine Diagram Syntax
+1125: Term and definition Symbol A state: Is shown as a rectangle with rounded corners. Has a name that represents the state of an object. An initial state: Is shown as a small, filled-in circle. Represents the point at which an object begins to exist. A final state: Is shown as a circle surrounding a small, filled-in circle (bull's-eye). Represents the completion of activity. An event: Is a noteworthy occurrence that triggers a change in state. Can be a designated condition becoming true, the receipt of an explicit signal from one object to another, or the passage of a designated  period of time . Is used to label a transition. A transition: Indicates that an object in the first state will enter the second state. Is triggered by the occurrence of the event labeling the transition. Is shown as a solid arrow from one state to another, labeled by the event name. A frame: Indicates the context of the behavioral state machine.
+1126: 
+1127: 
+1128: 
+1129: 
+1130: 
+1131: 
+1132: 
+1133: 
+1134: 
+1135: 
+1136: 
+1137: 
+1138: 
+1139: 
+1140: 
+1141: 
+1142: 
+1143: Data Flow Diagram
+1144: 
+1145: Figure C-5 Data flow diagram symbols, symbol names, and examples of the Gane and Sarson and Yourdon symbol sets. Figure C-5 Data flow diagram symbols, symbol names, and examples of the Gane and Sarson and Yourdon symbol sets. Data flow diagram symbols, symbol names, and examples
+1146: Guidelines for Drawing DFDs
+1147: Step 1: Draw a Context Diagram : The first step in constructing a set of DFDs is to draw a context diagram. A  context diagram  is a top-level view of an information system that shows the system’s boundaries and scope. Data stores are not shown in the context diagram because they are contained within the system and remain hidden until more detailed diagrams are created.
+1148: 
+1149: Example
+1150: 
+1151: 
+1152: 
+1153: 
+1154: 
+1155: 
+1156: 
+1157: 
+1158: 
+1159: 
+1160: 
+1161: 
+1162: 
+1163: 
+1164: 
+1165: 
+1166: Figure C-6 Context diagram DFD for an order system. Figure C-6 Context diagram DFD for an order system.
+1167: Step 2: Draw a Diagram 0 DFD :  To  show the detail inside the black box, you create DFD diagram 0.  Diagram 0  zooms in on the system and shows major internal processes, data flows, and data stores. Diagram 0 also repeats the entities and data flows that appear in the context diagram. When you expand the context diagram into DFD diagram 0, you must retain all the connections that flow into and out of process 0. 
+1168: Figure C-7 Diagram 0 DFD for the order system. Figure C-7 Diagram 0 DFD for the order system. Example
+1169: 
+1170: Step 3: Draw the Lower-Level Diagrams: 
+1171: To create lower-level diagrams, you must use leveling and balancing techniques.  Leveling  is the process of drawing a series of increasingly detailed diagrams, until all functional primitives are identified. 
+1172: Figure C-8 Diagram 1 DFD shows details of the FILL ORDER process in the order system. Figure C-8 Diagram 1 DFD shows details of the FILL ORDER process in the order system. Leveling Example
+1173: Balancing  maintains consistency among a set of DFDs by ensuring that input and output data flows align properly. 
+1174: 
+1175: Balancing Example
+1176: Order System Diagram 0 DFD
+1177: Figure C-9 Diagram  0   DFD for the order system
+1178: Order System Diagram 3 DFD
+1179: Figure C-10 Diagram 1 DFD shows details of the  APPLY PAYMENT  process in the order system.
+1180: 
+1181: 
+1182: The order system diagram 0 is shown at the top of the figure and exploded diagram 3 DFD (for the APPLY PAYMENT process) is shown at the bottom. The two DFDs are balanced, because child diagram at the bottom has the same input and output flows as the parent process 3 shown at the top. 
+1183: Appendix D
+1184: General Coding Standards & Guidelines
+1185: Follow a consistent variable naming convention throughout the code. E.g.
+1186: Snakecase  (words are delimited by “_”  like:   variable_one )
+1187: Pascalcase  (words are delimited by capital letters like:  VariableOne )
+1188: Camelcase  (words are delimited by capital letters except the initial word like:  variableOne )
+1189: Hungarian Notation (describes the variable type or purpose at the start of the variable name like:  arrDistributeGroup )
+1190: Use naming that visually describes scope like  privateField , Const  etc
+1191: Use read only/immutable when a field’s value should not be changed after initialization
+1192: Use only get, for properties that should not be updated from outside
+1193: Name functions according to their functionalities.
+1194: Insert appropriate comments to make the code understandable to any reader. Additionally follow a consistent style to do so. E.g.
+1195: /* the below function will be used for the addition of two variables*/
+1196: int  Add(){
+1197: //logic of the function
+1198: }
+1199: Avoid commenting on obvious things
+1200: Make use of indentation for indicating the start and end of the control structures along with a clear specification of where the code is between them.
+1201: Follow consistent naming convention for files and folders. 
+1202: Follow proper structure for classes
+1203: Group code entities logically into projects/packages/modules/folders
+1204: Separate logical layers of application into different modules/services/utilities etc.
+1205: User separate files for each class,  struct , interface,  enum  etc. Name of the file and the  enclosing  entity must be same. E.g., class Employee in  Employee.cs /Employee.java
+1206: Define and use everything within the minimum scope possible
+1207: Use proper access modifier for all code entities if required
+1208: Code entities should have maximum cohesion and least coupling possible.
+1209: Follow DRY law.
+1210: Do not repeat code.
+1211: A piece of knowledge should exist only in one place within the codebase/application
+1212: Reuse code as much as possible
+1213: Always write short methods
+1214: Single method should not have too  many  logic, long conditional flow or too many parameters
+1215: Strictly follow Single Responsibility Principle (SRP) when writing methods, classes, modules, projects, packages, or any other code entities.
+1216: Write classes and other code entities that are easy to extend without modification.
+1217: Handle exceptions
+1218: Log exception and other significant event details
+1219: Follow a consistent convention for logging all over the application
+1220: 
+1221: Appendix E
+1222: Business rules testing  
+1223: Methodology for creating decision table:
+1224: 
+1225: 
+1226: Example:
+1227: The provided example is of a super store. 
+1228: 
+1229: 
+1230: 
+1231: 
+1232: 
+1233: 
+1234: 
+1235: 
+1236: 
+1237: 
+1238: 
+1239: 
+1240: Now Combine rules where it is apparent that an alternative does not make a  difference in the outcome 
+1241: 
+1242: 
+1243: This is the final table and now you  have to  create test cases on every rule. In above example there are 6 rules so there shall be 6 test cases.
+1244: 
+1245: 

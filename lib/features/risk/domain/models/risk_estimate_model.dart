@@ -16,6 +16,7 @@
 // must tolerate its absence.
 
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_attributions.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/domain/models/disease_risk_estimate.dart';
 
 /// Disease-risk classification level for a city.
 ///
@@ -95,6 +96,10 @@ class RiskEstimateModel {
   /// documents produced before the explainability layer shipped. The UI only
   /// formats and visualises this stored data — it never recomputes it.
   final RiskAttributions? attributions;
+  final List<DiseaseRiskEstimate> diseaseEstimates;
+
+  /// Read provenance only; never persisted as a prediction field.
+  final bool isFromCache;
 
   const RiskEstimateModel({
     required this.city,
@@ -108,6 +113,8 @@ class RiskEstimateModel {
     required this.modelVersion,
     this.lowConfidence = false,
     this.attributions,
+    this.diseaseEstimates = const [],
+    this.isFromCache = false,
   });
 
   // ── Serialisation ──────────────────────────────────────────────────────────
@@ -128,6 +135,7 @@ class RiskEstimateModel {
       generatedAt: DateTime.parse(json['generatedAt'] as String).toUtc(),
       modelVersion: (json['modelVersion'] as String?) ?? '',
       lowConfidence: (json['lowConfidence'] as bool?) ?? false,
+      diseaseEstimates: DiseaseRiskEstimate.parseDocument(json),
       // Additive & optional: only present on Sprint-5+ documents. Absence (an
       // old document, or any non-map value) parses to `null`, never an error.
       attributions: json['attributions'] is Map<String, dynamic>
@@ -155,6 +163,8 @@ class RiskEstimateModel {
       // Additive: emit only when present, so an estimate without explainability
       // serialises to the exact pre-Sprint-5 shape (no `attributions: null` key).
       if (attributions != null) 'attributions': attributions!.toJson(),
+      if (diseaseEstimates.isNotEmpty)
+        'diseaseEstimates': diseaseEstimates.map((e) => e.toJson()).toList(),
     };
   }
 
@@ -184,6 +194,8 @@ class RiskEstimateModel {
     String? modelVersion,
     bool? lowConfidence,
     RiskAttributions? attributions,
+    List<DiseaseRiskEstimate>? diseaseEstimates,
+    bool? isFromCache,
   }) {
     return RiskEstimateModel(
       city: city ?? this.city,
@@ -197,6 +209,8 @@ class RiskEstimateModel {
       modelVersion: modelVersion ?? this.modelVersion,
       lowConfidence: lowConfidence ?? this.lowConfidence,
       attributions: attributions ?? this.attributions,
+      diseaseEstimates: diseaseEstimates ?? this.diseaseEstimates,
+      isFromCache: isFromCache ?? this.isFromCache,
     );
   }
 
@@ -220,7 +234,12 @@ class RiskEstimateModel {
           other.generatedAt == generatedAt &&
           other.modelVersion == modelVersion &&
           other.lowConfidence == lowConfidence &&
-          other.attributions == attributions;
+          other.attributions == attributions &&
+          other.isFromCache == isFromCache &&
+          other.diseaseEstimates.length == diseaseEstimates.length &&
+          Iterable<int>.generate(diseaseEstimates.length).every(
+            (i) => other.diseaseEstimates[i] == diseaseEstimates[i],
+          );
 
   @override
   int get hashCode => Object.hash(
@@ -235,5 +254,7 @@ class RiskEstimateModel {
     modelVersion,
     lowConfidence,
     attributions,
+    isFromCache,
+    Object.hashAll(diseaseEstimates),
   );
 }

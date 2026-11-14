@@ -1,0 +1,11 @@
+from pathlib import Path
+p=Path('test_artifacts/chapter5/build_chapter.py')
+s=p.read_text(encoding='utf8')
+s=s.replace('four golden cases','four golden suites').replace('four golden cases','four golden suites')
+s=s.replace('four golden cases','four golden suites').replace('four golden cases','four golden suites')
+s=s.replace("('Combined distinct cases'", "('Combined reported entries'")
+s=s.replace('Flutter totals count testDone events for actual named tests and exclude hidden loading entries. The four golden suites are included as skipped, not passed.', 'Flutter totals exclude hidden loading entries. They comprise 882 executed tests and four skipped suite placeholders emitted by the runner for golden files. The value 886 therefore counts reported entries; it does not establish how many individual golden tests would be collected if those suites were enabled.')
+s=s.replace('The four golden cases are included as skipped, not passed.', 'The four skipped entries are golden-suite placeholders, not executed individual tests.')
+s=s.replace('intentionally skipped golden cases', 'intentionally skipped golden-suite entries')
+s=s.replace('Their combined total is an arithmetic inventory, not a percentage of requirements satisfied.', 'The combined total of 1,552 reported entries includes 1,548 executed and passed tests plus four skipped golden-suite placeholders; it is not a percentage of requirements satisfied.')
+p.write_text(s,encoding='utf8')

@@ -36,7 +36,8 @@ class FirestoreRiskRepository implements RiskRepository {
         .get();
 
     if (snapshot.docs.isEmpty) return null;
-    return modelFromSnapshotData(snapshot.docs.first.data());
+    return modelFromSnapshotData(snapshot.docs.first.data())
+        .copyWith(isFromCache: snapshot.metadata.isFromCache);
   }
 
   @override
@@ -55,7 +56,10 @@ class FirestoreRiskRepository implements RiskRepository {
         .get();
 
     return snapshot.docs
-        .map((doc) => modelFromSnapshotData(doc.data()))
+        .map(
+          (doc) => modelFromSnapshotData(doc.data())
+              .copyWith(isFromCache: snapshot.metadata.isFromCache),
+        )
         .toList();
   }
 

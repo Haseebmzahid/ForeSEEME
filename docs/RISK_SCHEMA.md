@@ -137,6 +137,53 @@ visualises the stored data (it never recomputes attributions).
 
 ---
 
+## Additive Disease Explorer field (batch documents only)
+
+`diseaseEstimates` is an optional array in the existing document. The internal
+`RiskEstimateResponse` / `/predict` response remains unchanged. `riskLevel`,
+`disease`, `confidence`, and top-level `attributions` still describe the dominant
+summary; neither Compare nor the map changes its interpretation.
+
+Each entry contains `disease` (`dengue`, `smog`, `influenza`), `displayName`,
+`status` (`available` or `unavailable`), `modelVersion`, and `generatedAt`.
+Version and timestamp belong to the parent document's single computation cycle.
+Available entries also contain:
+
+| Field | Meaning |
+|---|---|
+| `riskLevel` | Independent argmax class: Low, Medium, or High |
+| `confidence` | Maximum serving-pipeline class probability, rounded to 6 decimals |
+| `probabilities` | All three named class probabilities, mapped using `pipeline.classes_`, rounded to 6 decimals |
+| `lowConfidence` | Confidence below the existing artifact-driven threshold resolver |
+| `attributions` | Optional independent tree-path explanation, using the existing attribution shape |
+
+The probabilities sum to one within rounding tolerance; they are not disease
+prevalence or infection probabilities. Six-decimal serialization removes parallel
+forest reduction jitter and preserves byte-identical idempotent reruns. An
+unavailable entry has **no** risk or confidence fields. Explanation failure omits
+only its explanation. Prediction failure is logged and explicitly unavailable.
+Every write replaces the entire array, including unavailable entries, so merge
+writes cannot retain an older disease prediction inside a new computation cycle.
+
+Old documents without this array parse to an empty list. Invalid entries, version
+or timestamp mismatches, and duplicate valid disease entries are excluded by the
+Explorer parser and shown as unavailable. No fallback to dominant history exists.
+The existing repository normalizes the parent Firestore Timestamp if necessary;
+nested timestamps follow the writer's ISO-8601 contract.
+
+The local promoted `model_1.0.0.joblib` contains three impute/scale/Random Forest
+pipelines with actual classes `[High, Low, Medium]`. Its missing threshold metadata
+uses the existing 0.55 legacy resolver. Reported influenza sigmoid recalibration
+is an evaluation experiment, **not** a component of this serving artifact.
+No model is trained, recalibrated, replaced, or promoted by this feature.
+
+Focused tests serialize real-artifact estimates for all five cities and bound
+each complete document below 32 KiB, leaving substantial headroom under Firestore's
+1 MiB limit. No separate collection, index, security-rule, or client-write change
+is introduced. `isFromCache` is transient Flutter read metadata, never a stored
+prediction field. Independent historical observations appear only after genuine
+new-format records exist; this implementation does not backfill production data.
+
 ## Internal request: `POST /predict`
 
 > Internal to the backend only (ADR-001). Never called by the Flutter client.

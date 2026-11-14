@@ -606,6 +606,19 @@ class _TopChrome extends StatelessWidget {
                         icon: Icons.bar_chart_rounded,
                         onPressed: onCompare,
                       ),
+                      const SizedBox(height: 8),
+                      MapIconButton(
+                        semanticLabel: 'Disease Explorer',
+                        icon: Icons.biotech_rounded,
+                        onPressed: () => context.push(
+                          Uri(
+                            path: '/disease-explorer',
+                            queryParameters: selected == null
+                                ? null
+                                : {'city': selected!.city},
+                          ).toString(),
+                        ),
+                      ),
                     ],
                   ),
                   const Spacer(),

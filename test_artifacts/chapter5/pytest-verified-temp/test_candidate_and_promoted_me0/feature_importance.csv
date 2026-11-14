@@ -1,0 +1,9 @@
+disease,rank,feature,importance
+dengue,1,temperature,0.4442757083883908
+dengue,2,week_sin,0.20504539239452182
+dengue,3,us_aqi,0.12617367769029633
+dengue,4,week_cos,0.09143497137522923
+dengue,5,humidity,0.07725153773571365
+dengue,6,city_Lahore,0.028664532091116444
+dengue,7,city_Karachi,0.027154180324731724
+dengue,8,aqi_available,0.0

@@ -1,0 +1,650 @@
+5.5.5 Requirement Traceability for Automated Testing
+Statuses refer to the retained execution evidence dated 15 October 2026. “Passed—partial” means the named automated scenario passed, while other clauses of the requirement remain unverified. Native test names serve as existing test identifiers where no FSM identifier was assigned. All file paths are relative to the repository root.
+
+Requirement ID
+Requirement description / feature
+Existing automated test ID or native case name
+Test-file reference
+Framework
+Automated
+Execution status and coverage
+FR1.1
+Create an account and register the new user in the user directory.
+a successful sign-up registers the new account in the directory; a failed sign-up never attempts to register a directory entry
+test/features/auth/auth_notifier_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies notifier and directory behavior with fake authentication. Does not establish live account creation, email uniqueness, or all registration validation clauses.
+FR1.2
+Display registration validation feedback and require email verification before activation.
+—
+No verified automated reference identified for these clauses.
+—
+Not traced
+Unverified. The available registration tests do not establish verification-link delivery or the activation restriction.
+FR1.3
+Require a selected city and retain selected chronic conditions during health-profile setup.
+S6C-03: "Next" without a city shows the validation error and stays put; a condition selected, then Back, then Next again is still selected
+test/features/health_profile/health_profile_screen_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies the guided profile form and retained selections using controlled dependencies.
+FR1.4
+Load existing profile values for editing and preserve the profile-edit navigation flow.
+S6C-01: prefills the real saved city and conditions; Profile to Edit Health Profile, Back returns to Profile
+test/features/health_profile/health_profile_screen_test.dart; test/core/routes/navigation_back_stack_test.dart
+flutter_test
+Yes
+Passed—partial. Existing profile values and navigation are covered. Immediate downstream targeting changes and custom-condition support are not established by these cases.
+FR1.5
+Authenticate registered users, reject invalid credentials, and manage login submission states.
+—
+No verified automated reference identified for the complete login workflow.
+—
+Not traced
+Unverified in this matrix. Sign-up and password-recovery tests are not evidence of successful login, phone authentication, or account lockout.
+FR1.6
+Show or hide passwords while keeping them hidden by default.
+—
+No verified automated reference identified for the password-visibility control.
+—
+Not traced
+Unverified automation mapping. Retain the documented unit outcome separately; do not assign an unrelated automated case.
+FR1.7
+Reject malformed recovery input, accept corrected input, and submit the trimmed email address.
+FSM-W01-light; FSM-W01-dark
+test/features/auth/forgot_password_screen_test.dart
+flutter_test
+Yes
+Passed. Screen validation, correction, trimmed submission, and success feedback are verified in both themes using a fake authentication repository.
+FR1.7
+Prevent duplicate recovery requests and restore the form after a network error.
+FSM-W02
+test/features/auth/forgot_password_screen_test.dart
+flutter_test
+Yes
+Passed. One in-flight request, disabled input, blocked resubmission, and recoverable error behavior are verified.
+FR1.7
+Deliver the password-reset email and enforce reset-link expiry.
+—
+The password-recovery widget tests replace the external authentication service.
+—
+No verified live test
+Unverified. The recorded widget passes do not establish actual email delivery or link expiration.
+FR1.8
+Authenticate users through Google OAuth.
+—
+No verified live Google OAuth execution identified.
+—
+Not traced
+Unverified. Fake authentication and profile tests do not demonstrate an external Google sign-in flow.
+FR1.8
+Save health-profile information and make the saved values available during later profile editing.
+S6C-01: prefills the real saved city and conditions; a successful first-run save marks the user active in the directory
+test/features/health_profile/health_profile_screen_test.dart; test/features/health_profile/health_profile_notifier_test.dart
+flutter_test
+Yes
+Passed—partial. Profile loading and successful-save composition are covered. Persistence across a real application restart is not established here.
+FR1.9
+Navigate between registration and login screens.
+—
+No verified automated reference identified for the specific registration/login links.
+—
+Not traced
+Unverified automation mapping. Other navigation tests do not establish these particular transitions.
+FR2.1
+Validate medication-entry fields and save a complete medication record.
+an incomplete form is refused and every gap is named; a complete form saves the composed record
+test/features/medication/add_medication_test.dart
+flutter_test
+Yes
+Passed—partial. Form validation and composed-record submission are verified. Native reminder delivery is outside these cases.
+FR2.1
+Preserve medication identity during repository lifecycle operations.
+FirestoreMedicationRepository add → update → archive → delete lifecycle preserves record identity
+test/features/medication/medication_management_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed. Repository behavior is verified against fake Firestore; deployed database rules are not exercised.
+FR2.2
+Determine dose availability immediately before and at the configured opening and deadline.
+FSM-U01; FSM-U02; FSM-U03; FSM-U04
+test/features/medication/dose_state_boundaries_test.dart
+flutter_test
+Yes
+Passed—partial. Exact state-engine boundaries are verified. The 30-minute lead and two-hour grace are implementation policies, not numerical SRS requirements.
+FR2.2
+Schedule reminders only for active medication slots.
+schedules the primary daily reminder for every active medication slot; skips archived (inactive) medications entirely
+test/features/medication/medication_notification_orchestrator_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies scheduling decisions through test dependencies. Does not establish physical-device timing or notification permission behavior.
+FR2.3
+Select reminder times and retain previously selected times when another reminder is added.
+Change opens the picker and the chosen time lands on the row; adding a reminder keeps the times already chosen
+test/features/medication/add_medication_test.dart
+flutter_test
+Yes
+Passed—partial. Time-picker interaction and form state are covered. Continuous countdown synchronization and native delivery timing are not established.
+FR2.4
+Preserve a confirmed Taken outcome after the dose deadline.
+FSM-U05
+test/features/medication/dose_state_boundaries_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies completed-state interpretation without automatic overwriting. This isolated case does not verify the confirmation timestamp written to Firestore.
+FR2.5
+Distinguish a manually skipped dose from an automatically missed dose.
+FSM-U08; FSM-U09
+test/features/medication/dose_state_boundaries_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies interpretation before and at the deadline. Persisted skip logging and its complete analytics effect require separate evidence.
+FR2.6
+Keep past schedules read-only and prevent actions on future calendar days.
+FSM-U06; FSM-U07
+test/features/medication/dose_state_boundaries_test.dart
+flutter_test
+Yes
+Passed. Leap-day rollover and the previous-evening lead-window exception are explicitly checked.
+FR2.6
+Calculate the prior-week adherence rate from the fetched dose history.
+computes the prior-week dose-level rate from the same 30-day fetch
+test/features/medication/adherence_journey_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies rate calculation and repository composition. It does not establish every streak, chart, color, and reporting clause grouped under FR2.6.
+FR3.1
+Retrieve the latest available risk estimate for each supported city and map risk appearances consistently.
+returns one estimate per city that has data, omitting the rest; riskMarkerHue maps each appearance to a distinct hue
+test/features/risk/risk_map_test.dart
+flutter_test
+Yes
+Passed—partial. Covers city-risk data selection and marker styling. Real map gestures, clinic search, layer persistence, and incidence-based heatmaps are not established.
+FR3.2
+Display Low, Medium, and High risk states with distinct labels and visual indicators.
+High shows label + triangle icon + risk colour; Medium shows label + caution icon + risk colour; Low shows label + check icon + risk colour
+test/features/risk/risk_card_test.dart
+flutter_test
+Yes
+Passed. Verifies the rendered risk-card states using controlled inputs.
+FR3.2
+Show the profile city, risk-update timestamp, and stale-data feedback.
+userCityProvider returns the city when the profile has one; CityDetailSheet shows an "Updated" timestamp for the estimate; CityDetailSheet a stale city estimate labels the sheet honestly
+test/features/health_profile/health_profile_providers_test.dart; test/features/risk/risk_map_test.dart
+flutter_test
+Yes
+Passed—partial. Profile-city resolution and displayed freshness are covered. These cases do not establish live GPS acquisition or the separate ER1.1 environmental freshness rule.
+FR3.3
+Present delivered alerts and persist a user’s acknowledgment.
+AlertInboxScreen lists delivered alerts with their cited source; AlertInboxScreen tapping an alert marks it read; markRead persists read=true and a readAt timestamp
+test/features/alerts/user_alerts_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Inbox presentation and read acknowledgment are covered. Physical-device delivery and every dashboard/timeline clause are not established.
+FR3.4
+Render the stored estimate and its corresponding model attributions.
+stored estimate + attributions is read and EXPLAINED
+test/integration/pipeline_e2e_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Verifies host-side stored-data-to-explanation integration. It does not demonstrate clinical explanation validity or every configurable threshold clause.
+FR3.4
+Display risk-history trends and handle insufficient history safely.
+RiskDetailsScreen rising history shows a "Rising" summary; RiskDetailsScreen falling history shows an "Improving" summary; RiskDetailsScreen too little history → informative empty state, no chart
+test/features/risk/risk_details_screen_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies trend presentation and the insufficient-history state with controlled history.
+FR3.5
+Display heart rate, temperature, SpO₂, hydration, and other specified health indicators.
+—
+No verified automated reference identified for the complete FR3.5 feature set.
+—
+Not traced
+Unverified. Environmental readings or calculated insights must not be represented as tested physiological measurements.
+FR4.1
+Search health articles and filter the catalogue by category.
+the category rail filters the field and updates the count; the search layer filters the field and opens a result; a query with no match offers the way back to the full field
+test/features/resources/resource_center_test.dart
+flutter_test
+Yes
+Passed. Verifies category selection, search results, article opening, and the no-match state.
+FR4.1
+Present attributable resources and retain article bookmarks during navigation.
+every entry is publisher-attributed and externally linked; bookmarking an article persists across a pop
+test/features/resources/resource_center_test.dart
+flutter_test
+Yes
+Passed—partial. Catalogue attribution and bookmark retention during navigation are covered. Cross-session bookmark storage and external sharing are not established by these cases.
+FR4.2
+Open emergency-contact actions and route users to nearby care.
+the banner opens the sheet, which dials the real contact; the sheet routes escalation to the real care directory
+test/features/resources/resource_center_test.dart
+flutter_test
+Yes
+Passed—partial. Verifies the tested UI and action-routing seams. It does not establish a completed telephone call or emergency access while signed out.
+FR4.3
+Retrieve, parse, and order nearby hospitals by distance, including optional facility details.
+cache miss fetches, parses and sorts by distance; parses rating, review count and open-now when present; leaves rating/open-now null when Places omits them
+test/features/resources/nearby_hospitals_test.dart
+flutter_test
+Yes
+Passed—partial. Covers the repository and response-handling seam. Live Places availability, GPS accuracy, map gestures, and external navigation remain outside the claim.
+FR5.1
+Ingest historical public-health CSV data from approved WHO or government sources.
+test_import_guard_blocks_training_path_modules provides related separation evidence only.
+backend/ml/tests/test_disease_reference_guard.py
+pytest
+Related checks only
+Requirement unresolved. Passing reference-data guards do not establish the required disease-incidence ingestion workflow or approved-source enforcement.
+FR5.2
+Handle missing values and reject rows containing more than 40% missing fields.
+test_interpolate_short_gaps_fills_interior_within_limit_only; test_interpolate_short_gaps_never_extrapolates_edges
+backend/ml/tests/test_preprocessing_stages.py
+pytest
+Yes—partial
+Passed—partial. Short interior gaps and edge preservation are verified. The specific greater-than-40% rejection clause is not established.
+FR5.3
+Normalize city aliases and reject unknown city names.
+test_normalize_city_canonicalizes_known_aliases; test_normalize_city_validation_raises_on_unknown
+backend/ml/tests/test_preprocessing_stages.py
+pytest
+Yes
+Passed—partial. Canonicalization and validation are verified. A manual-review workflow for rejected cities is not established.
+FR5.3
+Derive consistent ISO year and week fields from dates.
+test_with_iso_week_derives_correct_iso_year_and_week
+backend/ml/tests/test_preprocessing_stages.py
+pytest
+Yes
+Passed—partial. Verifies the tested date-to-ISO transformation, not every possible source-date format.
+FR5.4
+Construct trailing rolling features and seasonal indicators.
+test_rolling_is_trailing_and_strictly_past; test_cyclical_bounds_and_adjacency
+backend/ml/tests/test_features.py
+pytest
+Yes
+Passed. Known-series rolling values, exclusion of the current observation, and cyclical encoding behavior are checked.
+FR5.4
+Prevent future observations from changing earlier engineered features.
+test_no_future_leakage_perturb_future_row
+backend/ml/tests/test_features.py
+pytest
+Yes
+Passed. Earlier feature rows remain unchanged after perturbation of the final future observation in the controlled series.
+FR5.4
+Maintain the preprocessing-to-model input contract and training/serving feature consistency.
+test_merge_columns_is_the_documented_module6_handoff_shape; test_frozen_inputs_reproduce_every_model_feature[train]; test_frozen_inputs_reproduce_every_model_feature[test]
+backend/ml/tests/test_preprocessing_stages.py; backend/tests/test_feature_parity.py
+pytest
+Yes
+Passed. Weekly handoff columns and every retained model feature are checked against manifest-verified fixtures.
+FR5.5
+Record pipeline execution information and retain logs for at least 30 days.
+test_emit_failed_raises_error_signal_with_alert; test_compute_risk_zero_output_raises_failed_signal
+backend/tests/test_observability.py
+pytest
+Yes—partial
+Passed—partial. Failure signals and job-status reporting are verified. All required ingestion-log fields and the 30-day retention policy are not established.
+FR6.1
+Train, persist, reload, and use the supervised classifier.
+test_train_fits_persists_reloads_and_predicts
+backend/ml/tests/test_train.py
+pytest
+Yes
+Passed—partial. Verifies the implemented training lifecycle. Compliance with the requirement to train on historical disease-incidence data remains unresolved.
+FR6.2
+Produce a contract-valid city risk classification with confidence and model metadata.
+test_writes_one_contract_valid_doc_per_city
+backend/tests/test_compute_risk.py
+pytest
+Yes
+Passed—partial. Checks supported risk labels, document context, confidence range, and model version using retained fixtures. Does not validate real-world outbreak prediction.
+FR6.2
+Reuse the same logical city/date document on repeated computation.
+test_rerun_same_day_is_idempotent
+backend/tests/test_compute_risk.py
+pytest
+Yes
+Passed. Repeat runs preserve the city/date key set without creating duplicate logical estimates. Deployed concurrent writes are not exercised.
+FR6.2
+Skip unavailable city inputs while continuing computation for other cities.
+test_city_missing_data_is_skipped_others_written
+backend/tests/test_compute_risk.py
+pytest
+Yes
+Passed. Missing Karachi data is skipped while available cities are written. This is not proof of the separate stored-data fallback requirement.
+FR6.2
+Derive the low-confidence indicator from the model bundle.
+test_batch_job_low_confidence_tracks_the_bundle_not_a_constant
+backend/tests/test_compute_risk.py
+pytest
+Yes
+Passed. Verifies an implementation policy supporting risk interpretation; no new SRS confidence threshold is implied.
+FR6.3
+Calculate classification evaluation metrics before deployment.
+test_classification_metrics_on_perfect_predictions
+backend/ml/tests/test_evaluate.py
+pytest
+Yes
+Passed—partial. Metric calculation is verified on controlled predictions. The production deployment restriction for F1 below 0.70 and independent disease-forecast validity are not established.
+FR6.4
+Use current environmental inputs and handle missing or unavailable upstream values.
+test_latest_week_missing_conditions_cannot_use_older_week
+backend/tests/test_compute_risk_freshness.py
+pytest
+Yes—partial
+Passed—partial. The tested missing-input guard passes. Open-Meteo implementation versus the SRS’s OpenWeatherMap source, stored-value fallback, and approximate-result labeling require reconciliation.
+FR6.5
+Preserve model reproducibility metadata and artifact configuration.
+test_reproducibility_record_is_complete; test_promotion_preserves_the_configured_low_confidence_threshold
+backend/ml/tests/test_train.py; backend/ml/tests/test_artifact.py
+pytest
+Yes
+Passed—partial. Metadata and promotion behavior are checked. A complete deployment-version history and administrator rollback within 30 minutes are not established.
+FR6.6
+Reject invalid field types before inference.
+FSM-B01; FSM-B02; FSM-B03; FSM-B04
+backend/tests/test_api_validation_boundary.py
+pytest; FastAPI TestClient
+Yes
+Passed. Invalid values produce the expected HTTP 422 validation details and zero inference calls.
+FR6.6
+Reject omitted required request fields before inference.
+FSM-B05; FSM-B06; FSM-B07
+backend/tests/test_api_validation_boundary.py
+pytest; FastAPI TestClient
+Yes
+Passed. Missing city, rainfall, or week fields are rejected without invoking inference.
+FR6.6
+Reject malformed JSON before inference.
+FSM-B08 / test_FSM_B08_malformed_json_never_reaches_inference
+backend/tests/test_api_validation_boundary.py
+pytest; FastAPI TestClient
+Yes
+Passed. Malformed JSON produces HTTP 422 and json_invalid, with no model request.
+FR6.6
+Accept valid closed numeric and ISO-week boundaries.
+FSM-B09; FSM-B10
+backend/tests/test_api_validation_boundary.py
+pytest; FastAPI TestClient
+Yes
+Passed. Accepted boundary values reach the stub-model seam unchanged and produce a valid response.
+FR6.6
+Return the promoted model’s response contract through the API.
+test_predict_returns_real_contract_body
+backend/tests/test_api.py
+pytest; FastAPI TestClient
+Yes
+Passed—partial. Verifies the response contract using the promoted artifact. The three-second normal-load response-time requirement was not benchmarked.
+FR7.1
+Dispatch a qualifying risk alert and create its corresponding inbox record.
+test_full_loop_delivers_exactly_one_inbox_alert; test_opted_out_user_receives_nothing
+backend/tests/test_e2e_pipeline.py
+pytest
+Yes
+Passed—partial. Seeded risk transitions, consenting-user eligibility, fake sending, and inbox persistence are covered. Actual FCM delivery is not established.
+FR7.2
+Display the current user’s alerts in reverse chronological order and update read state.
+watchAlerts streams the user's alerts newest first; watchAlerts only returns the caller's own alerts; markRead persists read=true and a readAt timestamp
+test/features/alerts/user_alerts_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Client repository behavior is verified. Fake Firestore does not establish database-level access enforcement.
+FR7.2
+Filter the inbox and preserve read updates through the alert pipeline.
+S6A-06: selecting "Unread" hides read tiles; unread → read persists back to Firestore
+test/features/alerts/user_alerts_test.dart; test/integration/alert_pipeline_e2e_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Tested filters and host-side read persistence pass. The complete SRS category model is not inferred from the tested filters.
+FR7.2
+Handle notification taps and route users to the intended screen.
+background tap navigates to the resolved route; terminated-launch tap routes from the initial message; a live tap navigates to the resolved route
+test/features/alerts/fcm_message_handler_test.dart; test/features/medication/medication_notification_routing_test.dart
+flutter_test
+Yes
+Passed—partial. Routing is verified through injected messages and callbacks. Real platform delivery and application lifecycle behavior on a device remain unverified.
+FR7.3
+Mark a dose directly from a notification and support configurable snoozing.
+—
+No verified automated reference identified for both specified notification actions.
+—
+Not traced
+Unverified. Notification deep-link routing does not prove dose persistence or snooze scheduling.
+FR8.1
+Display administrator model status, job health, and alert volume.
+an admin sees model status, job health, and alert volume; a non-admin sees the shared not-authorized view, not metrics
+test/features/admin/admin_dashboard_screen_test.dart
+flutter_test
+Yes
+Passed—partial. Rendering and client-side access presentation are covered with controlled data. Complete live metrics and server-side authorization are not established.
+FR8.2
+Apply a city risk override, attribute the administrator, and record the action.
+submit writes an override stamped with the signed-in author; submit appends an activity-log entry stamped with the author; an active override replaces the headline and is labelled
+test/features/admin/risk_override_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Controller writes, author attribution, logging calls, and displayed override behavior are verified. Every form-validation clause and deployed permission rule are not established by these cases.
+FR8.3
+Validate, create, edit, and list health-resource articles.
+empty title blocks submit with a snackbar; a valid submit saves the article with a title-derived slug id, logs the action, and pops back to the list; saving an edit keeps the original id even if the title changed, and logs an update (not a create)
+test/features/admin/admin_article_form_screen_test.dart; test/features/admin/admin_content_screen_test.dart
+flutter_test
+Yes
+Passed—partial. Form validation and create/edit composition pass. An optional editorial-review workflow and live publication propagation are not established.
+FR8.4
+Record administrative actions and display recent entries with their author and timestamp.
+append then recent returns the entry with an assigned id; recent returns newest first; an admin sees logged entries, newest first, with author + summary
+test/features/admin/admin_activity_log_repository_test.dart; test/features/admin/admin_activity_log_screen_test.dart
+flutter_test; fake_cloud_firestore
+Yes
+Passed—partial. Repository ordering and log presentation are verified. Database-enforced immutability and secure retention are not established.
+FR8.5
+List, search, and filter registered users and display their details.
+an admin sees both users with name/email and status; search filters by name or email; status filter shows only users in that status; renders every field read-only plus the operator-only note
+test/features/admin/admin_users_screen_test.dart; test/features/admin/admin_user_detail_screen_test.dart
+flutter_test
+Yes
+Passed—partial. User-directory presentation and read-only details are covered. Blocking, reactivation, deletion, manual creation, and authentication enforcement require separate evidence.
+FR9.1
+Protect stored user data through the required Firestore encryption-at-rest configuration.
+—
+No retained deployment or infrastructure verification mapped to this requirement.
+—
+No verified test
+Unverified. Successful fake-repository tests do not verify the deployed storage encryption configuration.
+FR9.2
+Reject cross-user document access through Firestore Security Rules.
+Existing rules-test implementation; no completed execution mapped here.
+test_rules/firestore_rules.test.mjs
+Firebase rules test suite
+Implemented; not executed in the recorded suites
+Not executed. Owner-scoped Flutter repository queries are not proof of database-rule enforcement.
+FR9.3
+Restrict health-data collection to the permitted self-reported categories.
+—
+No complete data-minimization compliance test identified.
+—
+Not traced
+Unverified. Individual model or UI tests do not establish system-wide collection, storage, and processing compliance.
+FR9.4
+Enforce HTTPS and reject plain HTTP communication.
+—
+No completed deployed client/server transport-enforcement test identified.
+—
+Not traced
+Unverified. In-process TestClient execution does not demonstrate deployed HTTPS enforcement.
+FR9.5
+Store authentication tokens securely and invalidate them on logout.
+—
+No verified device secure-storage and token-invalidation test identified.
+—
+Not traced
+Unverified. Fake authentication tests do not establish device token storage or invalidation of active sessions.
+FR9.6
+Display the non-diagnostic medical disclaimer on risk-facing screens.
+banner shows the canonical non-diagnostic copy; canonical copy states it is not a diagnosis and routes to help; risk-facing surface rendering cases
+test/features/core/medical_disclaimer_test.dart
+flutter_test
+Yes
+Passed—partial. Disclaimer content and tested surfaces are verified. Mandatory first-run acceptance and inclusion in every actual push message are not established.
+ER1.1
+Update environmental records on schedule and flag data older than 36 hours.
+Related missing-input checks in test_latest_week_missing_conditions_cannot_use_older_week
+backend/tests/test_compute_risk_freshness.py
+pytest
+Yes—related checks
+Passed—partial; requirement unresolved. The named input guards pass, but daily OpenWeatherMap execution, the exact 36-hour flag, and administrator notification are not established.
+ER1.2
+Preserve a computed risk estimate in a form that the dispatch module can read.
+test_compute_risk_output_carries_attributions_and_is_dispatch_readable
+backend/tests/test_e2e_pipeline.py
+pytest
+Yes
+Passed—partial. Real computation writes a contract-valid estimate to the shared in-memory store, and dispatch reads its fields. Complete deployed change-detection auditing is not established.
+ER1.3
+Deliver an alert only for an eligible user and a qualifying risk transition.
+test_full_loop_delivers_exactly_one_inbox_alert; test_opted_out_user_receives_nothing; test_no_transition_sends_nothing
+backend/tests/test_e2e_pipeline.py
+pytest
+Yes
+Passed—partial. Eligibility, consent withdrawal, and no-transition suppression pass with seeded estimates, an in-memory store, and a fake sender. No physical-device FCM pass is claimed.
+ER1.3
+Suppress repeated dispatches of the same logical event.
+test_repeated_runs_produce_no_spam
+backend/tests/test_e2e_pipeline.py
+pytest
+Yes
+Passed. Five dispatch runs for the seeded event produce one total fake send and one inbox record.
+ER1.3
+Apply the configured alert-throttling window, including its boundary.
+test_throttled_within_window; test_window_boundary_is_inclusive; test_allow_after_window
+backend/tests/test_throttle.py
+pytest
+Yes
+Passed—partial. The configured time-window decisions pass with fake history. Deployed concurrency and database transaction guarantees are outside these cases.
+ER1.4
+Timestamp dose check-ins, update adherence, and reject duplicate check-ins within the same dose window.
+FSM-U05; FSM-U08; FSM-U09; prior-week adherence-rate case provide related evidence only.
+test/features/medication/dose_state_boundaries_test.dart; test/features/medication/adherence_journey_test.dart
+flutter_test
+Yes—partial
+Passed—partial. Status interpretation and adherence arithmetic are verified separately. An end-to-end timestamped persistence and duplicate-rejection claim is not established by these references.
+ER1.5
+Execute nightly preprocessing, retrain only when quality criteria are met, and retain the current model when quality fails.
+test_train_fits_persists_reloads_and_predicts provides related training evidence only.
+backend/ml/tests/test_train.py
+pytest
+Yes—related checks
+Passed—partial. The training lifecycle passes. The complete nightly schedule, quality-gated retraining, and failure-triggered model-retention workflow remain unverified.
+
+The matrix uses actual FR and ER identifiers from the source requirement tables. Its status refers only to the mapped scenario. It does not imply that related untested clauses, such as email-link expiry or inference latency under load, passed. Existing tests are identified by their native function or case names rather than by invented automation IDs.
+Requirement and source
+Implemented feature
+Automated IDs
+File
+Outcome and qualification
+FR2.2; SDS/SRS Module 2, M5
+Dose status and action window
+FSM-U01, FSM-U02, FSM-U03, FSM-U04
+A
+Passed; window lengths are current implementation policies.
+FR2.4; Module 2, M5
+Taken completion retained
+FSM-U05
+A
+Passed for state engine; persistence timestamp not exercised here.
+FR2.6; Module 2, M5
+Read-only calendar history and future-day guard
+FSM-U06, FSM-U07
+A
+Passed; leap-day transition and midnight lead window.
+FR2.5; Module 2, M5
+Skipped versus automatic missed outcome
+FSM-U08, FSM-U09
+A
+Passed for status interpretation; separate logging/analytics coverage remains relevant.
+FR1.7; Module 1, M2
+Password recovery validation and correction
+FSM-W01-light, FSM-W01-dark
+B
+Passed; real reset-email delivery and link expiry unverified.
+FR1.7; Module 1, M2
+Single in-flight recovery request and recoverable error
+FSM-W02
+B
+Passed with fake authentication repository.
+FR6.6; Module 6
+Reject invalid request values before inference
+FSM-B01, FSM-B02, FSM-B03, FSM-B04
+C
+Passed; no model invocation for invalid body fields.
+FR6.6; Module 6
+Reject missing required request fields
+FSM-B05, FSM-B06, FSM-B07
+C
+Passed; validation error location and missing type asserted.
+FR6.6; Module 6
+Reject malformed JSON before inference
+FSM-B08
+C
+Passed; function spelling uses FSM_B08.
+FR6.6; Module 6
+Accept closed numeric and ISO-week boundaries
+FSM-B09, FSM-B10
+C
+Passed with stub model seam; three-second latency requirement unverified.
+Table 5.10: Requirement traceability for the new automated cases
+Requirement
+Existing executable reference or gap
+Status and scope
+FR5.4; feature engineering
+backend/tests/test_feature_parity.py:test_frozen_inputs_reproduce_every_model_feature (train/test parameters)
+Final backend report; train/serve feature consistency against frozen precursor.
+FR5.4; lag and rolling feature derivation
+backend/ml/tests/test_features.py:test_rolling_is_trailing_and_strictly_past; backend/ml/tests/test_features.py::test_no_future_leakage_perturb_future_row
+Passed in retained backend report. Known-series rolling values and unchanged earlier features after future-row perturbation; partial feature-engineering coverage.
+FR6.2; city risk output contract
+backend/tests/test_compute_risk.py:test_writes_one_contract_valid_doc_per_city
+Passed in retained backend report. One contract-valid document per synthetic city with supported risk/disease labels, confidence in [0,1], model version and artifact-derived lowConfidence. Does not establish real-world forecast validity.
+FR6.2; repeated and unavailable city inputs
+backend/tests/test_compute_risk.py:test_rerun_same_day_is_idempotent; backend/tests/test_compute_risk.py::test_city_missing_data_is_skipped_others_written
+Passed in retained backend report. Same city/date key set on rerun; absent Karachi input skipped while other cities are written. Implementation policies supporting classification, not complete FR6.4 fallback compliance.
+FR6.2 and FR6.6; classification/API
+backend/tests/test_api.py:test_predict_returns_real_contract_body
+Final backend report; promoted artifact response contract, not measured normal-load latency.
+ER1.3; eligible user alert
+backend/tests/test_e2e_pipeline.py:test_full_loop_delivers_exactly_one_inbox_alert
+Final backend report; synthetic consenting user, in-memory store and fake send.
+ER1.3; repeat suppression
+backend/tests/test_e2e_pipeline.py:test_repeated_runs_produce_no_spam
+Final backend report; repeated estimate produces one delivery in the fake pipeline.
+ER1.3; consent withdrawal
+backend/tests/test_e2e_pipeline.py:test_opted_out_user_receives_nothing
+Final backend report; no delivery after withdrawal.
+FR3.4; risk explanation
+test/integration/pipeline_e2e_test.dart; native case contains stored estimate + attributions is read and EXPLAINED
+Passed in Flutter final run; stored attribution rendering with fake Firestore.
+FR7.2; owner inbox and routing
+test/integration/alert_pipeline_e2e_test.dart
+Passed in Flutter final run; owner-scoped inbox, read update and deep link over fakes.
+FR2.6; adherence percentage
+test/features/medication/adherence_journey_test.dart; computes the prior-week dose-level rate from the same 30-day fetch
+Passed in Flutter final run; arithmetic and repository composition.
+FR9.2; Firestore rule enforcement
+test_rules/firestore_rules.test.mjs exists but is outside Flutter and pytest suites.
+Not executed here; fake Firestore repository tests do not enforce deployed security rules.
+FR5.2, FR6.1, FR6.3; source and scientific criteria
+Requirements describe disease-incidence data, >40% missing-row rejection and deployment F1 threshold.
+No complete compliance claim. Current environmental proxy training and its guards need separate reconciliation with these clauses.
+ER1.1 and FR6.4; acquisition and fallback
+Existing compute_risk_freshness tests cover incomplete/latest inputs; source configuration uses Open-Meteo.
+Partial evidence only. SRS names OpenWeatherMap and 36-hour flagging/fallback; equivalence requires an approved requirement update or further verification.
+Unresolved IDs and mappings
+Earlier Chapter 5 used hyphenated IDs such as FR-5.1 for theme switching; Chapter 2 defines FR5.1 as CSV ingestion.
+No theme requirement ID invented. Native theme tests run, but a reliable requirement mapping remains unresolved.
+Table 5.11: Existing regression evidence and unresolved requirement clauses
+A recorded Pass applies to the named software scenario and retains fixtures. Unit decisions about dose availability do not establish Firestore writes or device alarm delivery. Backend feature tests do not establish disease-incidence provenance, an approved deployment F1 threshold or real-world disease forecasting. The inherited 5.1 catalogue uses some legacy requirement labels; the verified SRS identifiers in this matrix take precedence for the scenarios mapped here. Unmapped legacy labels require individual reconciliation with the approved SRS rather than automatic renumbering. No current manual-only acceptance status is inferred from the automated reports.

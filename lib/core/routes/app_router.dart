@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/disease_explorer_screen.dart';
 
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/login_screen.dart';
@@ -232,6 +233,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/compare',
         pageBuilder: (context, state) =>
             _motionPage(state, const ComparisonScreen()),
+      ),
+      GoRoute(
+        path: '/disease-explorer',
+        pageBuilder: (context, state) => _motionPage(
+          state,
+          DiseaseExplorerScreen(initialCity: state.uri.queryParameters['city']),
+        ),
       ),
       GoRoute(
         path: '/nearby-hospitals',

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,14 +13,20 @@ import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/forgot_password_screen.dart';
 
 class FakeAuthRepository implements AuthRepository {
-  FakeAuthRepository(this._result, {this.delay = Duration.zero});
+  FakeAuthRepository(
+    this._result, {
+    this.delay = Duration.zero,
+    this.completion,
+  });
   final Either<AuthException, void> _result;
   final Duration delay;
+  final Completer<Either<AuthException, void>>? completion;
   final List<String> resetCalls = [];
 
   @override
   Future<Either<AuthException, void>> sendPasswordReset(String email) async {
     resetCalls.add(email);
+    if (completion != null) return completion!.future;
     if (delay != Duration.zero) await Future.delayed(delay);
     return _result;
   }
@@ -47,6 +55,8 @@ Future<FakeAuthRepository> _pump(
   WidgetTester tester,
   Either<AuthException, void> result, {
   Duration delay = Duration.zero,
+  Completer<Either<AuthException, void>>? completion,
+  Brightness brightness = Brightness.light,
 }) async {
   // A tall surface so no glass section is clipped out of the hit-test region.
   tester.view.physicalSize = const Size(1200, 2600);
@@ -54,7 +64,7 @@ Future<FakeAuthRepository> _pump(
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  final repo = FakeAuthRepository(result, delay: delay);
+  final repo = FakeAuthRepository(result, delay: delay, completion: completion);
   final router = GoRouter(
     initialLocation: '/login',
     routes: [
@@ -72,7 +82,10 @@ Future<FakeAuthRepository> _pump(
       // NoSplash avoids the ink_sparkle shader the test binding can't decode.
       child: MaterialApp.router(
         routerConfig: router,
-        theme: ThemeData(splashFactory: NoSplash.splashFactory),
+        theme: ThemeData(
+          brightness: brightness,
+          splashFactory: NoSplash.splashFactory,
+        ),
       ),
     ),
   );
@@ -82,6 +95,69 @@ Future<FakeAuthRepository> _pump(
 }
 
 void main() {
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'FSM-W01-${brightness.name} malformed email blocks reset until corrected',
+      (tester) async {
+        final repo = await _pump(
+          tester,
+          const Right(null),
+          brightness: brightness,
+        );
+        await tester.enterText(
+          find.byType(TextFormField),
+          'invalid.example.com',
+        );
+        await tester.tap(find.text('Send reset link'));
+        await tester.pumpAndSettle();
+        expect(find.text('Enter a valid email address'), findsOneWidget);
+        expect(repo.resetCalls, isEmpty);
+        await tester.enterText(
+          find.byType(TextFormField),
+          '  evaluator@example.com  ',
+        );
+        await tester.tap(find.text('Send reset link'));
+        await tester.pumpAndSettle();
+        expect(repo.resetCalls, ['evaluator@example.com']);
+        expect(find.text('Check your inbox'), findsOneWidget);
+      },
+    );
+  }
+  testWidgets(
+    'FSM-W02 pending reset prevents duplicate submission and recovers after failure',
+    (tester) async {
+      final completion = Completer<Either<AuthException, void>>();
+      final repo = await _pump(
+        tester,
+        const Right(null),
+        completion: completion,
+      );
+      await tester.enterText(
+        find.byType(TextFormField),
+        'evaluator@example.com',
+      );
+      await tester.tap(find.text('Send reset link'));
+      await tester.pump();
+      final field = tester.widget<TextFormField>(find.byType(TextFormField));
+      expect(field.enabled, isFalse);
+      // Keyboard submission is another route into _submit while sending.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(repo.resetCalls, ['evaluator@example.com']);
+      completion.complete(
+        const Left(
+          AuthException('synthetic offline failure', 'network-request-failed'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Network error'), findsOneWidget);
+      expect(
+        tester.widget<TextFormField>(find.byType(TextFormField)).enabled,
+        isTrue,
+      );
+      expect(find.text('Check your inbox'), findsNothing);
+    },
+  );
   group(
     'ForgotPasswordScreen — really calls Firebase (root-cause safeguard)',
     () {

@@ -33,13 +33,14 @@ import json
 import logging
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 
 import pandas as pd
 
 from app.explain import AttributionSet, compute_attributions
+from app.disease_estimates import independent_estimates
 from app.feature_builder import engineer_serving_features
 from app.jobs import observability
 from app.predict import (
@@ -104,6 +105,7 @@ class CityEstimate:
 
     response: RiskEstimateResponse
     attributions: AttributionSet
+    disease_estimates: list[dict[str, Any]] = field(default_factory=list)
 
 
 # --- Config -----------------------------------------------------------------
@@ -160,7 +162,10 @@ def estimate_for_city_full(
         low_confidence=confidence < resolve_low_confidence_threshold(bundle),
     )
     attributions = compute_attributions(bundle, disease, latest_features)
-    return CityEstimate(response=response, attributions=attributions)
+    return CityEstimate(
+        response=response, attributions=attributions,
+        disease_estimates=independent_estimates(bundle, latest_features, generated_at),
+    )
 
 
 def estimate_for_city(
@@ -201,6 +206,7 @@ def _document_body(estimate: CityEstimate) -> dict[str, Any]:
     """
     body = estimate.response.model_dump(by_alias=True, mode="json")
     body["attributions"] = estimate.attributions.model_dump(by_alias=True, mode="json")
+    body["diseaseEstimates"] = estimate.disease_estimates
     return body
 
 
