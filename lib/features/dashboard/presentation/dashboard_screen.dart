@@ -18,6 +18,7 @@ import 'package:fyp_foreseeme/features/medication/presentation/adherence_journey
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_notifier.dart';
 import 'package:fyp_foreseeme/features/medication/presentation/todays_mission_card.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/widgets/home_risk_field.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_explorer_entry.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,12 @@ class DashboardScreen extends ConsumerWidget {
                           child: MedicalDisclaimer.inline(),
                         ),
 
+                        const SizedBox(height: 20),
+
+                        const AppReveal(
+                          delayMs: 40,
+                          child: DiseaseExplorerEntry(),
+                        ),
                         const SizedBox(height: 20),
 
                         // SECTION 2 — TODAY'S MISSION (reuses Module 2's

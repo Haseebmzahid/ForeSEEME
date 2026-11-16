@@ -324,6 +324,14 @@ Future<void> _showRcSheet({
   required WidgetBuilder builder,
 }) {
   final reduce = AppMotion.reduceMotion(context);
+  // General dialogs sit outside the caller's Material/Scaffold text defaults.
+  // Establish a complete sheet baseline instead of inheriting MaterialApp's
+  // diagnostic yellow double underline. Individual rc* styles still own type.
+  final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
+    inherit: false,
+    decoration: TextDecoration.none,
+  );
+
   return showGeneralDialog<void>(
     context: context,
     useRootNavigator: true,
@@ -361,7 +369,13 @@ Future<void> _showRcSheet({
                 begin: const Offset(0, 1),
                 end: Offset.zero,
               ).animate(curved),
-              child: FadeTransition(opacity: curved, child: builder(context)),
+              child: FadeTransition(
+                opacity: curved,
+                child: DefaultTextStyle(
+                  style: textStyle,
+                  child: builder(context),
+                ),
+              ),
             ),
           ),
         ],
@@ -391,39 +405,48 @@ class _RcSheetShell extends StatelessWidget {
     // only needs the prototype's own 30px of breathing room plus that inset.
     final bottom = 30 + MediaQuery.paddingOf(context).bottom;
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      child: BackdropFilter(
-        filter: rcBlur(context, 30),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.solidify(context, theme.sheet),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: borderColor)),
-            boxShadow: theme.sheetShadow,
-          ),
-          child: SafeArea(
-            top: false,
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(pad, 18, pad, bottom),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: theme.line2,
-                        borderRadius: BorderRadius.circular(2),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight:
+            MediaQuery.sizeOf(context).height -
+            MediaQuery.paddingOf(context).top,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: rcBlur(context, 30),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.solidify(context, theme.sheet),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              border: Border(top: BorderSide(color: borderColor)),
+              boxShadow: theme.sheetShadow,
+            ),
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(pad, 18, pad, bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: theme.line2,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ...children,
-                ],
+                    const SizedBox(height: 16),
+                    ...children,
+                  ],
+                ),
               ),
             ),
           ),

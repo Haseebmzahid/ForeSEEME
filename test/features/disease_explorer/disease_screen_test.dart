@@ -11,6 +11,10 @@ import 'package:fyp_foreseeme/core/routes/bottom_nav_bar.dart';
 import 'package:fyp_foreseeme/features/disease_explorer/presentation/disease_explorer_screen.dart';
 import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_detail_panel.dart';
 import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_trend_chart.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_risk_card.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/environment_orb.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_glass.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_explorer_entry.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
@@ -25,6 +29,7 @@ Future<void> pump(
   bool reduce = true,
   bool dark = false,
   bool automaticRetry = true,
+  bool highContrast = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -48,6 +53,7 @@ Future<void> pump(
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(
             disableAnimations: reduce,
+            highContrast: highContrast,
             textScaler: TextScaler.linear(scale),
           ),
           child: child!,
@@ -64,15 +70,139 @@ Future<void> pump(
 }
 
 void main() {
+  testWidgets('Home entry supports large text and announces its action', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            disableAnimations: true,
+            highContrast: true,
+            textScaler: const TextScaler.linear(2),
+          ),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: DiseaseExplorerEntry(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(
+        'Explore Disease Risks. Dengue, Smog and Influenza. Explore now.',
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    semantics.dispose();
+  });
+  testWidgets('Map control keeps its visible label at large text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: SizedBox(
+            width: 106,
+            child: DiseaseExplorerMapAction(city: 'Karachi'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Disease Explorer'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(DiseaseExplorerMapAction)).height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'full-width cards stay stacked in disease order on a wide screen',
+    (tester) async {
+      await pump(tester);
+      final cards = find.byType(DiseaseRiskCard);
+      expect(cards, findsNWidgets(3));
+      final rectangles = List.generate(3, (i) => tester.getRect(cards.at(i)));
+      expect(rectangles[0].width, rectangles[1].width);
+      expect(rectangles[1].width, rectangles[2].width);
+      expect(rectangles[0].left, rectangles[2].left);
+      expect(rectangles[0].bottom, lessThan(rectangles[1].top));
+      expect(rectangles[1].bottom, lessThan(rectangles[2].top));
+      expect(tester.widget<DiseaseRiskCard>(cards.at(0)).disease, 'dengue');
+      expect(tester.widget<DiseaseRiskCard>(cards.at(1)).disease, 'smog');
+      expect(tester.widget<DiseaseRiskCard>(cards.at(2)).disease, 'influenza');
+    },
+  );
+  testWidgets(
+    'reduced transparency removes feature blur and reduced motion stops the orb',
+    (tester) async {
+      await pump(tester, highContrast: true);
+      await tester.pumpAndSettle();
+      expect(find.byType(EnvironmentOrb), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DiseaseGlass),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsNothing,
+      );
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('refresh retrieves the selected city again', (tester) async {
+    final calls = <String>[];
+    await pump(
+      tester,
+      load: (city) async {
+        calls.add(city);
+        return estimate(city: city);
+      },
+    );
+    await tester.tap(find.byTooltip('Refresh estimates'));
+    await tester.pumpAndSettle();
+    expect(calls, ['Lahore', 'Lahore']);
+  });
+  for (final width in [360.0, 390.0, 430.0]) {
+    testWidgets('mobile layout at width $width is readable', (tester) async {
+      await pump(tester, size: Size(width, 844), scale: 1.3);
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -900),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final dark in [false, true]) {
-    testWidgets('visual review and motion settle dark=$dark', (tester) async {
+    testWidgets('hero motion renders in theme dark=$dark', (tester) async {
       await pump(
         tester,
         dark: dark,
         reduce: false,
         size: const Size(1000, 1100),
       );
-      await tester.pumpAndSettle();
+      // The decorative orb intentionally keeps a slow ambient ticker alive.
+      await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       final directory = Platform.environment['DISEASE_EXPLORER_CAPTURE_DIR'];
       if (directory != null) {

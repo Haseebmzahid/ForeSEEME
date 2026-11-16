@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:fyp_foreseeme/features/disease_explorer/presentation/widgets/disease_explorer_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -592,36 +593,32 @@ class _TopChrome extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      MapIconButton(
-                        semanticLabel: 'Recent activity',
-                        icon: Icons.history_rounded,
-                        onPressed: onHistory,
-                      ),
-                      const SizedBox(height: 8),
-                      MapIconButton(
-                        semanticLabel: 'Compare cities and diseases',
-                        icon: Icons.bar_chart_rounded,
-                        onPressed: onCompare,
-                      ),
-                      const SizedBox(height: 8),
-                      MapIconButton(
-                        semanticLabel: 'Disease Explorer',
-                        icon: Icons.biotech_rounded,
-                        onPressed: () => context.push(
-                          Uri(
-                            path: '/disease-explorer',
-                            queryParameters: selected == null
-                                ? null
-                                : {'city': selected!.city},
-                          ).toString(),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        MapIconButton(
+                          semanticLabel: 'Recent activity',
+                          icon: Icons.history_rounded,
+                          onPressed: onHistory,
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        MapIconButton(
+                          semanticLabel: 'Compare cities and diseases',
+                          icon: Icons.bar_chart_rounded,
+                          onPressed: onCompare,
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: (MediaQuery.sizeOf(context).width * .42)
+                              .clamp(120.0, 188.0),
+                          child: DiseaseExplorerMapAction(city: selected?.city),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,

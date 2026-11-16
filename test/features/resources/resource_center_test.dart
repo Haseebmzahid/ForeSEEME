@@ -19,6 +19,8 @@ import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_p
 import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_center_chrome.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_center_sheets.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_center_style.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/fake_risk_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
@@ -425,6 +427,95 @@ void main() {
   });
 
   group('emergency', () {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('emergency effective text is undecorated at scale $scale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(320, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        var calls = 0;
+        var care = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                disableAnimations: true,
+                textScaler: TextScaler.linear(scale),
+                padding: const EdgeInsets.only(top: 24, bottom: 24),
+              ),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showRcEmergencySheet(
+                    context: context,
+                    theme: ResourceCenterTheme.of(context),
+                    contactName: 'Rescue 1122',
+                    contactDescription:
+                        'Punjab Emergency Service · Ambulance & Rescue',
+                    onCall: () => calls++,
+                    onFindCare: () => care++,
+                  ),
+                  child: const Text('Open emergency'),
+                ),
+              ),
+            ),
+          ),
+        );
+        Future<void> open() async {
+          await tester.tap(find.text('Open emergency'));
+          await tester.pumpAndSettle();
+        }
+
+        await open();
+        final shell = find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == '_RcSheetShell',
+        );
+        expect(shell, findsOneWidget);
+        final paragraphs = tester.widgetList<RichText>(
+          find.descendant(of: shell, matching: find.byType(RichText)),
+        );
+        expect(paragraphs.length, greaterThanOrEqualTo(7));
+        for (final paragraph in paragraphs) {
+          // RichText receives the actual DefaultTextStyle + Text.style merge.
+          expect(
+            paragraph.text.style?.decoration,
+            TextDecoration.none,
+            reason: paragraph.text.toPlainText(),
+          );
+        }
+        expect(find.text('Need help now?'), findsOneWidget);
+        expect(
+          find.textContaining('does not assess your condition'),
+          findsOneWidget,
+        );
+        final disclaimer = find.textContaining(
+          'FORESEEME DOES NOT ROUTE EMERGENCY CALLS.',
+        );
+        await tester.ensureVisible(disclaimer);
+        await tester.pumpAndSettle();
+        expect(disclaimer.hitTestable(), findsOneWidget);
+        expect(tester.getBottomRight(disclaimer).dy, lessThanOrEqualTo(616));
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('Call Rescue 1122'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Call Rescue 1122'));
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        await open();
+        await tester.ensureVisible(find.text('FIND NEAREST CARE'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('FIND NEAREST CARE'));
+        await tester.pumpAndSettle();
+        expect(care, 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+
     testWidgets('the banner opens the sheet, which dials the real contact', (
       tester,
     ) async {

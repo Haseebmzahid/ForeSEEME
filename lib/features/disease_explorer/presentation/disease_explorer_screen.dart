@@ -11,6 +11,8 @@ import '../../risk/domain/models/risk_estimate_model.dart';
 import '../domain/models/disease_risk_estimate.dart';
 import '../domain/services/disease_explorer_service.dart';
 import 'widgets/disease_hero.dart';
+import 'widgets/disease_city_selector.dart';
+import 'widgets/disease_glass.dart';
 import 'widgets/disease_risk_card.dart';
 import 'widgets/disease_detail_panel.dart';
 
@@ -61,23 +63,20 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
           ),
         ],
       ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: context.fsmColors.gradients.surface,
-        ),
+      body: DiseaseAtmosphere(
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1040),
+                  constraints: const BoxConstraints(maxWidth: 760),
                   child: Padding(
                     padding: const EdgeInsets.all(ForeSeeMeSpacing.gutter),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const DiseaseHero(),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         Text(
                           'YOUR CITY',
                           style: context.fsmText.labelSmall?.copyWith(
@@ -86,23 +85,11 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          key: ValueKey(city),
-                          initialValue: city,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Selected city',
-                            prefixIcon: Icon(Icons.location_on_outlined),
-                          ),
-                          items: [
-                            for (final name in kSupportedCities)
-                              DropdownMenuItem(value: name, child: Text(name)),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) setState(() => _city = value);
-                          },
+                        DiseaseCitySelector(
+                          city: city,
+                          onChanged: (value) => setState(() => _city = value),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         Text(
                           'Independent estimates',
                           style: context.fsmText.titleLarge,
@@ -151,29 +138,8 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
                           data: (document) => Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (document?.isFromCache == true)
-                                const Padding(
-                                  padding: EdgeInsets.only(bottom: 16),
-                                  child: Text(
-                                    'Cached data · may be offline. Refresh when connected.',
-                                  ),
-                                ),
-                              if (document == null ||
-                                  document.diseaseEstimates.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: Text(
-                                    'No independent estimates available for $city yet. Missing data does not mean low risk.',
-                                  ),
-                                ),
-                              LayoutBuilder(
-                                builder: (context, box) {
-                                  final wide =
-                                      box.maxWidth >= 780 &&
-                                      MediaQuery.textScalerOf(
-                                            context,
-                                          ).scale(1) <=
-                                          1.3;
+                              Builder(
+                                builder: (context) {
                                   final cards = [
                                     for (final key in diseaseNames.keys)
                                       DiseaseRiskCard(
@@ -193,7 +159,11 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
                                           sheetAnimationStyle:
                                               AppMotion.reduceMotion(context)
                                               ? AnimationStyle.noAnimation
-                                              : null,
+                                              : const AnimationStyle(
+                                                  duration: AppMotion.medium,
+                                                  reverseDuration:
+                                                      AppMotion.fast,
+                                                ),
                                           builder: (_) => FractionallySizedBox(
                                             heightFactor: .9,
                                             child: DiseaseDetailPanel(
@@ -209,39 +179,43 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
                                         ),
                                       ),
                                   ];
-                                  return wide
-                                      ? Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            for (
-                                              var i = 0;
-                                              i < cards.length;
-                                              i++
-                                            ) ...[
-                                              if (i > 0)
-                                                const SizedBox(width: 16),
-                                              Expanded(child: cards[i]),
-                                            ],
-                                          ],
-                                        )
-                                      : Column(
-                                          children: [
-                                            for (final card in cards)
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 16,
-                                                ),
-                                                child: card,
-                                              ),
-                                          ],
-                                        );
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (var i = 0; i < cards.length; i++)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: AppReveal(
+                                            delayMs: i * 60,
+                                            child: cards[i],
+                                          ),
+                                        ),
+                                    ],
+                                  );
                                 },
                               ),
+                              if (document?.isFromCache == true)
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 16),
+                                  child: Text(
+                                    'Cached data · may be offline. Refresh when connected.',
+                                  ),
+                                ),
+                              if (document == null ||
+                                  document.diseaseEstimates.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  child: Text(
+                                    'No independent estimates available for $city yet. Missing data does not mean low risk.',
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         Icon(Icons.verified_user_outlined, color: p.secondary),
                         const SizedBox(height: 8),
                         Text(
@@ -254,7 +228,7 @@ class _DiseaseExplorerScreenState extends ConsumerState<DiseaseExplorerScreen> {
                           'Risk categories are not infection rates. Confidence describes the model’s classification, not your chance of illness. These estimates are not medical diagnoses.',
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
