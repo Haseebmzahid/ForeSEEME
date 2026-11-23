@@ -18,15 +18,11 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
 
   /// Returns the Firestore document reference for `users/{uid}/profile/{uid}`.
   DocumentReference<Map<String, dynamic>> _profileDoc(String uid) {
-    final path = _firestore
+    return _firestore
         .collection('users')
         .doc(uid)
         .collection('profile')
         .doc(uid);
-    debugPrint(
-      'FirestoreHealthProfileRepository: Using profile document path: ${path.path}',
-    );
-    return path;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -37,9 +33,6 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
   ) async {
     try {
       final docRef = _profileDoc(uid);
-      debugPrint(
-        'FirestoreHealthProfileRepository: Fetching profile at ${docRef.path}',
-      );
       final snapshot = await docRef.get();
       debugPrint(
         'FirestoreHealthProfileRepository: Profile document exists: ${snapshot.exists}',
@@ -75,9 +68,6 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
   ) async {
     try {
       final docRef = _profileDoc(profile.uid);
-      debugPrint(
-        'FirestoreHealthProfileRepository: Saving profile to ${docRef.path}',
-      );
       await docRef.set(profile.toJson());
       debugPrint(
         'FirestoreHealthProfileRepository: Successfully saved profile.',
@@ -115,9 +105,6 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
       if (conditions != null) updates['chronicConditions'] = conditions;
 
       final docRef = _profileDoc(uid);
-      debugPrint(
-        'FirestoreHealthProfileRepository: Updating profile at ${docRef.path} with $updates',
-      );
       // Use merge-set so we never wipe fields we didn't touch
       await docRef.set(updates, SetOptions(merge: true));
       debugPrint(

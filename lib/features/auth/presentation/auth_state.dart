@@ -27,3 +27,8 @@ class AuthStateSecondFactor extends AuthState {
   final List<SecondFactorChoice> choices;
   const AuthStateSecondFactor(this.choices);
 }
+
+class AuthStateLogoutUnconfirmed extends AuthState {
+  final String message;
+  const AuthStateLogoutUnconfirmed(this.message);
+}

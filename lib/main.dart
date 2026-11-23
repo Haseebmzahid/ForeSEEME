@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'core/routes/app_router.dart';
 import 'core/theme/foreseeme_palette.dart';
 import 'core/theme/foreseeme_theme.dart';
@@ -10,6 +12,8 @@ import 'core/theme/theme_provider.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/platform_config_service.dart';
 import 'features/alerts/presentation/alerts_providers.dart';
+import 'features/auth/presentation/auth_providers.dart';
+import 'features/auth/presentation/auth_state.dart';
 import 'features/medication/presentation/notification_refresh_provider.dart';
 import 'features/resources/presentation/nearby_hospitals_providers.dart';
 import 'firebase_options.dart';
@@ -21,6 +25,9 @@ void main() async {
   await LocalNotificationService.initialize();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (kIsWeb) {
+    await FirebaseAuth.instance.setPersistence(Persistence.NONE);
+  }
 
   final preferences = await SharedPreferences.getInstance();
 
@@ -47,6 +54,7 @@ class ForeSeeMeApp extends ConsumerStatefulWidget {
 }
 
 class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
   @override
   void initState() {
     super.initState();
@@ -62,6 +70,13 @@ class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authNotifierProvider, (_, state) {
+      if (state is AuthStateLogoutUnconfirmed) {
+        _messenger.currentState?.showSnackBar(
+          SnackBar(content: Text(state.message)),
+        );
+      }
+    });
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeNotifierProvider);
 
@@ -70,6 +85,7 @@ class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
       theme: ForeSeeMeTheme.light,
       darkTheme: ForeSeeMeTheme.dark,
       themeMode: themeMode,
+      scaffoldMessengerKey: _messenger,
       builder: _applyThemeChrome,
       routerConfig: router,
       debugShowCheckedModeBanner: false,

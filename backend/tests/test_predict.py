@@ -11,12 +11,14 @@ Covers the contract acceptance cases:
 - ``GET /health`` -> 200.
 """
 
-from fastapi.testclient import TestClient
+import pytest
 
 from app.main import create_app
 from app.models.risk_model import StubRiskModel
 
-client = TestClient(create_app(model=StubRiskModel("stub-0.0.0")))
+@pytest.fixture(scope="module")
+def client(prediction_client):
+    return prediction_client(create_app(model=StubRiskModel("stub-0.0.0")))
 
 
 def _valid_payload() -> dict:
@@ -30,7 +32,7 @@ def _valid_payload() -> dict:
     }
 
 
-def test_health_returns_ok() -> None:
+def test_health_returns_ok(client) -> None:
     response = client.get("/health")
     assert response.status_code == 200
     body = response.json()
@@ -38,7 +40,7 @@ def test_health_returns_ok() -> None:
     assert "modelVersion" in body
 
 
-def test_predict_valid_returns_contract_body() -> None:
+def test_predict_valid_returns_contract_body(client) -> None:
     response = client.post("/predict", json=_valid_payload())
     assert response.status_code == 200
 
@@ -54,7 +56,7 @@ def test_predict_valid_returns_contract_body() -> None:
     assert isinstance(body["lowConfidence"], bool)
 
 
-def test_predict_is_deterministic() -> None:
+def test_predict_is_deterministic(client) -> None:
     first = client.post("/predict", json=_valid_payload()).json()
     second = client.post("/predict", json=_valid_payload()).json()
     # Classification is deterministic (generatedAt is the only varying field).
@@ -63,13 +65,13 @@ def test_predict_is_deterministic() -> None:
     assert first["disease"] == second["disease"]
 
 
-def test_predict_negative_aqi_returns_422() -> None:
+def test_predict_negative_aqi_returns_422(client) -> None:
     payload = {**_valid_payload(), "aqi": -5}
     response = client.post("/predict", json=payload)
     assert response.status_code == 422
 
 
-def test_predict_temperature_above_80_returns_422() -> None:
+def test_predict_temperature_above_80_returns_422(client) -> None:
     payload = {**_valid_payload(), "temperature": 99.0}
     response = client.post("/predict", json=payload)
     assert response.status_code == 422

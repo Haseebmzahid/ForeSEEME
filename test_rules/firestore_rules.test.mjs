@@ -35,9 +35,11 @@ const testEnv = await initializeTestEnvironment({
 });
 
 let failures = 0;
+let passed = 0;
 async function check(name, fn) {
   try {
     await fn();
+    passed++;
     console.log('  PASS  ' + name);
   } catch (err) {
     failures++;
@@ -319,8 +321,7 @@ await check('jobHeartbeats: admin claim does not grant write', () =>
   assertFails(setDoc(doc(admin, 'jobHeartbeats/y'), { ok: false })),
 );
 
-// users/{uid}[/**] — owner-only, never cross-user (covers the profile,
-// medications, and adherence_logs subtrees via the recursive rule).
+// Settings and known health subcollections remain owner-only.
 await check('users: owner reads own document', () =>
   assertSucceeds(getDoc(doc(alice, 'users/alice'))),
 );
@@ -336,6 +337,96 @@ await check('users: owner reads own medications subtree', () =>
 await check('users: cross-user medications read denied', () =>
   assertFails(getDoc(doc(bob, 'users/alice/medications/m1'))),
 );
+await check('users: cross-user write denied', () =>
+  assertFails(updateDoc(doc(bob, 'users/alice'), { fcmToken: 'foreign' })),
+);
+await check('users: arbitrary privileged fields denied', () =>
+  assertFails(updateDoc(doc(alice, 'users/alice'), { admin: true })),
+);
+await check('users: owner can update medication', () =>
+  assertSucceeds(updateDoc(doc(alice, 'users/alice/medications/m1'), { isActive: false })),
+);
+await check('users: cross-user medication writes denied', () =>
+  assertFails(updateDoc(doc(bob, 'users/alice/medications/m1'), { isActive: false })),
+);
+await check('users: owner can write adherence', () =>
+  assertSucceeds(setDoc(doc(alice, 'users/alice/adherence_logs/event'), { taken: true })),
+);
+await check('users: owner can read adherence', () =>
+  assertSucceeds(getDoc(doc(alice, 'users/alice/adherence_logs/event'))),
+);
+await check('users: cross-user adherence reads denied', () =>
+  assertFails(getDoc(doc(bob, 'users/alice/adherence_logs/event'))),
+);
+await check('users: cross-user adherence writes denied', () =>
+  assertFails(updateDoc(doc(bob, 'users/alice/adherence_logs/event'), { taken: false })),
+);
+await check('users: additional clinical fields in medications denied', () =>
+  assertFails(updateDoc(doc(alice, 'users/alice/medications/m1'), { diagnosis: 'test' })),
+);
+await check('users: additional clinical fields in adherence denied', () =>
+  assertFails(updateDoc(doc(alice, 'users/alice/adherence_logs/event'), { labResult: 'test' })),
+);
+
+const profile = doc(alice, 'users/alice/profile/alice');
+const profileData = {
+  uid: 'alice', city: 'Lahore', chronicConditions: ['Asthma'], lastUpdated: serverTimestamp(),
+};
+await check('profile: owner can save allowed fields', () => assertSucceeds(setDoc(profile, profileData)));
+await check('profile: clinical results denied', () =>
+  assertFails(setDoc(profile, { ...profileData, labResult: 'test data' })),
+);
+await check('profile: unrecognized condition values denied', () =>
+  assertFails(setDoc(profile, { ...profileData, chronicConditions: ['Detailed clinical data'] })),
+);
+await check('users: unrecognized health subcollections denied', () =>
+  assertFails(setDoc(doc(alice, 'users/alice/testResults/result'), { value: 1 })),
+);
+
+const record = (db, uid = 'alice', version = 'v1') =>
+  doc(db, `medicalDisclaimerAcceptances/${uid}/versions/${version}`);
+const accepted = { version: 'v1', acceptedAt: serverTimestamp() };
+await check('disclaimer: anonymous read denied', () => assertFails(getDoc(record(anon))));
+await check('disclaimer: cross-user write denied', () => assertFails(setDoc(record(bob), accepted)));
+await check('disclaimer: extra fields denied', () =>
+  assertFails(setDoc(record(alice), { ...accepted, admin: true })),
+);
+await check('disclaimer: client timestamp denied', () =>
+  assertFails(setDoc(record(alice), { ...accepted, acceptedAt: new Date(0) })),
+);
+await check('disclaimer: unknown version denied', () =>
+  assertFails(setDoc(record(alice, 'alice', 'v2'), { ...accepted, version: 'v2' })),
+);
+await check('disclaimer: owner can create', () => assertSucceeds(setDoc(record(alice), accepted)));
+await check('disclaimer: owner can read', () => assertSucceeds(getDoc(record(alice))));
+await check('disclaimer: cross-user read denied', () => assertFails(getDoc(record(bob))));
+await check('disclaimer: owner cannot rewrite', () => assertFails(setDoc(record(alice), accepted)));
+await check('disclaimer: owner cannot delete', () => assertFails(deleteDoc(record(alice))));
+
+await testEnv.withSecurityRulesDisabled(async (context) => {
+  const db = context.firestore();
+  await setDoc(doc(db, 'sessionRevocations/alice'), { throughAuthTime: 100 });
+  await setDoc(doc(db, 'sessionRevocations/op'), { throughAuthTime: 100 });
+});
+const oldAlice = testEnv.authenticatedContext('alice', { auth_time: 100 }).firestore();
+const newAlice = testEnv.authenticatedContext('alice', { auth_time: 101 }).firestore();
+await check('session: revoked owner cannot read risk data', () =>
+  assertFails(getDoc(doc(oldAlice, 'riskEstimates/Lahore_2026-07-08'))),
+);
+await check('session: revoked owner cannot write', () =>
+  assertFails(updateDoc(doc(oldAlice, 'users/alice'), { fcmToken: 'stale' })),
+);
+await check('session: revoked MFA administrator cannot read admin data', () =>
+  assertFails(getDoc(doc(admin, 'adminActivityLog/log1'))),
+);
+await check('session: new sign-in can read own profile', () =>
+  assertSucceeds(getDoc(doc(newAlice, 'users/alice/profile/alice'))),
+);
+await check('session: cutoff cannot be read or changed by its owner', async () => {
+  const cutoff = doc(newAlice, 'sessionRevocations/alice');
+  await assertFails(getDoc(cutoff));
+  await assertFails(setDoc(cutoff, { throughAuthTime: 0 }));
+});
 
 // PRODUCTION DEFAULT-DENY — a collection with no explicit rule is fully denied.
 await check('users: MFA administrator cannot read another user medication', () =>
@@ -360,4 +451,4 @@ if (failures > 0) {
   console.error('\n' + failures + ' rule test(s) FAILED');
   process.exit(1);
 }
-console.log('\nAll rule tests passed');
+console.log(`\n${passed} rule checks passed, ${failures} failed`);

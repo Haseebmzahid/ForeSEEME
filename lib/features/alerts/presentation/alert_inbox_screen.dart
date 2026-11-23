@@ -160,7 +160,7 @@ class _AlertInboxScreenState extends ConsumerState<AlertInboxScreen> {
             // pinned below the list — present in every state, including empty.
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: MedicalDisclaimer.inline(),
+              child: MedicalDisclaimer.banner(),
             ),
           ],
         ),

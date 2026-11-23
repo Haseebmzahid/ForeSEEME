@@ -8,6 +8,7 @@ import 'package:fyp_foreseeme/core/widgets/medical_disclaimer.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/disclaimer_providers.dart';
 
 /// One-time notification-permission prompt (Sprint 3, Prompt 7). On Allow it
 /// requests permission and captures the FCM token; declining returns gracefully.
@@ -68,7 +69,7 @@ class NotificationPermissionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 6),
                   TextButton(
-                    onPressed: isBusy ? null : () => context.pop(),
+                    onPressed: isBusy ? null : () => _finish(context, ref),
                     child: Text(
                       'Maybe later',
                       style: text.bodyMedium?.copyWith(
@@ -90,7 +91,7 @@ class NotificationPermissionScreen extends ConsumerWidget {
   Future<void> _allow(BuildContext context, WidgetRef ref) async {
     final user = ref.read(authStateProvider).value;
     if (user == null) {
-      context.pop();
+      _finish(context, ref);
       return;
     }
 
@@ -111,7 +112,19 @@ class NotificationPermissionScreen extends ConsumerWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-    context.pop();
+    _finish(context, ref);
+  }
+
+  void _finish(BuildContext context, WidgetRef ref) {
+    final acceptance = ref.read(disclaimerAcceptedProvider);
+    if (!acceptance.isLoading &&
+        !acceptance.hasError &&
+        acceptance.value == true &&
+        context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
   }
 }
 

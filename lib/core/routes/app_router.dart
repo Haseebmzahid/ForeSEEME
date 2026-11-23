@@ -11,6 +11,8 @@ import 'package:fyp_foreseeme/features/auth/presentation/register_screen.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/forgot_password_screen.dart';
 
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/disclaimer_acceptance_screen.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/disclaimer_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_screen.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/profile_ready_screen.dart';
 
@@ -102,6 +104,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     (previous, next) => refreshNotifier.refresh(),
     fireImmediately: true,
   );
+  ref.listen(disclaimerAcceptedProvider, (_, _) => refreshNotifier.refresh());
 
   ref.onDispose(refreshNotifier.dispose);
 
@@ -113,14 +116,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authStateProvider);
       final profileState = ref.read(profileExistsProvider);
       final location = state.matchedLocation;
-
-      debugPrint('AppRouter: Current location: $location');
-      debugPrint(
-        'AppRouter: Auth isLoading: ${authState.isLoading}, isError: ${authState.hasError}, value: ${authState.value?.uid}',
-      );
-      debugPrint(
-        'AppRouter: Profile isLoading: ${profileState.isLoading}, isError: ${profileState.hasError}, value: ${profileState.value}',
-      );
 
       final isAuthRoute =
           location == '/login' ||
@@ -170,7 +165,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated && hasProfile) {
+        const disclaimerPath = '/health-disclaimer';
+        final acceptance = ref.read(disclaimerAcceptedProvider);
+        final accepted =
+            !acceptance.isLoading &&
+            !acceptance.hasError &&
+            acceptance.value == true;
+        final isOnboarding =
+            location == '/profile-ready' ||
+            location == '/notifications/permission';
+        // The separate AdminShell independently enforces the Module 8 claim
+        // and MFA checks. It is not the user-facing Risk Dashboard.
+        if (location.startsWith('/admin/')) return null;
+        if (!accepted) {
+          return location == disclaimerPath || isOnboarding
+              ? null
+              : disclaimerPath;
+        }
         if (isAuthRoute ||
+            location == disclaimerPath ||
             (location == '/health-profile' && !isHealthProfileEdit) ||
             location == '/') {
           debugPrint(
@@ -185,6 +198,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(
+        path: '/health-disclaimer',
+        builder: (context, state) => const DisclaimerAcceptanceScreen(),
+      ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
@@ -250,9 +267,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'map',
             pageBuilder: (context, state) => _motionPage(
               state,
-              HospitalsMapScreen(
-                hospitals: state.extra! as List<Hospital>,
-              ),
+              HospitalsMapScreen(hospitals: state.extra! as List<Hospital>),
             ),
           ),
         ],

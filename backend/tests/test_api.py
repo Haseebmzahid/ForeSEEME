@@ -31,9 +31,9 @@ DISEASES = {"Dengue", "Smog", "Influenza"}
 
 
 @pytest.fixture(scope="module")
-def real_client() -> TestClient:
+def real_client(prediction_client) -> TestClient:
     """Default app — loads the promoted model_<version>.joblib from artifacts/."""
-    return TestClient(create_app())
+    return prediction_client(create_app())
 
 
 # --- Real model serves the unchanged contract -------------------------------
@@ -87,12 +87,12 @@ def _settings(path: str | None) -> Settings:
                     model_artifact_path=path)
 
 
-def test_missing_artifact_falls_back_to_stub(tmp_path) -> None:
+def test_missing_artifact_falls_back_to_stub(tmp_path, prediction_client) -> None:
     settings = _settings(str(tmp_path / "does_not_exist.joblib"))
     model, loaded, version = predict.load_risk_model(settings)
     assert loaded is False and version == "stub-0.0.0"
 
-    client = TestClient(create_app(settings=settings))
+    client = prediction_client(create_app(settings=settings))
     health = client.get("/health").json()
     assert health["modelLoaded"] is False
     assert health["modelVersion"] == "stub-0.0.0"

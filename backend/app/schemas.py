@@ -49,7 +49,7 @@ class PredictRequest(BaseModel):
             ``weekOfYear`` to match the camelCase contract.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     city: str
     temperature: float

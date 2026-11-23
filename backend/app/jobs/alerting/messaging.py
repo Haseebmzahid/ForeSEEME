@@ -36,6 +36,12 @@ _DRIVER_PHRASE: dict[str, str] = {
 }
 
 
+PUSH_DISCLAIMER = "Health awareness only — not a medical diagnosis."
+
+def with_push_disclaimer(body: str) -> str:
+    return body if body.startswith(f"{PUSH_DISCLAIMER} ") else f"{PUSH_DISCLAIMER} {body}"
+
+
 def build_notification(
     target: Target,
     recommendation: Recommendation,
@@ -48,7 +54,9 @@ def build_notification(
     """
     phrase = _DRIVER_PHRASE.get(target.driver, "Risk")
     title = f"{phrase} rising in {target.city}"
-    body = f"{target.risk_level} {target.disease} risk. {recommendation.text}"
+    body = with_push_disclaimer(
+        f"{target.risk_level} {target.disease} risk. {recommendation.text}"
+    )
     data = {
         "type": "risk_alert",
         "deepLink": recommendation.deep_link,
@@ -98,7 +106,7 @@ class FirebaseAdminFcmSender:
 
         message = messaging.Message(
             token=token,
-            notification=messaging.Notification(title=title, body=body),
+            notification=messaging.Notification(title=title, body=with_push_disclaimer(body)),
             data={k: str(v) for k, v in data.items()},
         )
 
@@ -113,12 +121,13 @@ class FirebaseAdminFcmSender:
             except Exception as exc:  # noqa: BLE001 — classify any other failure
                 invalid = "token" in str(exc).lower() and "invalid" in str(exc).lower()
                 if invalid:
-                    return SendResult(status="token_invalid", error=str(exc))
+                    return SendResult(status="token_invalid", error="invalid_token")
                 if attempt >= self._max_retries:
-                    return SendResult(status="failed", error=str(exc))
+                    return SendResult(status="failed", error=type(exc).__name__)
                 logger.warning(
                     "fcm_send_retry",
-                    extra={"attempt": attempt + 1, "max_retries": self._max_retries, "error": str(exc)},
+                    extra={"attempt": attempt + 1, "max_retries": self._max_retries,
+                           "error": type(exc).__name__},
                 )
                 self._sleep(self._backoff_seconds * (2**attempt))
                 attempt += 1

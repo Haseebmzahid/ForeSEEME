@@ -4,6 +4,19 @@ import pandas as pd
 import pytest
 
 from ml.pipelines import merge, paths
+from fastapi.testclient import TestClient
+
+from app.inference_auth import require_inference_caller
+
+
+@pytest.fixture(scope="module")
+def prediction_client():
+    """Exercise the prediction contract separately from signed-token tests."""
+    def create(app):
+        app.dependency_overrides[require_inference_caller] = lambda: None
+        return TestClient(app, base_url="https://testserver")
+
+    return create
 
 
 @pytest.fixture

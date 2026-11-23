@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:fyp_foreseeme/core/network/https_api_url.dart';
 
 final adminApiClientProvider = Provider<AdminApiClient>((ref) {
   final client = http.Client();
@@ -58,13 +59,8 @@ class AdminApiClient {
 
   Future<void> post(List<String> path, [Map<String, dynamic>? payload]) async {
     const configured = String.fromEnvironment('ADMIN_API_URL');
-    final base = Uri.tryParse(configured);
-    if (base == null ||
-        base.scheme != 'https' ||
-        base.host.isEmpty ||
-        base.userInfo.isNotEmpty ||
-        base.hasQuery ||
-        base.hasFragment) {
+    final base = httpsApiUrl(configured);
+    if (base == null) {
       throw const AdminApiException('not_configured');
     }
 

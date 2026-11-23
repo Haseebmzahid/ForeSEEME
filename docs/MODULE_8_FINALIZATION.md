@@ -143,6 +143,8 @@ Production rules and MFA require the documented coordinated release. Directory p
 
 ## Verification and traceability
 
+The [Module 9 verification and closure report](MODULE_9_VERIFICATION_AND_CLOSURE_REPORT.md#f-module-8-regression-assurance) adds targeted evidence for the retained admin claim, phone and TOTP factor claims, recent authentication, live role removal, and stale-session denial. All 90 current Firestore demo checks passed during final consolidation, including MFA and stale administrator checks. The two paired demo Auth and Firestore workflows also passed, including phone MFA and retry-safe account invitation. Staging enrollment and recovery and deployed rule parity are still required.
+
 | Requirement | Implementation | Test | Status |
 |---|---|---|---|
 | FR8.1 | Firebase Auth activity, successful dispatches, model deployment and batch evidence, and job health | `system_status_repository_test.dart`, `admin_dashboard_screen_test.dart`, backend aggregation and demo integration | Implemented and locally verified. Production schedules, snapshots and model-publisher run required. |

@@ -36,7 +36,7 @@ from datetime import datetime, timezone
 
 from app.jobs import observability
 from app.jobs.alerting import recommendation_lookup, targeting
-from app.jobs.alerting.messaging import FcmSender
+from app.jobs.alerting.messaging import FcmSender, with_push_disclaimer
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import CityRisk, TargetUser
 from app.jobs.dispatch_alerts import (
@@ -121,7 +121,7 @@ def compose_weekly(
     (``dispatch_alerts._alert_body``), with the weekly category + deep link.
     """
     title = f"Your weekly health report — {risk.city}"
-    body = (
+    body = with_push_disclaimer(
         f"This week: {risk.risk_level} environmental {risk.disease} risk. "
         f"{recommendation.text}"
     )

@@ -1,29 +1,28 @@
 """FastAPI application for the ForeSeeMe risk service.
 
-Exposes two endpoints backed by a placeholder stub model (ADR-002 will later add
-the real model and the scheduled batch job):
+Exposes liveness and authenticated inference backed by the promoted model
+or its local stub fallback:
 
 - ``GET  /health``  -> liveness + reported model version.
 - ``POST /predict`` -> contract-valid risk estimate (internal endpoint, ADR-001;
   never called by the Flutter client).
 
 Pydantic validation failures on the request body surface automatically as HTTP
-422 responses. This module writes nothing to Firestore and calls no external API.
+422 responses. This module writes nothing to Firestore.
 """
 
 from __future__ import annotations
 
-import logging
-
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
+from app.inference_auth import require_inference_caller
 from app.logging_config import configure_logging
 from app.models.risk_model import RiskModel
 from app.predict import load_risk_model
 from app.schemas import PredictRequest, RiskEstimateResponse
-
-logger = logging.getLogger("foreseeme.risk")
 
 
 def create_app(
@@ -57,6 +56,27 @@ def create_app(
         version=active_version,
         description="Internal disease-risk service.",
     )
+    app.state.settings = settings
+
+    @app.middleware("http")
+    async def require_tls(request: Request, call_next):
+        # Only the trusted TLS-terminating proxy may set ASGI's scheme.
+        # Container health probes also use the non-sensitive liveness endpoint.
+        if request.url.path != "/health" and request.url.scheme != "https":
+            return JSONResponse(status_code=400, content={"detail": "HTTPS required"})
+        return await call_next(request)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(_request: Request, exc: RequestValidationError):
+        errors = [
+            {
+                "loc": ("body",) if error["type"] == "extra_forbidden" else error["loc"],
+                "type": error["type"],
+                "msg": error["msg"],
+            }
+            for error in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": errors})
 
     @app.get("/health")
     def health() -> dict[str, object]:
@@ -67,16 +87,13 @@ def create_app(
             "modelLoaded": model_loaded,
         }
 
-    @app.post("/predict", response_model=RiskEstimateResponse)
+    @app.post(
+        "/predict",
+        response_model=RiskEstimateResponse,
+        dependencies=[Depends(require_inference_caller)],
+    )
     def predict(request: PredictRequest) -> RiskEstimateResponse:
-        """Compute a risk estimate for one city/week feature vector.
-
-        Logs the input feature vector as structured JSON before classifying.
-        """
-        logger.info(
-            "predict_request",
-            extra={"features": request.model_dump(by_alias=True)},
-        )
+        """Compute a risk estimate for one city/week feature vector."""
         return risk_model.predict(request)
 
     return app

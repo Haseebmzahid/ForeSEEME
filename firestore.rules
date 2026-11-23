@@ -3,9 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function hasActiveSession() {
+      return request.auth != null && sessionAfterRevocation(request.auth.uid);
+    }
+
+    function sessionAfterRevocation(uid) {
+      let cutoff = /databases/$(database)/documents/sessionRevocations/$(uid);
+      return !exists(cutoff) || request.auth.token.get('auth_time', 0)
+        > get(cutoff).data.throughAuthTime;
+    }
+
     // A role grant and an interactive, verified second factor are both required.
     function isAdmin() {
-      return request.auth != null
+      return hasActiveSession()
         && request.auth.token.get('admin', false) == true
         && request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') in ['phone', 'totp'];
     }
@@ -13,26 +23,114 @@ service cloud.firestore {
     // riskEstimates (ADR-001 / docs/RISK_SCHEMA.md) — Sprint 3 risk binding:
     // Any AUTHENTICATED client may READ; clients may NEVER write. The collection
     // is written only by the backend service account, whose Admin SDK bypasses
-    // these rules. This rule is self-sufficient: `read: if request.auth != null`
+    // these rules. This rule is self-sufficient: `read: if hasActiveSession()`
     // denies unauthenticated reads on its own. With the production default-deny
     // catch-all below (`if false`), `write: if false` is now absolute — no other
     // matching block grants writes to this path (Firestore ORs `allow` rules, and
     // `false` contributes nothing).
     match /riskEstimates/{docId} {
-      allow read: if request.auth != null;
+      allow read: if hasActiveSession();
       allow write: if false;
     }
 
-    // users/{uid} (Sprint 3 P7/P8): a signed-in user may read and write ONLY
-    // their own document and subtree — this is where `fcmToken` and
-    // `notificationPreferences` live (and the health-profile subcollection).
-    // A user can never read or write another user's token/data (uid must match).
+    function owns(userId) {
+      return hasActiveSession() && request.auth.uid == userId;
+    }
+
+    function validPreferences(prefs) {
+      return prefs is map
+        && prefs.keys().hasOnly([
+          'highRiskAlerts', 'mediumRiskAlerts', 'lowRiskUpdates', 'conditions', 'schemaVersion'
+        ])
+        && prefs.get('highRiskAlerts', true) is bool
+        && prefs.get('mediumRiskAlerts', true) is bool
+        && prefs.get('lowRiskUpdates', false) is bool
+        && prefs.get('schemaVersion', 1) == 1
+        && prefs.get('conditions', {}) is map
+        && prefs.get('conditions', {}).keys().hasOnly(['respiratory', 'cardiovascular'])
+        && prefs.get('conditions', {}).get('respiratory', true) is bool
+        && prefs.get('conditions', {}).get('cardiovascular', false) is bool;
+    }
+
+    function validUserSettings(data, changed) {
+      return changed.hasOnly(['fcmToken', 'fcmTokenUpdatedAt', 'notificationPreferences'])
+        && (!changed.hasAny(['notificationPreferences'])
+          || validPreferences(data.get('notificationPreferences', {})))
+        && (!changed.hasAny(['fcmToken'])
+          || (data.get('fcmToken', '') is string && data.get('fcmToken', '').size() <= 4096))
+        && (!changed.hasAny(['fcmTokenUpdatedAt'])
+          || data.get('fcmTokenUpdatedAt', request.time) is timestamp);
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      match /{document=**} {
-        allow read, write: if request.auth != null
-                           && request.auth.uid == userId;
+      allow get, delete: if owns(userId);
+      allow create: if owns(userId)
+        && validUserSettings(request.resource.data, request.resource.data.keys());
+      allow update: if owns(userId) && validUserSettings(
+        request.resource.data, request.resource.data.diff(resource.data).affectedKeys()
+      );
+
+      match /profile/{profileId} {
+        function profileFields() {
+          return ['uid', 'city', 'chronicConditions', 'lastUpdated'];
+        }
+        function validProfile(data) {
+          return profileId == userId
+            && data.get('uid', userId) == userId
+            && data.city in ['Lahore', 'Islamabad', 'Karachi', 'Rawalpindi', 'Peshawar']
+            && data.chronicConditions is list
+            && data.chronicConditions.size() <= 5
+            && data.chronicConditions.hasOnly([
+              'Asthma', 'Diabetes', 'Hypertension', 'Heart Disease', 'None'
+            ])
+            && data.lastUpdated == request.time;
+        }
+        allow read, delete: if owns(userId);
+        allow create: if owns(userId) && validProfile(request.resource.data)
+          && request.resource.data.keys().hasOnly(profileFields());
+        allow update: if owns(userId) && validProfile(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileFields());
       }
+
+      match /medications/{id} {
+        allow read, delete: if owns(userId);
+        allow create: if owns(userId) && request.resource.data.keys().hasOnly([
+          'id', 'uid', 'name', 'dosage', 'type', 'frequency', 'reminderTimes', 'isActive', 'createdAt'
+        ]);
+        allow update: if owns(userId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'id', 'uid', 'name', 'dosage', 'type', 'frequency', 'reminderTimes', 'isActive', 'createdAt'
+          ]);
+      }
+
+      match /{subcollection}/{id} {
+        // Retain owner access to both current and legacy adherence records.
+        function adherencePath() {
+          return subcollection in ['adherence_logs', 'adherenceLogs'];
+        }
+        function adherenceFields() {
+          return [
+            'medicationId', 'uid', 'scheduledTime', 'date', 'selectedDate',
+            'status', 'confirmedAt', 'timestamp', 'taken'
+          ];
+        }
+        allow read, delete: if owns(userId) && adherencePath();
+        allow create: if owns(userId) && adherencePath()
+          && request.resource.data.keys().hasOnly(adherenceFields());
+        allow update: if owns(userId) && adherencePath()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(adherenceFields());
+      }
+    }
+
+    // Account-bound, server-timestamped acceptance with no client edits.
+    // Allow each released version here before shipping a client that requires it.
+    match /medicalDisclaimerAcceptances/{uid}/versions/{version} {
+      allow get: if hasActiveSession() && request.auth.uid == uid;
+      allow create: if hasActiveSession() && request.auth.uid == uid
+        && version == 'v1'
+        && request.resource.data.keys().hasOnly(['version', 'acceptedAt'])
+        && request.resource.data.version == version
+        && request.resource.data.acceptedAt == request.time;
     }
 
     // The dispatch ledger contains per-user data. Clients read aggregates only.
@@ -46,7 +144,7 @@ service cloud.firestore {
     // their own alerts and MARK them read (update `read`/`readAt` only) — never
     // create, delete, or edit content; and never another user's alerts.
     match /userAlerts/{userId}/{document=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
+      allow read: if hasActiveSession() && request.auth.uid == userId;
       allow create, delete: if false;
       // Owner may only flip `read`/`readAt` on an existing alert. Implemented
       // WITHOUT MapDiff (no `diff()/affectedKeys()`), using only keys()/hasOnly/
@@ -60,7 +158,7 @@ service cloud.firestore {
       // Frozen schema: backend `dispatch_alerts._alert_body` / `UserAlertModel`.
       // `resource != null` keeps the get()s safe if ever reached without an
       // existing document.
-      allow update: if request.auth != null
+      allow update: if hasActiveSession()
                     && request.auth.uid == userId
                     && resource != null
                     && request.resource.data.keys().hasOnly([
@@ -92,25 +190,25 @@ service cloud.firestore {
 
     // Public-to-authenticated risk projection. The audited admin API writes it.
     match /overrides/{city} {
-      allow read: if request.auth != null;
+      allow read: if hasActiveSession();
       allow write: if false;
     }
 
     // Published resources. The audited admin API owns publication.
     match /articles/{articleId} {
-      allow read: if request.auth != null;
+      allow read: if hasActiveSession();
       allow write: if false;
     }
 
     // Owners may supply bounded onboarding metadata. Auth state is service-owned.
     match /userDirectory/{uid} {
       allow read: if isAdmin();
-      allow create: if request.auth != null && request.auth.uid == uid
+      allow create: if hasActiveSession() && request.auth.uid == uid
         && !exists(/databases/$(database)/documents/adminAccountOperations/$(uid))
         && request.resource.data.get('email', '') in ['', request.auth.token.get('email', '')]
         && request.resource.data.keys().hasOnly(['name', 'email', 'createdAt', 'status'])
         && validDirectoryEntry(request.resource.data);
-      allow update: if request.auth != null && request.auth.uid == uid
+      allow update: if hasActiveSession() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'email', 'createdAt', 'status'])
         && resource.data.get('authDisabled', false) == false

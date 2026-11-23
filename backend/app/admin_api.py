@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 from app.jobs.account_metrics import account_projection
 from app.jobs.compute_risk import load_cities
 from app.jobs.firestore_runtime import get_firestore_client
+from app.session_revocation import record_revocation
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 logger = logging.getLogger(__name__)
@@ -164,6 +165,9 @@ def authorize(request: Request):
         db = db_client()
         now = time.time()
         actor = verify_admin(header[7:], now=now)
+        cutoff = db.collection("sessionRevocations").document(actor["uid"]).get(timeout=5)
+        if cutoff.exists and actor["auth_time"] <= cutoff.to_dict()["throughAuthTime"]:
+            raise problem(401, "invalid_session")
         if (auth.get_user(actor["uid"]).custom_claims or {}).get("admin") is not True:
             raise problem(403, "admin_required")
         rate_limit(db, actor["uid"], now)
@@ -176,6 +180,35 @@ def authorize(request: Request):
 
 
 Access = Annotated[tuple, Depends(authorize)]
+
+
+@app.post("/v1/session/logout", status_code=204)
+def revoke_own_session(request: Request):
+    """Revoke every Firebase session belonging to the verified caller."""
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Bearer ") or not 8 < len(header) <= 8192:
+        raise problem(401, "token_required")
+    try:
+        db = db_client()
+        claims = auth.verify_id_token(header[7:], check_revoked=True)
+    except (auth.InvalidIdTokenError, auth.ExpiredIdTokenError, auth.RevokedIdTokenError,
+            auth.UserDisabledError, auth.UserNotFoundError):
+        raise problem(401, "invalid_session") from None
+    except Exception as exc:
+        logger.error("Session verification unavailable (%s)", type(exc).__name__)
+        raise problem(503, "revocation_unconfirmed") from None
+
+    uid = claims.get("uid")
+    authenticated_at = claims.get("auth_time")
+    if not isinstance(uid, str) or not uid or "/" in uid or type(authenticated_at) is not int:
+        raise problem(401, "invalid_session")
+    try:
+        auth.revoke_refresh_tokens(uid)
+        valid_after_ms = auth.get_user(uid).tokens_valid_after_timestamp
+        record_revocation(db, uid, max(authenticated_at, valid_after_ms // 1000))
+    except Exception as exc:
+        logger.error("Session revocation unconfirmed (%s)", type(exc).__name__)
+        raise problem(503, "revocation_unconfirmed") from None
 
 
 def audit(db, actor, action, target, request_id, outcome, summary):

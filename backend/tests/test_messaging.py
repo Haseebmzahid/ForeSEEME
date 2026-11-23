@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from firebase_admin import messaging as fcm
 
-from app.jobs.alerting.messaging import FirebaseAdminFcmSender, build_notification
+from app.jobs.alerting.messaging import FirebaseAdminFcmSender, PUSH_DISCLAIMER, build_notification
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import Target
 
@@ -54,7 +54,7 @@ def test_build_notification_shape() -> None:
     title, body, data = build_notification(_TARGET, _REC, "Lahore_2026-06-30")
 
     assert title == "Air quality rising in Lahore"
-    assert body == "High Smog risk. Limit outdoor exertion."
+    assert body == f"{PUSH_DISCLAIMER} High Smog risk. Limit outdoor exertion."
     assert data == {
         "type": "risk_alert",
         "deepLink": "/resources",
@@ -126,7 +126,7 @@ def test_send_generic_failure_retries_then_succeeds() -> None:
     assert calls == [0.5]  # one backoff before the successful retry
 
 
-def test_send_generic_failure_exhausts_retries_and_fails() -> None:
+def test_send_generic_failure_exhausts_retries_and_redacts_provider_error(caplog) -> None:
     sleep, calls = _sleep_recorder()
     sender = FirebaseAdminFcmSender(max_retries=2, backoff_seconds=0.5, sleep=sleep)
 
@@ -136,7 +136,10 @@ def test_send_generic_failure_exhausts_retries_and_fails() -> None:
         result = sender.send(token="tok-1", title="t", body="b", data={})
 
     assert result.status == "failed"
-    assert result.error == "persistent outage"
+    assert result.error == "RuntimeError"
+    retry_logs = [record for record in caplog.records if record.msg == "fcm_send_retry"]
+    assert [record.error for record in retry_logs] == ["RuntimeError", "RuntimeError"]
+    assert "persistent outage" not in caplog.text
     assert mock_send.call_count == 3  # 1 initial + 2 retries
     assert calls == [0.5, 1.0]  # exponential backoff
 

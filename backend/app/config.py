@@ -33,6 +33,8 @@ class Settings:
     model_version: str
     log_level: str
     model_artifact_path: str | None = None
+    inference_audience: str | None = None
+    inference_service_account_subject: str | None = None
 
 
 @lru_cache(maxsize=1)
@@ -46,4 +48,6 @@ def get_settings() -> Settings:
         model_version=os.getenv("MODEL_VERSION", _DEFAULT_MODEL_VERSION),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         model_artifact_path=os.getenv("MODEL_ARTIFACT_PATH"),
+        inference_audience=os.getenv("INFERENCE_AUDIENCE"),
+        inference_service_account_subject=os.getenv("INFERENCE_SERVICE_ACCOUNT_SUBJECT"),
     )

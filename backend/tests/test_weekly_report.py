@@ -100,7 +100,10 @@ def test_compose_weekly_is_cited_and_non_diagnostic() -> None:
     assert alert["recommendation"]["source"] == rec.source
     assert alert["recommendation"]["sourceUrl"] == rec.source_url
     # Non-diagnostic: about the environment, never a personal diagnosis.
-    assert "diagnos" not in body.lower()
+    from app.jobs.alerting.messaging import PUSH_DISCLAIMER
+    assert body.startswith(PUSH_DISCLAIMER)
+    assert body.count(PUSH_DISCLAIMER) == 1
+    assert "diagnos" not in body.removeprefix(PUSH_DISCLAIMER).lower()
     assert "environmental" in body.lower()
 
 

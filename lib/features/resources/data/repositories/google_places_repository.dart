@@ -88,17 +88,17 @@ class GooglePlacesRepository implements PlacesRepository {
   Future<List<Hospital>> _fetch(double latitude, double longitude) async {
     final http.Response response;
     try {
-      response = await _client.post(
-        _endpoint,
-        headers: {
+      final request = http.Request('POST', _endpoint)
+        ..followRedirects = false
+        ..headers.addAll({
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': _apiKey,
           'X-Goog-FieldMask':
               'places.id,places.displayName,places.formattedAddress,'
               'places.location,places.nationalPhoneNumber,places.rating,'
               'places.userRatingCount,places.currentOpeningHours.openNow',
-        },
-        body: jsonEncode({
+        })
+        ..body = jsonEncode({
           'includedTypes': ['hospital'],
           'maxResultCount': 12,
           'rankPreference': 'DISTANCE',
@@ -108,8 +108,8 @@ class GooglePlacesRepository implements PlacesRepository {
               'radius': searchRadiusMeters,
             },
           },
-        }),
-      );
+        });
+      response = await _client.send(request).then(http.Response.fromStream);
     } on http.ClientException catch (e) {
       throw PlacesNetworkException(e); // offline / DNS / connection reset
     } on Exception catch (e) {
@@ -118,7 +118,7 @@ class GooglePlacesRepository implements PlacesRepository {
     }
 
     if (response.statusCode != 200) {
-      throw PlacesRequestException(response.statusCode, response.body);
+      throw PlacesRequestException(response.statusCode, 'Places request failed');
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;

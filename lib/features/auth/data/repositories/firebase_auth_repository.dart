@@ -11,12 +11,15 @@ import 'package:fyp_foreseeme/features/auth/domain/repositories/auth_repository.
 class FirebaseAuthRepository implements AuthRepository {
   final firebase_auth.FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
+  final Future<void> Function(String)? _revokeSessions;
 
   FirebaseAuthRepository({
     firebase_auth.FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
+    Future<void> Function(String)? revokeSessions,
   }) : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
-       _googleSignIn = googleSignIn ?? GoogleSignIn();
+       _googleSignIn = googleSignIn ?? GoogleSignIn(),
+       _revokeSessions = revokeSessions;
 
   @override
   Stream<UserModel?> get currentUser {
@@ -190,14 +193,43 @@ class FirebaseAuthRepository implements AuthRepository {
 
   @override
   Future<Either<AuthException, void>> signOut() async {
+    var revocationConfirmed = true;
+    final user = _firebaseAuth.currentUser;
+    if (user != null) {
+      try {
+        final revoke = _revokeSessions;
+        final token = await user.getIdToken().timeout(
+          const Duration(seconds: 5),
+        );
+        if (revoke == null || token == null) {
+          throw StateError('Session service unavailable');
+        }
+        await revoke(token);
+      } on Object {
+        revocationConfirmed = false;
+      }
+    }
     try {
       await Future.wait([_firebaseAuth.signOut(), _googleSignIn.signOut()]);
-      return const Right(null);
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      return Left(AuthException(e.message ?? 'Sign out failed', e.code));
-    } catch (e) {
-      return Left(AuthException(e.toString()));
+    } on Object {
+      return Left(
+        AuthException(
+          revocationConfirmed
+              ? 'Local sign-out could not be fully confirmed.'
+              : 'Local sign-out and global session revocation could not be fully confirmed.',
+          'logout_unconfirmed',
+        ),
+      );
     }
+    if (!revocationConfirmed) {
+      return Left(
+        AuthException(
+          'Signed out on this device. Sign-out on other devices could not be confirmed.',
+          'logout_unconfirmed',
+        ),
+      );
+    }
+    return const Right(null);
   }
 
   @override

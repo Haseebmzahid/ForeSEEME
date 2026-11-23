@@ -6,6 +6,12 @@ import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_notifier.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_state.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import '../data/repositories/firestore_disclaimer_repository.dart';
+import '../domain/repositories/disclaimer_repository.dart';
+
+final disclaimerRepositoryProvider = Provider<DisclaimerRepository>((ref) {
+  return FirestoreDisclaimerRepository();
+});
 
 /// Provides the concrete [HealthProfileRepository] implementation.
 final healthProfileRepositoryProvider = Provider<HealthProfileRepository>((
@@ -28,16 +34,13 @@ final profileExistsProvider = FutureProvider<bool>((ref) async {
     return false;
   }
 
-  debugPrint(
-    'profileExistsProvider: Checking profile for authenticated uid: ${user.uid}',
-  );
   final repository = ref.read(healthProfileRepositoryProvider);
   final result = await repository.getProfile(user.uid);
 
   return result.fold(
     (error) {
       debugPrint(
-        'profileExistsProvider: Error fetching profile: ${error.message} (code: ${error.code})',
+        'profileExistsProvider: Error fetching profile (code: ${error.code})',
       );
       return false;
     },

@@ -49,12 +49,17 @@ class LocalNotificationAlertPresenter implements AlertPresenter {
   @override
   Future<void> showForegroundAlert(IncomingAlert alert) async {
     await _ensureChannel();
+    const disclaimer = 'Health awareness only — not a medical diagnosis.';
+    final incoming = alert.body?.trim() ?? '';
+    final body = incoming.startsWith('$disclaimer ') || incoming == disclaimer
+        ? incoming
+        : '$disclaimer $incoming'.trimRight();
     await _plugin.show(
       id:
           (alert.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch) &
           0x7fffffff,
       title: alert.title ?? 'Health alert',
-      body: alert.body ?? '',
+      body: body,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,

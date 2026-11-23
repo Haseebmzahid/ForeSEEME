@@ -4,7 +4,6 @@ Synthetic city-level inputs only; no network or Firestore dependencies.
 Stable FSM-B IDs identify parameterized cases in JUnit and the SDS.
 """
 import pytest
-from fastapi.testclient import TestClient
 
 from app.main import create_app
 from app.models.risk_model import StubRiskModel
@@ -26,9 +25,9 @@ class RecordingModel:
 
 
 @pytest.fixture
-def boundary_client():
+def boundary_client(prediction_client):
     model = RecordingModel()
-    with TestClient(create_app(model=model)) as client:
+    with prediction_client(create_app(model=model)) as client:
         yield client, model
 
 
@@ -67,6 +66,16 @@ def test_FSM_B08_malformed_json_never_reaches_inference(boundary_client):
                            headers={"Content-Type": "application/json"})
     assert response.status_code == 422
     assert response.json()["detail"][0]["type"] == "json_invalid"
+    assert model.requests == []
+
+
+def test_unexpected_clinical_fields_are_rejected_without_echo(boundary_client):
+    client, model = boundary_client
+    response = client.post("/predict", json={**VALID, "clinical_test": "private-value"})
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["type"] == "extra_forbidden"
+    assert "clinical_test" not in response.text
+    assert "private-value" not in response.text
     assert model.requests == []
 
 

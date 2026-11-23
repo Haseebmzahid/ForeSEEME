@@ -46,9 +46,109 @@ def test_verified_admin(monkeypatch):
     assert admin_api.verify_admin("test-token", now=NOW) == ADMIN
 
 
+@pytest.mark.parametrize(("cutoff", "live_role", "factor", "error"), [
+    pytest.param(None, True, "totp", None, id="active-totp-session"),
+    pytest.param(NOW - 1, True, "phone", None, id="new-phone-session"),
+    pytest.param(NOW, True, "totp", (401, "invalid_session"), id="at-cutoff"),
+    pytest.param(NOW + 1, True, "totp", (401, "invalid_session"), id="before-cutoff"),
+    pytest.param(None, False, "totp", (403, "admin_required"), id="live-role-removed"),
+])
+def test_admin_authorize_enforces_cutoff_and_live_role(
+    cutoff, live_role, factor, error, monkeypatch,
+):
+    claims = {**ADMIN, "firebase": {"sign_in_second_factor": factor}}
+    snapshot = SimpleNamespace(exists=cutoff is not None,
+                               to_dict=lambda: {"throughAuthTime": cutoff})
+
+    def document(uid):
+        assert uid == claims["uid"]
+        return SimpleNamespace(get=lambda *, timeout: snapshot)
+
+    def collection(name):
+        assert name == "sessionRevocations"
+        return SimpleNamespace(document=document)
+
+    db = SimpleNamespace(collection=collection)
+    monkeypatch.setattr(admin_api, "db_client", lambda: db)
+    monkeypatch.setattr(admin_api, "time", SimpleNamespace(time=lambda: NOW))
+
+    def verify(token, *, check_revoked):
+        assert token == "operator-token" and check_revoked is True
+        return claims
+
+    monkeypatch.setattr(admin_api.auth, "verify_id_token", verify)
+    monkeypatch.setattr(admin_api.auth, "get_user",
+                        lambda uid: SimpleNamespace(custom_claims={"admin": live_role}))
+    rate_calls = []
+    monkeypatch.setattr(admin_api, "rate_limit", lambda *args: rate_calls.append(args))
+    request = SimpleNamespace(headers={"authorization": "Bearer operator-token"})
+
+    if error is None:
+        assert admin_api.authorize(request) == (db, claims)
+        assert rate_calls == [(db, claims["uid"], NOW)]
+    else:
+        with pytest.raises(admin_api.HTTPException) as failure:
+            admin_api.authorize(request)
+        assert (failure.value.status_code, failure.value.detail["code"]) == error
+        assert not rate_calls
+
+
 def test_missing_bearer_and_cleartext():
     assert client.post("/v1/users/example").json()["detail"]["code"] == "token_required"
     assert TestClient(admin_api.app).post("/v1/users/example").json()["detail"]["code"] == "https_required"
+
+
+def test_session_logout_derives_uid_from_verified_token(monkeypatch):
+    calls = []
+    db = object()
+    monkeypatch.setattr(admin_api, "db_client", lambda: db)
+
+    def verify(token, *, check_revoked):
+        assert token == "ordinary-session" and check_revoked is True
+        return {"uid": "caller", "auth_time": 90}
+
+    monkeypatch.setattr(admin_api.auth, "verify_id_token", verify)
+    monkeypatch.setattr(admin_api.auth, "revoke_refresh_tokens", lambda uid: calls.append(uid))
+    monkeypatch.setattr(admin_api.auth, "get_user", lambda uid: SimpleNamespace(
+        tokens_valid_after_timestamp=100_500,
+    ))
+    monkeypatch.setattr(admin_api, "record_revocation", lambda *args: calls.append(args))
+    response = client.post("/v1/session/logout", json={"uid": "someone-else"},
+                           headers={"Authorization": "Bearer ordinary-session"})
+    assert response.status_code == 204
+    assert response.content == b""
+    assert calls == ["caller", (db, "caller", 100)]
+
+
+def test_session_logout_fails_when_cutoff_is_unconfirmed(monkeypatch):
+    monkeypatch.setattr(admin_api, "db_client", lambda: object())
+    monkeypatch.setattr(admin_api.auth, "verify_id_token", lambda *a, **k: {
+        "uid": "caller", "auth_time": 90,
+    })
+    monkeypatch.setattr(admin_api.auth, "revoke_refresh_tokens", lambda uid: None)
+    monkeypatch.setattr(admin_api.auth, "get_user", lambda uid: SimpleNamespace(
+        tokens_valid_after_timestamp=100_500,
+    ))
+
+    def unavailable(*_):
+        raise RuntimeError("Firestore unavailable")
+
+    monkeypatch.setattr(admin_api, "record_revocation", unavailable)
+    response = client.post("/v1/session/logout", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 503
+    assert response.json()["detail"] == {"code": "revocation_unconfirmed"}
+
+
+def test_session_logout_rejects_missing_or_revoked_credentials(monkeypatch):
+    monkeypatch.setattr(admin_api, "db_client", lambda: object())
+
+    def revoked(*_, **__):
+        raise admin_api.auth.RevokedIdTokenError("revoked")
+
+    monkeypatch.setattr(admin_api.auth, "verify_id_token", revoked)
+    assert client.post("/v1/session/logout").status_code == 401
+    assert client.post("/v1/session/logout",
+                       headers={"Authorization": "Bearer revoked"}).status_code == 401
 
 
 def test_validation_hides_raw_input(monkeypatch):

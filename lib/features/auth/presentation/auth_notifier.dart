@@ -103,9 +103,7 @@ class AuthNotifier extends Notifier<AuthState> {
     final result = await _repository.signOut();
 
     state = result.fold(
-      (error) => error.secondFactors.isEmpty
-          ? AuthStateError(error.message)
-          : AuthStateSecondFactor(error.secondFactors),
+      (error) => AuthStateLogoutUnconfirmed(error.message),
       (_) => const AuthStateUnauthenticated(),
     );
   }
