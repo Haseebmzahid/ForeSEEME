@@ -4,7 +4,7 @@
 or tests, on either stack.*
 
 The pipeline is defined in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
-and runs on every **pull request** and on **pushes to `main`**. It is two
+and runs on every **pull request** and on **pushes to `main`**. It is three
 independent, parallel jobs.
 
 ## What runs
@@ -23,7 +23,12 @@ independent, parallel jobs.
 | Setup | `actions/setup-python@v5` → Python **3.12** (matches the Dockerfile), pip cached | — |
 | Deps | `pip install -r requirements.txt` + `pip install ruff==0.15.20` | — |
 | Lint | `ruff check app ml scripts tests --select E9,F63,F7,F82` | fails on real defects |
-| Test | `pytest -q` | fails on any failing test |
+| Test | `pytest -q -rs` | fails on any failing test and reports skip reasons |
+
+### `admin-emulators` job (Ubuntu)
+
+Runs `npm --prefix test_rules test` and the Auth/Firestore integration suite
+against the local `demo-foreseeme` project via `firebase emulators:exec`.
 
 ## Design choices
 
@@ -40,7 +45,7 @@ independent, parallel jobs.
   every check runs on public toolchains against the checked-in source and the
   committed model artifact (`backend/ml/artifacts/`). `permissions: contents: read`
   is least-privilege.
-- **Parallel + cancel-in-progress.** The two jobs run concurrently; a newer commit
+- **Parallel + cancel-in-progress.** The three jobs run concurrently; a newer commit
   on the same ref cancels superseded runs.
 
 ## Reproduce locally
@@ -56,8 +61,30 @@ cd backend
 pip install -r requirements.txt
 pip install ruff==0.15.20
 ruff check app ml scripts tests --select E9,F63,F7,F82
-pytest -q
+pytest -q -rs
 ```
+
+### Frozen ML data checks
+
+The committed model, split manifest and test fixtures are enough for the
+offline suite. The manifest records the frozen dataset hashes and lineage. The
+original acquisition data and parquet snapshots are excluded from the checkout,
+so CI does not try to rebuild them from a fresh external download. The
+artifact contract, training fingerprint, and train/serve checks exercise the
+existing small test fixtures on every run.
+
+Five additional cases require either the original held-out split or the original
+labelled precursor and split. Those cases report a skip when the required input
+is absent. Any split they do read must match its SHA-256 in the split manifest.
+The historical parity checks still compare feature values and bind the
+train/test fingerprints to the promoted model. To require all of this evidence,
+place the original files at the paths below (under `backend/ml/data/` by default,
+or the configured `FORESEEME_ML_DATA_DIR`) and run
+`python -m pytest -q -rs --require-frozen-ml-data` from `backend/`.
+
+- `processed/train.parquet` and `processed/test.parquet`
+- `processed/split_manifest.json` from that same freeze
+- `interim/weekly_labelled.parquet` from that same dataset generation
 
 ## Verification (green on clean, red on regression)
 
@@ -75,9 +102,5 @@ provides the checks; branch protection is the merge gate.
 
 ## Not in this gate (deliberately)
 
-- **Firestore rules tests** (`test_rules/`, emulator + Node) run separately — they
-  need the Firebase emulator + Java and are kept out of the merge gate to avoid
-  flakiness (audit note: *stabilize before gating*). Run them manually with
-  `npm --prefix test_rules test`.
 - **Builds/deploys** (APK, Docker image) are out of scope for this analyze+test
   gate.

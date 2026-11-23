@@ -13,7 +13,6 @@ Covers the prompt's acceptance criteria:
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 from joblib import load
@@ -22,7 +21,6 @@ from app.config import Settings
 from app.main import create_app
 from app.schemas import PredictRequest
 from app import feature_builder, predict
-from ml.pipelines import paths as mlpaths
 
 VALID = {
     "city": "Lahore", "temperature": 34.5, "humidity": 62.0,
@@ -114,10 +112,10 @@ def test_corrupt_artifact_falls_back_to_stub(tmp_path) -> None:
 # --- Train/serve feature parity (the key correctness guard) -----------------
 
 
-def test_serving_features_match_training_for_fixed_input(frozen_weekly_base) -> None:
+def test_serving_features_match_training_for_fixed_input(frozen_weekly_base, frozen_ml_split) -> None:
     """Serving builds the SAME feature vector as training for a fixed city/week."""
     base = frozen_weekly_base
-    train = pd.read_parquet(mlpaths.TRAIN_PATH)
+    train = frozen_ml_split("train")
     feature_names = load(predict.resolve_artifact_path())["feature_names"]
 
     engineered = feature_builder.engineer_serving_features(base, feature_names)

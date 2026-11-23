@@ -1,23 +1,31 @@
 """Parity must compare raw inputs and expected features from one frozen generation."""
 
-import hashlib
 import json
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from app import feature_builder, predict
 from ml.pipelines import features, merge, paths
 
 
+def test_frozen_split_refuses_mismatched_bytes(tmp_path, monkeypatch, frozen_ml_split):
+    split = tmp_path / "test.parquet"
+    split.write_bytes(b"changed bytes")
+    manifest = tmp_path / "split_manifest.json"
+    manifest.write_text(json.dumps({"test_sha256": "0" * 64}), encoding="utf-8")
+    monkeypatch.setattr(paths, "TEST_PATH", split)
+    monkeypatch.setattr(paths, "SPLIT_MANIFEST_PATH", manifest)
+
+    with pytest.raises(AssertionError, match="Frozen SHA-256 mismatch"):
+        frozen_ml_split("test")
+
+
 @pytest.mark.parametrize("split", ["train", "test"])
-def test_frozen_inputs_reproduce_every_model_feature(frozen_weekly_base, split):
+def test_frozen_inputs_reproduce_every_model_feature(frozen_weekly_base, frozen_ml_split, split):
     manifest = json.loads((paths.PROCESSED_DIR / "split_manifest.json").read_text())
-    path = paths.PROCESSED_DIR / f"{split}.parquet"
     # Expected vectors remain anchored to the immutable, manifest-verified split.
-    assert hashlib.sha256(path.read_bytes()).hexdigest() == manifest[f"{split}_sha256"]
-    expected = pd.read_parquet(path).set_index(features.KEY)
+    expected = frozen_ml_split(split).set_index(features.KEY)
     bundle = predict.load_bundle(predict.resolve_artifact_path())
     assert bundle["reproducibility"][f"{split}_sha256"] == manifest[f"{split}_sha256"]
     columns = bundle["feature_names"]
@@ -35,9 +43,9 @@ def test_frozen_inputs_reproduce_every_model_feature(frozen_weekly_base, split):
     assert np.allclose(actual.astype(float), expected[columns].astype(float), equal_nan=True)
 
 
-def test_lahore_week_five_uses_frozen_aqi_and_prior_year_baseline(frozen_weekly_base):
+def test_lahore_week_five_uses_frozen_aqi_and_prior_year_baseline(frozen_weekly_base, frozen_ml_split):
     columns = ["us_aqi", "us_aqi_anom"]
-    frozen = pd.read_parquet(paths.TRAIN_PATH).set_index(features.KEY)
+    frozen = frozen_ml_split("train").set_index(features.KEY)
     key = ("Lahore", 2024, 5)
     prior_key = ("Lahore", 2023, 5)
     raw = frozen_weekly_base.set_index(features.KEY)

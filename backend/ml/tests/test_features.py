@@ -47,6 +47,24 @@ def _contiguous_city(city: str, n_weeks: int, start_week: int = 1, iso_year: int
     )
 
 
+def test_serving_matches_pipeline_for_history_fixture() -> None:
+    from app import feature_builder, predict
+
+    base = pd.concat([
+        _contiguous_city(city, 8, iso_year=year)
+        for city in ("Lahore", "Karachi")
+        for year in (2023, 2024)
+    ], ignore_index=True)
+    bundle = predict.load_bundle(predict.resolve_artifact_path())
+    model_columns = bundle["feature_names"]
+    training_features, _ = ft.engineer_features(
+        base, ft.load_feature_config(), ft.load_city_vocab()
+    )
+    expected = training_features.set_index(ft.KEY)[model_columns]
+    actual = feature_builder.engineer_serving_features(base, model_columns).set_index(ft.KEY)
+    pd.testing.assert_frame_equal(actual, expected)
+
+
 # --- Lag / rolling correctness ---------------------------------------------
 
 

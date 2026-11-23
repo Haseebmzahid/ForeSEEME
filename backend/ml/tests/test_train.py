@@ -11,10 +11,15 @@ Covers the four behaviours the prompt calls out:
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
 
+from ml.pipelines import paths
 from ml.training import train
 
 CITIES = ["Lahore", "Karachi"]
@@ -183,13 +188,24 @@ def test_train_fits_persists_reloads_and_predicts(tmp_path) -> None:
 # --- Reproducibility record: one authoritative implementation (Sprint M6.3) -
 
 
-def test_reproducibility_record_is_complete() -> None:
+def test_reproducibility_record_is_complete(tmp_path, monkeypatch) -> None:
     """The bundle's reproducibility record must describe every category the
     audit flagged as required: training configuration, feature information,
     dataset fingerprints, the exact config used, library versions, and a
     timestamp."""
-    df = _tiny_df()
-    cfg = _tiny_cfg()
+    train_path = tmp_path / "train.parquet"
+    _tiny_df().to_parquet(train_path, index=False)
+    config_path = tmp_path / "model.yaml"
+    config_path.write_text(yaml.safe_dump(_tiny_cfg()), encoding="utf-8")
+    train_hash = hashlib.sha256(train_path.read_bytes()).hexdigest()
+    manifest_path = tmp_path / "split_manifest.json"
+    manifest = {"train_sha256": train_hash}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(paths, "TRAIN_PATH", train_path)
+    monkeypatch.setattr(paths, "MODEL_PATH", config_path)
+    monkeypatch.setattr(paths, "SPLIT_MANIFEST_PATH", manifest_path)
+    df = train.load_train()
+    cfg = train.load_model_config()
     bundle, _runs, feature_names = train.train_all(df, cfg)
     repro = bundle["reproducibility"]
 
@@ -197,9 +213,9 @@ def test_reproducibility_record_is_complete() -> None:
     assert repro["target_label"] == cfg["target_label"]
     assert repro["feature_count"] == len(feature_names)
     assert isinstance(repro["generated_at"], str) and repro["generated_at"]
-    assert isinstance(repro["config_sha256"], str) and len(repro["config_sha256"]) == 64
-    assert isinstance(repro["train_sha256"], str) and len(repro["train_sha256"]) == 64
-    assert "split_manifest" in repro
+    assert repro["config_sha256"] == hashlib.sha256(config_path.read_bytes()).hexdigest()
+    assert repro["train_sha256"] == train_hash
+    assert repro["split_manifest"] == manifest
     for lib in ("python", "scikit-learn", "numpy", "pandas", "scipy", "joblib"):
         assert repro["library_versions"].get(lib), f"missing library version {lib}"
 

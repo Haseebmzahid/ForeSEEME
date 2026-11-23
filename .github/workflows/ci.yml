@@ -69,7 +69,9 @@ jobs:
         run: ruff check app ml scripts tests --select E9,F63,F7,F82
 
       - name: Test
-        run: pytest -q
+        # Historical frozen-data parity tests report a skip when their local
+        # inputs are absent. The offline train/serve and artifact checks still run.
+        run: pytest -q -rs
 
   admin-emulators:
     name: Module 8 — Firebase emulator verification

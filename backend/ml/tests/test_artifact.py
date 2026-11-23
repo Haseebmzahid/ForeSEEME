@@ -74,9 +74,20 @@ def test_persist_semver_is_the_same_definition_as_paths_not_a_copy() -> None:
 
 
 def test_artifact_loads_and_predicts_contract_shape() -> None:
+    bundle = load(_model_path())
+    # Use the existing small training fixture to exercise the artifact's imputer.
+    sample = _tiny_train_df().head(4).reindex(columns=bundle["feature_names"])
+    _assert_prediction_contract(bundle, sample)
+
+
+def test_artifact_predicts_contract_shape_on_frozen_holdout(frozen_ml_split) -> None:
+    sample = frozen_ml_split("test").head(4)
     bundle = load(_model_path())                 # bare load, no custom class
+    _assert_prediction_contract(bundle, sample)
+
+
+def _assert_prediction_contract(bundle, test_df):
     assert set(bundle["models"]) == set(bundle["diseases"])
-    test_df = pd.read_parquet(paths.TEST_PATH).head(4)
     for disease in bundle["diseases"]:
         preds = T.predict_risk(bundle, disease, test_df)
         assert len(preds) == 4
