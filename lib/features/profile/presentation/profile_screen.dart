@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fyp_foreseeme/core/theme/theme_provider.dart';
 import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/widgets/admin_mfa_enrollment.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/services/profile_completeness_service.dart';
@@ -128,6 +130,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 12),
                   _inset(
                     _AdminSlab(onTap: () => context.push('/admin/dashboard')),
+                  ),
+                ],
+                if (ref.watch(isAdminProvider).error case FirebaseException(
+                  code: 'mfa-required',
+                )) ...[
+                  const SizedBox(height: 12),
+                  _inset(
+                    ListTile(
+                      title: const Text('Set up administrator MFA'),
+                      leading: const Icon(Icons.security),
+                      onTap: () => showDialog<void>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const AdminMfaEnrollment(),
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 12),

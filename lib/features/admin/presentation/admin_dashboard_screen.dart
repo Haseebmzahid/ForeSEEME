@@ -6,23 +6,10 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/admin/domain/models/job_heartbeat.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_read.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/system_status_providers.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/widgets/not_authorized_view.dart';
-import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 
-/// System Monitoring Dashboard (Sprint M8.1, SDS FR8.1): a read-only operator
-/// view of model status, scheduled-job health, and alert volume.
-///
-/// Hosted as a branch of [AdminShell] — it renders only its body content; the
-/// shell provides the shared app bar/back button/bottom nav. Gates its own
-/// content on `isAdminProvider`, matching the admin-override screen's
-/// convention; the authoritative enforcement is server-side (`firestore.rules`
-/// denies `jobHeartbeats`/`alertDispatchLog` reads to non-admins regardless).
-///
-/// "Active users" has no data source anywhere in the system yet (no counter,
-/// no aggregation job) — rather than fabricate a number, that card says so
-/// honestly, matching the project's established never-invent-a-number
-/// discipline (see docs/MODULE_8_AUDIT.md §5).
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
@@ -32,7 +19,13 @@ class AdminDashboardScreen extends ConsumerWidget {
     return SafeArea(
       child: isAdminAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const NotAuthorizedView(),
+        error: (error, _) => Center(
+          child: AdminReadError(
+            message: 'Could not verify the administrator session.',
+            error: error,
+            retry: () => ref.invalidate(isAdminProvider),
+          ),
+        ),
         data: (isAdmin) =>
             isAdmin ? const _DashboardBody() : const NotAuthorizedView(),
       ),
@@ -40,35 +33,82 @@ class AdminDashboardScreen extends ConsumerWidget {
   }
 }
 
-class _DashboardBody extends StatelessWidget {
+class _DashboardBody extends ConsumerWidget {
   const _DashboardBody();
 
   @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        ForeSeeMeSpacing.gutter,
-        ForeSeeMeSpacing.md,
-        ForeSeeMeSpacing.gutter,
-        ForeSeeMeSpacing.xxxl,
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        final requests = [
+          ref.refresh(jobHeartbeatsProvider.future),
+          ref.refresh(alertVolumeProvider.future),
+          ref.refresh(latestModelStatusProvider.future),
+          ref.refresh(deployedModelProvider.future),
+          ref.refresh(accountMetricsProvider.future),
+        ];
+        await Future.wait(
+          requests.map((request) async {
+            try {
+              await request;
+            } catch (_) {
+              /* Individual cards display errors. */
+            }
+          }),
+        );
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
+          ForeSeeMeSpacing.gutter,
+          ForeSeeMeSpacing.md,
+          ForeSeeMeSpacing.gutter,
+          ForeSeeMeSpacing.xxxl,
+        ),
+        children: [
+          const _OverallStatus(),
+          const SizedBox(height: ForeSeeMeSpacing.xl),
+          _sectionLabel(context, 'MODEL STATUS'),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
+          const _ModelStatusCard(),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
+          _MetricCard(
+            child: _AsyncMetric(
+              provider: deployedModelProvider,
+              errorMessage: 'Could not load the deployed model.',
+              builder: (_, status) => Text(
+                status == null
+                    ? 'Deployed model · Not available yet'
+                    : 'Deployed model · ${status.version}\nVerified ${status.generatedAt.toLocal()}',
+              ),
+            ),
+          ),
+          const SizedBox(height: ForeSeeMeSpacing.xl),
+          _sectionLabel(context, 'SCHEDULED JOBS'),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
+          const _JobHealthSection(),
+          const SizedBox(height: ForeSeeMeSpacing.xl),
+          _sectionLabel(context, 'ALERTS'),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
+          const _AlertVolumeCard(),
+          const SizedBox(height: ForeSeeMeSpacing.xl),
+          _sectionLabel(context, 'USERS'),
+          const SizedBox(height: ForeSeeMeSpacing.sm),
+          _MetricCard(
+            child: _AsyncMetric(
+              provider: accountMetricsProvider,
+              errorMessage: 'Could not load user metrics.',
+              builder: (_, metrics) => Text(
+                metrics == null
+                    ? 'Total registered users · Not available yet\nActive users · Not available yet'
+                    : 'Total registered users · ${metrics.totalUsers}\n'
+                          'Active users in ${metrics.windowDays} days · ${metrics.activeUsers}\n'
+                          'Measured ${metrics.generatedAt.toLocal()}',
+              ),
+            ),
+          ),
+        ],
       ),
-      children: [
-        _sectionLabel(context, 'MODEL STATUS'),
-        const SizedBox(height: ForeSeeMeSpacing.sm),
-        const _ModelStatusCard(),
-        const SizedBox(height: ForeSeeMeSpacing.xl),
-        _sectionLabel(context, 'SCHEDULED JOBS'),
-        const SizedBox(height: ForeSeeMeSpacing.sm),
-        const _JobHealthSection(),
-        const SizedBox(height: ForeSeeMeSpacing.xl),
-        _sectionLabel(context, 'ALERTS'),
-        const SizedBox(height: ForeSeeMeSpacing.sm),
-        const _AlertVolumeCard(),
-        const SizedBox(height: ForeSeeMeSpacing.xl),
-        _sectionLabel(context, 'USERS'),
-        const SizedBox(height: ForeSeeMeSpacing.sm),
-        const _ActiveUsersCard(),
-      ],
     );
   }
 }
@@ -108,7 +148,11 @@ class _StatusPill extends StatelessWidget {
   final Color color;
   final IconData icon;
   final String label;
-  const _StatusPill({required this.color, required this.icon, required this.label});
+  const _StatusPill({
+    required this.color,
+    required this.icon,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +227,7 @@ class _AsyncMetric<T> extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(provider);
     return async.when(
+      skipLoadingOnRefresh: false,
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: ForeSeeMeSpacing.sm),
         child: Center(
@@ -193,9 +238,10 @@ class _AsyncMetric<T> extends ConsumerWidget {
           ),
         ),
       ),
-      error: (_, _) => Text(
-        errorMessage,
-        style: context.fsmText.bodySmall?.copyWith(color: context.fsmPalette.error),
+      error: (error, _) => AdminReadError(
+        message: errorMessage,
+        error: error,
+        retry: () => ref.invalidate(provider),
       ),
       data: (value) => builder(context, value),
     );
@@ -223,19 +269,27 @@ class _ModelStatusCard extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.model_training_rounded, color: palette.primary, size: 22),
+              Icon(
+                Icons.model_training_rounded,
+                color: palette.primary,
+                size: 22,
+              ),
               const SizedBox(width: ForeSeeMeSpacing.md),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      status.version,
-                      style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      'Latest estimate · ${status.version}',
+                      style: text.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     Text(
-                      'Latest estimate ${riskAgeLabel(status.generatedAt)}',
-                      style: text.bodySmall?.copyWith(color: palette.textTertiary),
+                      'Generated ${status.generatedAt.toLocal()}',
+                      style: text.bodySmall?.copyWith(
+                        color: palette.textTertiary,
+                      ),
                     ),
                   ],
                 ),
@@ -248,11 +302,11 @@ class _ModelStatusCard extends StatelessWidget {
   }
 }
 
-class _JobHealthSection extends StatelessWidget {
+class _JobHealthSection extends ConsumerWidget {
   const _JobHealthSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return _MetricCard(
       child: _AsyncMetric(
         provider: jobHeartbeatsProvider,
@@ -260,7 +314,14 @@ class _JobHealthSection extends StatelessWidget {
         builder: (context, heartbeats) => Column(
           children: [
             for (var i = 0; i < heartbeats.length; i++) ...[
-              _JobHealthRow(heartbeat: heartbeats[i]),
+              if (heartbeats[i].readError case final error?)
+                AdminReadError(
+                  message: 'Could not load ${heartbeats[i].job}.',
+                  error: error,
+                  retry: () => ref.invalidate(jobHeartbeatsProvider),
+                )
+              else
+                _JobHealthRow(heartbeat: heartbeats[i]),
               if (i != heartbeats.length - 1) ...[
                 const SizedBox(height: ForeSeeMeSpacing.md),
                 Container(height: 1, color: ForeSeeMeSurface.stroke(context)),
@@ -282,7 +343,9 @@ class _JobHealthRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
     final text = context.fsmText;
-    final hasRun = heartbeat.status != JobRunStatus.unknown;
+    final now = DateTime.now();
+    final hasRun = heartbeat.hasRun;
+    final lastSuccess = heartbeat.lastSuccessfulAt;
     return Row(
       children: [
         Expanded(
@@ -296,14 +359,37 @@ class _JobHealthRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 hasRun
-                    ? 'Last run ${riskAgeLabel(heartbeat.finishedAt)}'
-                    : 'Never run yet',
+                    ? 'Latest run · ${heartbeat.status.label}'
+                    : 'Never executed',
                 style: text.bodySmall?.copyWith(color: palette.textTertiary),
               ),
+              if (hasRun) ...[
+                Text('Started ${heartbeat.startedAt.toLocal()}'),
+                Text('Completed ${heartbeat.finishedAt.toLocal()}'),
+                Text('Duration · ${heartbeat.durationMs} ms'),
+                if (heartbeat.isStale(now)) const Text('Heartbeat is stale'),
+                if (heartbeat.counts.isNotEmpty)
+                  Text(
+                    heartbeat.counts.entries
+                        .map((item) => '${item.key} · ${item.value}')
+                        .join(', '),
+                  ),
+                if (heartbeat.error != null) Text(heartbeat.error!),
+              ],
+              Text(
+                lastSuccess == null
+                    ? 'Last success · Not available yet'
+                    : 'Last success · ${lastSuccess.toLocal()}',
+              ),
+              if (heartbeat.job == 'compute_risk')
+                Text(
+                  'Model in latest successful batch · '
+                  '${heartbeat.lastSuccessfulModelVersion ?? 'Not available yet'}',
+                ),
             ],
           ),
         ),
-        _statusPillFor(context, heartbeat.status),
+        _statusPillFor(context, heartbeat.healthAt(now)),
       ],
     );
   }
@@ -328,13 +414,18 @@ class _AlertVolumeCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Total alerts dispatched',
-                  style: text.bodyMedium?.copyWith(color: palette.textSecondary),
+                  style: text.bodyMedium?.copyWith(
+                    color: palette.textSecondary,
+                  ),
                 ),
               ),
-              Text(
-                '$count',
-                style: text.displayMedium?.copyWith(fontSize: 26),
-              ),
+              if (count == null)
+                const Flexible(child: Text('Not available yet'))
+              else
+                Text(
+                  '$count',
+                  style: text.displayMedium?.copyWith(fontSize: 26),
+                ),
             ],
           );
         },
@@ -343,36 +434,36 @@ class _AlertVolumeCard extends StatelessWidget {
   }
 }
 
-class _ActiveUsersCard extends StatelessWidget {
-  const _ActiveUsersCard();
+class _OverallStatus extends ConsumerWidget {
+  const _OverallStatus();
 
   @override
-  Widget build(BuildContext context) {
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final jobs = ref.watch(jobHeartbeatsProvider).asData?.value ?? const [];
+    final deployed = ref.watch(deployedModelProvider).asData?.value;
+    final now = DateTime.now();
+    final health = jobs.map((job) => job.healthAt(now)).toList();
+    final inferred = jobs.where((job) => job.job == 'compute_risk').firstOrNull;
+    final severity = health.contains(JobRunStatus.failed)
+        ? JobRunStatus.failed
+        : health.contains(JobRunStatus.degraded)
+        ? JobRunStatus.degraded
+        : health.isEmpty ||
+              health.contains(JobRunStatus.unknown) ||
+              deployed == null ||
+              inferred?.lastSuccessfulModelVersion == null
+        ? JobRunStatus.unknown
+        : deployed.version != inferred!.lastSuccessfulModelVersion
+        ? JobRunStatus.degraded
+        : JobRunStatus.ok;
     return _MetricCard(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
         children: [
-          Icon(Icons.groups_outlined, color: palette.textTertiary, size: 22),
-          const SizedBox(width: ForeSeeMeSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Not tracked yet',
-                  style: text.titleMedium?.copyWith(color: palette.textSecondary),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Active-user counting has no data source yet — see '
-                  'docs/MODULE_8_AUDIT.md for the follow-up decision.',
-                  style: text.bodySmall?.copyWith(color: palette.textTertiary),
-                ),
-              ],
-            ),
-          ),
+          const Text('Overall operational status'),
+          _statusPillFor(context, severity),
         ],
       ),
     );

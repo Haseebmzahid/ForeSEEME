@@ -12,7 +12,7 @@ import 'core/services/platform_config_service.dart';
 import 'features/alerts/presentation/alerts_providers.dart';
 import 'features/medication/presentation/notification_refresh_provider.dart';
 import 'features/resources/presentation/nearby_hospitals_providers.dart';
-// TODO: import 'firebase_options.dart'; once generated
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,10 +20,7 @@ void main() async {
   // Initialize local notifications service
   await LocalNotificationService.initialize();
 
-  // Initialize Firebase
-  // Uncomment the following line when firebase_options.dart is generated
-  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   final preferences = await SharedPreferences.getInstance();
 

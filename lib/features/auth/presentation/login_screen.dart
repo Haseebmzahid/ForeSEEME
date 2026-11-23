@@ -16,6 +16,7 @@ import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_state.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/widgets/google_auth_button.dart';
+import 'widgets/second_factor_dialog.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -62,11 +63,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (mounted) setState(() => _isGoogleLoading = false);
   }
 
+  Future<void> _completeSecondFactor(AuthStateSecondFactor challenge) async {
+    final notifier = ref.read(authNotifierProvider.notifier);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SecondFactorDialog(
+        choices: challenge.choices,
+        complete: notifier.completeSecondFactor,
+      ),
+    );
+    if (mounted) notifier.cancelSecondFactor();
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
 
     ref.listen<AuthState>(authNotifierProvider, (prev, next) {
+      if (next is AuthStateSecondFactor && mounted) {
+        _completeSecondFactor(next);
+      }
       if (next is AuthStateError && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -123,7 +140,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    palette.secondary.withValues(alpha: palette.isDark ? 0.28 : 0.14),
+                    palette.secondary.withValues(
+                      alpha: palette.isDark ? 0.28 : 0.14,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -142,7 +161,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    palette.primary.withValues(alpha: palette.isDark ? 0.18 : 0.10),
+                    palette.primary.withValues(
+                      alpha: palette.isDark ? 0.18 : 0.10,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -218,7 +239,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   TextButton(
                                     onPressed: _isLoading
                                         ? null
-                                        : () => context.push('/forgot-password'),
+                                        : () =>
+                                              context.push('/forgot-password'),
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,
                                       foregroundColor: palette.secondary,
@@ -405,7 +427,10 @@ class _GlassFormCard extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.xl),
+          decoration: ForeSeeMeSurface.card(
+            context,
+            radius: ForeSeeMeRadius.xl,
+          ),
           child: child,
         ),
       ),

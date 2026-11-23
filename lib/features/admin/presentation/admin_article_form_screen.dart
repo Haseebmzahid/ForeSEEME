@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'admin_providers.dart';
+import 'admin_read.dart';
+import 'widgets/not_authorized_view.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
@@ -88,7 +91,10 @@ class _AdminArticleFormScreenState
   Widget build(BuildContext context) {
     ref.listen(adminArticleFormControllerProvider, (previous, next) {
       next.whenOrNull(
-        error: (e, _) => _snack('Could not save article: $e', isError: true),
+        error: (e, _) {
+          _submitted = false;
+          _snack('Could not save article: $e', isError: true);
+        },
         data: (_) {
           if (_submitted && previous is AsyncLoading && mounted) {
             _submitted = false;
@@ -97,6 +103,21 @@ class _AdminArticleFormScreenState
         },
       );
     });
+
+    final session = ref.watch(isAdminProvider);
+    if (session.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (session.hasError) {
+      return Center(
+        child: AdminReadError(
+          message: 'Could not verify the administrator session.',
+          error: session.error!,
+          retry: () => ref.invalidate(isAdminProvider),
+        ),
+      );
+    }
+    if (session.value != true) return const NotAuthorizedView();
 
     final controllerState = ref.watch(adminArticleFormControllerProvider);
     final isBusy = controllerState.isLoading;
@@ -118,7 +139,10 @@ class _AdminArticleFormScreenState
           ),
           const SizedBox(height: ForeSeeMeSpacing.lg),
           _label('Category'),
-          _TopicDropdown(value: _topic, onChanged: (t) => setState(() => _topic = t)),
+          _TopicDropdown(
+            value: _topic,
+            onChanged: (t) => setState(() => _topic = t),
+          ),
           const SizedBox(height: ForeSeeMeSpacing.lg),
           _label('Summary'),
           _textField(
@@ -186,7 +210,11 @@ class _AdminArticleFormScreenState
     if (sourceName.isEmpty) {
       return _snack('Source name is required.', isError: true);
     }
-    if (!sourceUrl.startsWith('https://')) {
+    final source = Uri.tryParse(sourceUrl);
+    if (source == null ||
+        source.scheme != 'https' ||
+        source.host.isEmpty ||
+        source.userInfo.isNotEmpty) {
       return _snack('Source URL must start with https://.', isError: true);
     }
     final content = [
@@ -198,6 +226,10 @@ class _AdminArticleFormScreenState
       return _snack('At least one content block is required.', isError: true);
     }
 
+    if (content.every((block) => block.kind == ArticleBlockKind.heading)) {
+      return _snack('Add a paragraph, tip, or warning.', isError: true);
+    }
+
     final article = ResourceArticle(
       id: widget.article?.id ?? slugifyArticleTitle(title),
       title: title,
@@ -206,7 +238,12 @@ class _AdminArticleFormScreenState
       sourceName: sourceName,
       sourceUrl: sourceUrl,
       topic: _topic,
-      verified: widget.article?.verified ?? true,
+      categories: {
+        _topic,
+        for (final category
+            in widget.article?.categories ?? const <ResourceTopic>[])
+          if (category != widget.article?.topic) category,
+      }.toList(),
     );
     _submitted = true;
     ref
@@ -331,7 +368,9 @@ class _BlockEditor extends StatelessWidget {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: ForeSeeMeSpacing.md,
+                  ),
                   decoration: BoxDecoration(
                     color: ForeSeeMeSurface.fill(context),
                     borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
@@ -382,7 +421,9 @@ class _BlockEditor extends StatelessWidget {
             controller: draft.controller,
             maxLines: 4,
             minLines: 2,
-            style: context.fsmText.bodyMedium?.copyWith(color: palette.textPrimary),
+            style: context.fsmText.bodyMedium?.copyWith(
+              color: palette.textPrimary,
+            ),
             decoration: InputDecoration(
               hintText: 'Block text…',
               hintStyle: context.fsmText.bodySmall,

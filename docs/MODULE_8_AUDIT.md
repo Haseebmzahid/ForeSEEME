@@ -1,6 +1,8 @@
 # Module 8 — Admin & Analytics Panel: Read-Only Engineering Audit
 
-**Type:** Pre-implementation audit (no code changed)
+**Type:** Historical pre-implementation audit
+
+For current implementation, tests and remaining deployment work, see [Module 8 engineering report](MODULE_8_FINALIZATION.md).
 **Scope:** Entire repository — Flutter app, `backend/`, Firestore rules, deployment scripts, documentation
 **Prior modules:** Module 6 (AI/ML Engine) and Module 7.0–7.5 (Personalized Alert System) are complete. Module 7.6 (medication-context targeting) is paused. This audit starts Module 8.
 

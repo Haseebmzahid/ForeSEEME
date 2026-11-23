@@ -294,10 +294,10 @@ def run_and_report(
             history=history, directory=directory, sender=sender,
             repository=repository, cities=cities, now=now,
         )
-    except Exception as exc:
+    except Exception:
         report = observability.failed_report(
             JOB_NAME, started_at, datetime.now(timezone.utc),
-            f"{type(exc).__name__}: {exc}",
+            "job_execution_failed",
         )
         observability.emit(report, sink=heartbeat, logger=logger)
         raise

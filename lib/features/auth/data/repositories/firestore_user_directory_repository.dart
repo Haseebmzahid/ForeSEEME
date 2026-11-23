@@ -19,7 +19,8 @@ class FirestoreUserDirectoryRepository implements UserDirectoryRepository {
   const FirestoreUserDirectoryRepository({FirebaseFirestore? firestore})
     : _firestoreOverride = firestore;
 
-  FirebaseFirestore get _firestore => _firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore =>
+      _firestoreOverride ?? FirebaseFirestore.instance;
 
   static const String collectionPath = 'userDirectory';
 
@@ -34,28 +35,40 @@ class FirestoreUserDirectoryRepository implements UserDirectoryRepository {
       if (name != null && name.isNotEmpty) 'name': name,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
       'status': 'pending',
-    });
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<void> markProfileActive(String uid) async {
     // Merge-set so an edit-mode re-save (which does not call this) or a
     // repeated first-run save never wipes name/email/createdAt.
-    await _firestore.collection(collectionPath).doc(uid).set(
-      {'status': 'active'},
-      SetOptions(merge: true),
-    );
+    await _firestore.collection(collectionPath).doc(uid).set({
+      'status': 'active',
+    }, SetOptions(merge: true));
   }
 
   @override
   Future<List<UserDirectoryEntry>> list({int limit = 200}) async {
-    final snapshot = await _firestore
+    final query = _firestore
         .collection(collectionPath)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .get();
-    return snapshot.docs
-        .map((doc) => UserDirectoryEntry.fromJson(doc.data(), uid: doc.id))
-        .toList();
+        .orderBy(FieldPath.documentId)
+        .limit(200);
+    final entries = <UserDirectoryEntry>[];
+    QueryDocumentSnapshot<Map<String, dynamic>>? cursor;
+    while (true) {
+      final page =
+          await (cursor == null ? query : query.startAfterDocument(cursor)).get(
+            const GetOptions(source: Source.server),
+          );
+      entries.addAll(
+        page.docs.map(
+          (doc) => UserDirectoryEntry.fromJson(doc.data(), uid: doc.id),
+        ),
+      );
+      if (page.docs.length < 200) break;
+      cursor = page.docs.last;
+    }
+    entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return limit > 0 ? entries.take(limit).toList() : entries;
   }
 }

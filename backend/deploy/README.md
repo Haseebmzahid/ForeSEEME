@@ -256,3 +256,7 @@ schedule state requiring operator action. A network outage can prevent cleanup;
 a verification timeout does not cancel the running task. Device delivery, actual
 cloud response/IAM behavior, the image and end-to-end runtime remain unvalidated
 by offline tests.
+
+## Module 8 deployment
+
+See [Module 8 deployment and recovery](../../docs/MODULE_8_FINALIZATION.md#deployment-and-recovery) for the dedicated HTTPS admin API, MFA cutover, rules and indexes, aggregation, model evidence and directory backfill.

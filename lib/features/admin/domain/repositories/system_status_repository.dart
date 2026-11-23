@@ -1,5 +1,6 @@
 import '../models/job_heartbeat.dart';
 import '../models/model_status.dart';
+import '../models/operational_metrics.dart';
 
 /// Read-only operator telemetry for the System Monitoring Dashboard
 /// (Sprint M8.1, SDS FR8.1).
@@ -14,9 +15,11 @@ abstract class SystemStatusRepository {
   /// rather than being omitted, so the dashboard can show every monitored job.
   Future<List<JobHeartbeat>> getJobHeartbeats(List<String> jobIds);
 
-  /// Total number of dispatch attempts ever logged to `alertDispatchLog`
-  /// (SDS FR8.1 "alerts count") — an exact count, not an estimate.
-  Future<int> getAlertVolume();
+  Future<int?> getAlertVolume();
+
+  Future<AccountMetrics?> getAccountMetrics();
+
+  Future<ModelStatus?> getDeployedModel();
 
   /// The model version + timestamp of the most recently written risk estimate
   /// across all cities, or `null` if no estimate has ever been written.

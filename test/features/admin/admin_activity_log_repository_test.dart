@@ -18,13 +18,20 @@ AdminActivityLogEntry _entry({
   createdAt: createdAt ?? DateTime.now().toUtc(),
 );
 
+Future<void> _seed(
+  FakeFirebaseFirestore firestore,
+  AdminActivityLogEntry entry,
+) async {
+  await firestore.collection('adminActivityLog').add(entry.toJson());
+}
+
 void main() {
   group('FirestoreAdminActivityLogRepository', () {
-    test('append then recent returns the entry with an assigned id', () async {
+    test('reads an entry written by the backend', () async {
       final firestore = FakeFirebaseFirestore();
       final repo = FirestoreAdminActivityLogRepository(firestore: firestore);
 
-      await repo.append(_entry());
+      await _seed(firestore, _entry());
       final entries = await repo.recent();
 
       expect(entries, hasLength(1));
@@ -38,10 +45,12 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final repo = FirestoreAdminActivityLogRepository(firestore: firestore);
 
-      await repo.append(
+      await _seed(
+        firestore,
         _entry(target: 'Karachi', createdAt: DateTime.utc(2026, 7, 1)),
       );
-      await repo.append(
+      await _seed(
+        firestore,
         _entry(target: 'Lahore', createdAt: DateTime.utc(2026, 7, 10)),
       );
 
@@ -55,7 +64,8 @@ void main() {
       final repo = FirestoreAdminActivityLogRepository(firestore: firestore);
 
       for (var i = 0; i < 5; i++) {
-        await repo.append(
+        await _seed(
+          firestore,
           _entry(target: 'City$i', createdAt: DateTime.utc(2026, 7, i + 1)),
         );
       }

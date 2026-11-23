@@ -1,16 +1,14 @@
+import 'dart:developer' as developer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/models/job_heartbeat.dart';
 import '../../domain/models/model_status.dart';
+import '../../domain/models/operational_metrics.dart';
 import '../../domain/repositories/system_status_repository.dart';
 
 /// Firestore implementation of [SystemStatusRepository].
 ///
-/// Reads three collections, all admin-read-gated by `firestore.rules`
-/// (Sprint M8.1): `jobHeartbeats` and `alertDispatchLog` (previously fully
-/// service-account-only; the rules were deliberately widened for this
-/// dashboard — see firestore.rules and test_rules/firestore_rules.test.mjs),
-/// and `riskEstimates` (already authenticated-read, unchanged).
 class FirestoreSystemStatusRepository implements SystemStatusRepository {
   final FirebaseFirestore _firestore;
 
@@ -18,35 +16,70 @@ class FirestoreSystemStatusRepository implements SystemStatusRepository {
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
   static const String heartbeatsCollectionPath = 'jobHeartbeats';
-  static const String alertLogCollectionPath = 'alertDispatchLog';
+  static const _server = GetOptions(source: Source.server);
   static const String riskEstimatesCollectionPath = 'riskEstimates';
 
   @override
   Future<List<JobHeartbeat>> getJobHeartbeats(List<String> jobIds) async {
-    // One get() per job id (bounded, small — mirrors
-    // FirestoreRiskRepository.getLatestRiskAllCities' per-key read shape).
-    final snapshots = await Future.wait(
-      jobIds.map(
-        (job) => _firestore.collection(heartbeatsCollectionPath).doc(job).get(),
-      ),
+    return Future.wait(
+      jobIds.map((job) async {
+        try {
+          final snapshot = await _firestore
+              .collection(heartbeatsCollectionPath)
+              .doc(job)
+              .get(_server)
+              .timeout(const Duration(seconds: 10));
+          return _heartbeatFromSnapshot(job, snapshot.data());
+        } catch (error) {
+          final code = error is FirebaseException
+              ? error.code
+              : error.runtimeType.toString();
+          developer.log(
+            'Heartbeat read failed ($code)',
+            name: 'foreseeme.admin',
+          );
+          return JobHeartbeat.none(job, readError: error);
+        }
+      }),
     );
+  }
 
-    return [
-      for (var i = 0; i < jobIds.length; i++)
-        _heartbeatFromSnapshot(jobIds[i], snapshots[i].data()),
-    ];
+  Future<Map<String, dynamic>?> _metric(String id) async {
+    final data =
+        (await _firestore.collection('operationalMetrics').doc(id).get(_server))
+            .data();
+    if (data?['aggregationStatus'] == 'failed') {
+      throw StateError('Latest aggregation failed');
+    }
+    return data;
   }
 
   @override
-  Future<int> getAlertVolume() async {
-    // An exact aggregation count, not a client-side fetch-and-length — the log
-    // grows unbounded over the app's lifetime, so this avoids ever transferring
-    // its documents just to total them.
-    final aggregate = await _firestore
-        .collection(alertLogCollectionPath)
-        .count()
-        .get();
-    return aggregate.count ?? 0;
+  Future<int?> getAlertVolume() async {
+    final data = await _metric('alerts');
+    return data == null ? null : data['totalAlerts'] as int;
+  }
+
+  @override
+  Future<AccountMetrics?> getAccountMetrics() async {
+    final data = await _metric('accounts');
+    if (data == null) return null;
+    return AccountMetrics(
+      totalUsers: data['totalUsers'] as int,
+      activeUsers: data['activeUsers'] as int,
+      windowDays: data['measurementWindowDays'] as int,
+      generatedAt: (data['generatedAt'] as Timestamp).toDate(),
+    );
+  }
+
+  @override
+  Future<ModelStatus?> getDeployedModel() async {
+    final data = await _metric('deployedModel');
+    if (data == null) return null;
+    return ModelStatus(
+      version: data['version'] as String,
+      generatedAt: (data['verifiedAt'] as Timestamp).toDate(),
+    );
   }
 
   @override
@@ -58,7 +91,7 @@ class FirestoreSystemStatusRepository implements SystemStatusRepository {
         .collection(riskEstimatesCollectionPath)
         .orderBy('generatedAt', descending: true)
         .limit(1)
-        .get();
+        .get(_server);
 
     if (snapshot.docs.isEmpty) return null;
     final data = snapshot.docs.first.data();
@@ -79,8 +112,8 @@ class FirestoreSystemStatusRepository implements SystemStatusRepository {
     Map<String, dynamic>? data,
   ) {
     if (data == null) return JobHeartbeat.none(job);
-    final normalised = Map<String, dynamic>.from(data);
-    for (final key in const ['startedAt', 'finishedAt']) {
+    final normalised = {...data, 'job': job};
+    for (final key in const ['startedAt', 'finishedAt', 'lastSuccessfulAt']) {
       final value = normalised[key];
       if (value is Timestamp) {
         normalised[key] = value.toDate().toUtc().toIso8601String();

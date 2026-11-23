@@ -18,8 +18,7 @@ module gives every scheduled job (``compute_risk``, ``dispatch_alerts``,
 The user-facing complement is the Prompt-11 staleness indicator: this tells the
 *operator*; that tells the *user*.
 
-No secrets are logged or written — only the job name, status, per-status counts,
-timing, and an error *type/message* string (never credentials, tokens, or payloads).
+Heartbeats include only job timing, status, aggregate counts and fixed error codes.
 This module never imports Flutter and adds no third-party dependency (it reuses the
 existing :mod:`app.logging_config` JSON logging).
 """
@@ -59,6 +58,7 @@ class RunReport:
     finished_at: datetime
     counts: dict[str, int] = field(default_factory=dict)
     error: str | None = None
+    model_version: str | None = None
 
     @property
     def total(self) -> int:
@@ -83,7 +83,8 @@ class RunReport:
             "durationMs": self.duration_ms,
             "total": self.total,
             "counts": dict(self.counts),
-            "error": self.error,
+            "error": "job_execution_failed" if self.error else None,
+            **({"lastSuccessfulModelVersion": self.model_version} if self.model_version else {}),
         }
 
 
@@ -133,7 +134,7 @@ def emit(report: RunReport, *, sink: HeartbeatSink, logger: logging.Logger) -> N
             "total": report.total,
             "counts": report.counts,
             "durationMs": report.duration_ms,
-            "error": report.error,
+            "error": report.to_document()["error"],
         },
     )
 
@@ -149,7 +150,29 @@ class FirestoreHeartbeatSink:
         self._db = db
 
     def write_heartbeat(self, job: str, body: dict[str, Any]) -> None:
-        self._db.collection(HEARTBEAT_COLLECTION).document(job).set(body)
+        from firebase_admin import firestore
+
+        ref = self._db.collection(HEARTBEAT_COLLECTION).document(job)
+
+        @firestore.transactional
+        def write(transaction):
+            previous = ref.get(transaction=transaction, timeout=5).to_dict() or {}
+            update = {}
+            if not previous.get("startedAt") or body["startedAt"] >= previous["startedAt"]:
+                update = {key: value for key, value in body.items()
+                          if key != "lastSuccessfulModelVersion"}
+            if body["ok"] and (not previous.get("lastSuccessfulAt")
+                               or body["finishedAt"] > previous["lastSuccessfulAt"]):
+                update["lastSuccessfulAt"] = body["finishedAt"]
+                if "lastSuccessfulModelVersion" in body:
+                    update["lastSuccessfulModelVersion"] = body["lastSuccessfulModelVersion"]
+            elif previous.get("ok") and not previous.get("lastSuccessfulAt"):
+                # Upgrade legacy healthy heartbeats before a failed run replaces them.
+                update["lastSuccessfulAt"] = previous["finishedAt"]
+            if update:
+                transaction.set(ref, update, merge=True)
+
+        write(self._db.transaction(max_attempts=3))
 
 
 def init_firestore_heartbeat_sink() -> FirestoreHeartbeatSink:

@@ -63,7 +63,7 @@ def test_fresh_inputs_write_unchanged_schema_and_preserve_zero(tmp_path, clock, 
     assert body["generatedAt"] == "2026-10-12T00:00:00Z"
     assert set(body) == {"city", "riskLevel", "disease", "confidence", "temperature",
                          "humidity", "aqi", "generatedAt", "modelVersion",
-                         "lowConfidence", "attributions"}
+                         "lowConfidence", "attributions", "diseaseEstimates"}
 
 
 @pytest.mark.parametrize("source,variable", [

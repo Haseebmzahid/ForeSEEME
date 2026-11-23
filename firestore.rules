@@ -3,14 +3,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Shared admin-claim check (Sprint 5 P13 introduced the pattern for
-    // `overrides`; Sprint M8.1 reuses it for the read-only monitoring grants
-    // below instead of re-deriving it inline each time). `.get('admin', false)`
-    // rather than `request.auth.token.admin`: a non-admin's token has no `admin`
-    // key, and dot-access on a missing key raises "Property admin is undefined";
-    // `.get` returns the default and denies cleanly instead.
+    // A role grant and an interactive, verified second factor are both required.
     function isAdmin() {
-      return request.auth != null && request.auth.token.get('admin', false) == true;
+      return request.auth != null
+        && request.auth.token.get('admin', false) == true
+        && request.auth.token.get('firebase', {}).get('sign_in_second_factor', '') in ['phone', 'totp'];
     }
 
     // riskEstimates (ADR-001 / docs/RISK_SCHEMA.md) — Sprint 3 risk binding:
@@ -38,16 +35,9 @@ service cloud.firestore {
       }
     }
 
-    // alertDispatchLog (Sprint 4 P1): ops audit + throttle/idempotency ledger.
-    // Written ONLY by the service account (Admin SDK bypasses rules) — no client
-    // may ever write here. Sprint M8.1 adds one deliberate, narrow exception to
-    // "service-only": an admin may READ, so the System Monitoring Dashboard
-    // (SDS FR8.1, "alerts count") can total dispatch attempts. This is a genuine,
-    // considered widening of the admin claim's scope (previously `overrides` was
-    // the only collection admin got extra rights on) — a non-admin still has no
-    // access at all, matching the pre-M8.1 behaviour exactly.
+    // The dispatch ledger contains per-user data. Clients read aggregates only.
     match /alertDispatchLog/{logId} {
-      allow read: if isAdmin();
+      allow read: if false;
       allow write: if false;
     }
 
@@ -100,52 +90,52 @@ service cloud.firestore {
                          == resource.data.get('createdAt', null);
     }
 
-    // overrides/{city} (Sprint 5 P13): the manual risk-override safety valve.
-    // Any AUTHENTICATED client may READ (so every risk surface can honestly
-    // indicate an active override); only an OPERATOR — a user carrying the
-    // `admin` custom claim (granted server-side via backend/scripts/set_admin_claim.py,
-    // so it cannot be forged) — may WRITE. Audit fields (author/reason/timestamp)
-    // live on the document. A normal user is denied all writes here.
+    // Public-to-authenticated risk projection. The audited admin API writes it.
     match /overrides/{city} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
-    // articles/{articleId} (Sprint M8.3): the Health Resource Center's CMS
-    // content (SDS FR8.3). Any AUTHENTICATED client may READ — the same
-    // openness as `riskEstimates`, since every user reads the same published
-    // library; only an admin may WRITE (create or edit an article). There is
-    // no draft/review state (SDS's "if workflow enabled" is not enabled for
-    // v1): a write is immediately visible to every reader.
+    // Published resources. The audited admin API owns publication.
     match /articles/{articleId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
-    // userDirectory/{uid} (Sprint M8.4): a minimal, honest admin directory
-    // for SDS FR8.5 ("Display User List") — deliberately NOT the sensitive
-    // `users/{uid}` subtree itself (profile, medications, adherence logs stay
-    // owner-only, untouched by this rule). Written by the owning user (at
-    // sign-up and first profile save — see AuthNotifier/HealthProfileNotifier);
-    // read by admins only. There is no admin WRITE here: suspend/block/delete
-    // need the Firebase Auth Admin SDK, not Firestore, and are operator
-    // scripts (backend/scripts/set_user_status.py, delete_user.py), not an
-    // in-app action — see docs/user_management.md.
+    // Owners may supply bounded onboarding metadata. Auth state is service-owned.
     match /userDirectory/{uid} {
       allow read: if isAdmin();
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/adminAccountOperations/$(uid))
+        && request.resource.data.get('email', '') in ['', request.auth.token.get('email', '')]
+        && request.resource.data.keys().hasOnly(['name', 'email', 'createdAt', 'status'])
+        && validDirectoryEntry(request.resource.data);
+      allow update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'createdAt', 'status'])
+        && resource.data.get('authDisabled', false) == false
+        && (request.resource.data.get('email', '') == resource.data.get('email', '')
+          || request.resource.data.get('email', '') in ['', request.auth.token.get('email', '')])
+        && validDirectoryEntry(request.resource.data);
+      allow delete: if false;
     }
 
-    // adminActivityLog/{entryId} (Sprint M8.2): append-only audit trail of
-    // admin actions (SDS FR8.4) — currently risk-override set/clear, written
-    // by the same authorised client that performs the action (same trust
-    // model as `overrides`: the admin claim is the gate; audit fields are
-    // client-asserted, not independently verified). Immutable once written —
-    // no update or delete, even by an admin — so the trail cannot be edited
-    // after the fact.
+    // Directory self-service must not introduce arbitrary or sensitive fields.
+    function validDirectoryEntry(data) {
+      return data.get('status', '') in ['active', 'pending']
+        && data.get('name', '') is string && data.get('name', '').size() <= 160
+        && data.get('createdAt', '') is string && data.get('createdAt', '').size() <= 40
+        && data.get('email', '') is string && data.get('email', '').size() <= 320;
+    }
+
+    match /operationalMetrics/{metric} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /adminActivityLog/{entryId} {
       allow read: if isAdmin();
-      allow create: if isAdmin();
+      allow create: if false;
       allow update, delete: if false;
     }
 

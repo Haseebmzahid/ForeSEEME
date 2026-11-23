@@ -7,39 +7,50 @@ import 'package:fyp_foreseeme/features/admin/domain/models/job_heartbeat.dart';
 
 void main() {
   group('FirestoreSystemStatusRepository.getJobHeartbeats', () {
-    test('returns a real heartbeat and a placeholder for a job that never ran', () async {
-      final firestore = FakeFirebaseFirestore();
-      await firestore.collection('jobHeartbeats').doc('compute_risk').set({
-        'job': 'compute_risk',
-        'status': 'ok',
-        'ok': true,
-        'startedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 20, 0, 0)),
-        'finishedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 20, 0, 1)),
-        'durationMs': 60000,
-        'total': 5,
-        'counts': {'written': 5},
-        'error': null,
-      });
-      final repo = FirestoreSystemStatusRepository(firestore: firestore);
+    test(
+      'returns a real heartbeat and a placeholder for a job that never ran',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        await firestore.collection('jobHeartbeats').doc('compute_risk').set({
+          'job': 'compute_risk',
+          'status': 'ok',
+          'ok': true,
+          'startedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 20, 0, 0)),
+          'finishedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 20, 0, 1)),
+          'durationMs': 60000,
+          'total': 5,
+          'counts': {'written': 5},
+          'error': null,
+        });
+        final repo = FirestoreSystemStatusRepository(firestore: firestore);
 
-      final heartbeats = await repo.getJobHeartbeats([
-        'compute_risk',
-        'dispatch_alerts',
-      ]);
+        final heartbeats = await repo.getJobHeartbeats([
+          'compute_risk',
+          'dispatch_alerts',
+        ]);
 
-      expect(heartbeats, hasLength(2));
-      expect(heartbeats[0].job, 'compute_risk');
-      expect(heartbeats[0].status, JobRunStatus.ok);
-      expect(heartbeats[0].total, 5);
-      expect(heartbeats[0].counts, {'written': 5});
-      expect(heartbeats[0].finishedAt, DateTime.utc(2026, 7, 20, 0, 1));
-      // Never-run job: a placeholder, not an omission — the dashboard must be
-      // able to show every monitored job, including "never run yet".
-      expect(heartbeats[1].job, 'dispatch_alerts');
-      expect(heartbeats[1].status, JobRunStatus.unknown);
-    });
+        expect(heartbeats, hasLength(2));
+        expect(heartbeats[0].job, 'compute_risk');
+        expect(heartbeats[0].status, JobRunStatus.ok);
+        expect(heartbeats[0].total, 5);
+        expect(
+          heartbeats[0].healthAt(DateTime.utc(2026, 7, 23)),
+          JobRunStatus.degraded,
+        );
+        expect(
+          heartbeats[0].healthAt(DateTime.utc(2026, 7, 20, 0, 2)),
+          JobRunStatus.ok,
+        );
+        expect(heartbeats[0].counts, {'written': 5});
+        expect(heartbeats[0].finishedAt, DateTime.utc(2026, 7, 20, 0, 1));
+        // Never-run job: a placeholder, not an omission — the dashboard must be
+        // able to show every monitored job, including "never run yet".
+        expect(heartbeats[1].job, 'dispatch_alerts');
+        expect(heartbeats[1].status, JobRunStatus.unknown);
+      },
+    );
 
-    test('classifies a failed run and preserves its error message', () async {
+    test('classifies a failed run without showing raw error data', () async {
       final firestore = FakeFirebaseFirestore();
       await firestore.collection('jobHeartbeats').doc('compute_risk').set({
         'job': 'compute_risk',
@@ -57,26 +68,26 @@ void main() {
       final heartbeats = await repo.getJobHeartbeats(['compute_risk']);
 
       expect(heartbeats.single.status, JobRunStatus.failed);
-      expect(heartbeats.single.error, 'RuntimeError: fetch failed');
+      expect(heartbeats.single.error, 'Job execution failed');
     });
   });
 
   group('FirestoreSystemStatusRepository.getAlertVolume', () {
-    test('counts every logged dispatch attempt', () async {
+    test('reads the published aggregate dispatch count', () async {
       final firestore = FakeFirebaseFirestore();
-      for (var i = 0; i < 3; i++) {
-        await firestore.collection('alertDispatchLog').add({'uid': 'user$i'});
-      }
+      await firestore.collection('operationalMetrics').doc('alerts').set({
+        'totalAlerts': 3,
+      });
       final repo = FirestoreSystemStatusRepository(firestore: firestore);
 
       expect(await repo.getAlertVolume(), 3);
     });
 
-    test('returns zero when nothing has been dispatched yet', () async {
+    test('returns unavailable when aggregation has never run', () async {
       final firestore = FakeFirebaseFirestore();
       final repo = FirestoreSystemStatusRepository(firestore: firestore);
 
-      expect(await repo.getAlertVolume(), 0);
+      expect(await repo.getAlertVolume(), isNull);
     });
   });
 
@@ -88,11 +99,14 @@ void main() {
         'modelVersion': 'rf-1.0.0',
         'generatedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 1)),
       });
-      await firestore.collection('riskEstimates').doc('Karachi_2026-07-10').set({
-        'city': 'Karachi',
-        'modelVersion': 'rf-1.1.0',
-        'generatedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 10)),
-      });
+      await firestore
+          .collection('riskEstimates')
+          .doc('Karachi_2026-07-10')
+          .set({
+            'city': 'Karachi',
+            'modelVersion': 'rf-1.1.0',
+            'generatedAt': Timestamp.fromDate(DateTime.utc(2026, 7, 10)),
+          });
       final repo = FirestoreSystemStatusRepository(firestore: firestore);
 
       final status = await repo.getLatestModelStatus();

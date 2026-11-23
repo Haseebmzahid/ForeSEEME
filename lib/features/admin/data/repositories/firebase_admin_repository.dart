@@ -20,6 +20,14 @@ class FirebaseAdminRepository implements AdminRepository {
     if (user == null) return false;
     // Force-refresh so a just-granted (or just-revoked) claim is picked up.
     final token = await user.getIdTokenResult(true);
-    return token.claims?['admin'] == true;
+    if (token.claims?['admin'] != true || _auth.currentUser?.uid != user.uid) {
+      return false;
+    }
+    final firebase = token.claims?['firebase'];
+    if (firebase is! Map ||
+        !const ['phone', 'totp'].contains(firebase['sign_in_second_factor'])) {
+      throw firebase_auth.FirebaseAuthException(code: 'mfa-required');
+    }
+    return true;
   }
 }

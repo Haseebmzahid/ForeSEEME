@@ -45,9 +45,10 @@ async function check(name, fn) {
   }
 }
 
-const alice = testEnv.authenticatedContext('alice').firestore();
+const alice = testEnv.authenticatedContext('alice', { email: 'alice@example.com' }).firestore();
 const bob = testEnv.authenticatedContext('bob').firestore();
-const admin = testEnv.authenticatedContext('op', { admin: true }).firestore();
+const admin = testEnv.authenticatedContext('op', { admin: true, firebase: { sign_in_second_factor: 'totp' } }).firestore();
+const passwordAdmin = testEnv.authenticatedContext('password-admin', { admin: true }).firestore();
 const anon = testEnv.unauthenticatedContext().firestore();
 
 // Seed as the engine/back-end would (Admin SDK bypasses rules).
@@ -64,9 +65,16 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
     riskLevel: 'High',
   });
   await setDoc(doc(db, 'jobHeartbeats/compute_risk'), { ok: true });
+  await setDoc(doc(db, 'adminActivityLog/log1'), { action: 'override_set' });
+  await setDoc(doc(db, 'overrides/Lahore'), { active: true });
+  await setDoc(doc(db, 'articles/lungs-smog'), { title: 'Lungs' });
+  await setDoc(doc(db, 'operationalMetrics/accounts'), { totalUsers: 5 });
+  await setDoc(doc(db, 'userDirectory/disabled'), { status: 'active', authDisabled: true });
+  await setDoc(doc(db, 'adminAccountOperations/deleted'), { deleted: true });
   // A pre-existing user document + owned subtree item.
   await setDoc(doc(db, 'users/alice'), { fcmToken: 'seed' });
   await setDoc(doc(db, 'users/alice/medications/m1'), { name: 'Inhaler' });
+  await setDoc(doc(db, 'users/alice/adherenceLogs/event'), { taken: true });
   // A document under a collection with NO explicit rule — must be default-denied.
   await setDoc(doc(db, 'unmatchedCollection/x1'), { any: 'thing' });
 });
@@ -82,8 +90,8 @@ await check('alertDispatchLog: client write denied', () =>
 // admin-only read path onto the dispatch ledger — a deliberate, narrow widening
 // of the admin claim's scope (see firestore.rules). Write stays sealed to the
 // service account even for admins.
-await check('alertDispatchLog: admin (claim) may read', () =>
-  assertSucceeds(getDoc(doc(admin, 'alertDispatchLog/log1'))),
+await check('alertDispatchLog: MFA admin cannot access per-user dispatch records', () =>
+  assertFails(getDoc(doc(admin, 'alertDispatchLog/log1'))),
 );
 await check('alertDispatchLog: admin claim does not grant write', () =>
   assertFails(setDoc(doc(admin, 'alertDispatchLog/x'), { uid: 'alice' })),
@@ -155,8 +163,8 @@ const overrideDoc = {
   createdAt: '2026-07-02T00:00:00.000Z',
   active: true,
 };
-await check('overrides: admin (claim) may create', () =>
-  assertSucceeds(setDoc(doc(admin, 'overrides/Lahore'), overrideDoc)),
+await check('overrides: client admin cannot bypass audited API', () =>
+  assertFails(setDoc(doc(admin, 'overrides/Lahore'), overrideDoc)),
 );
 await check('overrides: authenticated user may read', () =>
   assertSucceeds(getDoc(doc(alice, 'overrides/Lahore'))),
@@ -182,14 +190,14 @@ const articleDoc = {
   content: [{ kind: 'paragraph', text: 'Check your local AQI.' }],
   verified: true,
 };
-await check('articles: admin (claim) may create', () =>
-  assertSucceeds(setDoc(doc(admin, 'articles/lungs-smog'), articleDoc)),
+await check('articles: client admin cannot create directly', () =>
+  assertFails(setDoc(doc(admin, 'articles/lungs-smog'), articleDoc)),
 );
 await check('articles: authenticated user may read', () =>
   assertSucceeds(getDoc(doc(alice, 'articles/lungs-smog'))),
 );
-await check('articles: admin (claim) may update', () =>
-  assertSucceeds(
+await check('articles: client admin cannot update directly', () =>
+  assertFails(
     updateDoc(doc(admin, 'articles/lungs-smog'), { summary: 'Updated.' }),
   ),
 );
@@ -237,8 +245,8 @@ const logEntry = {
   authorEmail: 'op@example.com',
   createdAt: '2026-07-27T00:00:00.000Z',
 };
-await check('adminActivityLog: admin (claim) may create', () =>
-  assertSucceeds(setDoc(doc(admin, 'adminActivityLog/log1'), logEntry)),
+await check('adminActivityLog: MFA admin cannot forge a privileged event', () =>
+  assertFails(setDoc(doc(admin, 'adminActivityLog/log1'), logEntry)),
 );
 await check('adminActivityLog: admin (claim) may read', () =>
   assertSucceeds(getDoc(doc(admin, 'adminActivityLog/log1'))),
@@ -284,6 +292,29 @@ await check('jobHeartbeats: client write denied', () =>
 await check('jobHeartbeats: admin (claim) may read', () =>
   assertSucceeds(getDoc(doc(admin, 'jobHeartbeats/compute_risk'))),
 );
+await check('operationalMetrics: MFA admin can read aggregate accounts', () =>
+  assertSucceeds(getDoc(doc(admin, 'operationalMetrics/accounts'))),
+);
+await check('operationalMetrics: role without MFA is denied', () =>
+  assertFails(getDoc(doc(passwordAdmin, 'operationalMetrics/accounts'))),
+);
+await check('operationalMetrics: ordinary user is denied', () =>
+  assertFails(getDoc(doc(alice, 'operationalMetrics/accounts'))),
+);
+await check('userDirectory: owner cannot forge disabled status', () =>
+  assertFails(updateDoc(doc(alice, 'userDirectory/alice'), { authDisabled: true })),
+);
+await check('userDirectory: disabled owner cannot change their entry', () =>
+  assertFails(updateDoc(doc(testEnv.authenticatedContext('disabled').firestore(),
+    'userDirectory/disabled'), { status: 'pending' })),
+);
+await check('userDirectory: deleted owner cannot recreate entry', () =>
+  assertFails(setDoc(doc(testEnv.authenticatedContext('deleted').firestore(),
+    'userDirectory/deleted'), { status: 'pending' })),
+);
+await check('adminActivityLog: role without MFA cannot read', () =>
+  assertFails(getDoc(doc(passwordAdmin, 'adminActivityLog/log1'))),
+);
 await check('jobHeartbeats: admin claim does not grant write', () =>
   assertFails(setDoc(doc(admin, 'jobHeartbeats/y'), { ok: false })),
 );
@@ -307,6 +338,12 @@ await check('users: cross-user medications read denied', () =>
 );
 
 // PRODUCTION DEFAULT-DENY — a collection with no explicit rule is fully denied.
+await check('users: MFA administrator cannot read another user medication', () =>
+  assertFails(getDoc(doc(admin, 'users/alice/medications/m1'))),
+);
+await check('users: MFA administrator cannot read another user adherence log', () =>
+  assertFails(getDoc(doc(admin, 'users/alice/adherenceLogs/event'))),
+);
 await check('default-deny: authed read of unmatched collection denied', () =>
   assertFails(getDoc(doc(alice, 'unmatchedCollection/x1'))),
 );

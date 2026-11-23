@@ -5,10 +5,7 @@ import '../../domain/repositories/risk_override_repository.dart';
 
 /// Firestore implementation of [RiskOverrideRepository].
 ///
-/// Reads/writes the top-level `overrides` collection, keyed by city
-/// (`overrides/{city}`). Writes are gated by `firestore.rules` to an `admin`
-/// custom claim; reads are allowed to any authenticated user so every risk
-/// surface can honestly indicate an active override.
+/// Reads the per-city Firestore projection. The admin API now owns production writes.
 class FirestoreRiskOverrideRepository implements RiskOverrideRepository {
   final FirebaseFirestore _firestore;
 

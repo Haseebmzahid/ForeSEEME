@@ -70,3 +70,32 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+  admin-emulators:
+    name: Module 8 — Firebase emulator verification
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJECT_ID: demo-foreseeme
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install test dependencies
+        run: |
+          npm --prefix test_rules ci
+          npm install --global firebase-tools@14.25.1
+          python -m pip install -r backend/requirements.txt
+      - name: Verify Firestore rules
+        run: npm --prefix test_rules test
+      - name: Verify privileged Auth and Firestore workflows
+        run: firebase emulators:exec --only auth,firestore --project demo-foreseeme "python -m pytest -q backend/tests/test_admin_emulator.py"

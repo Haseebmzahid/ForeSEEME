@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/repositories/admin_api_client.dart';
+import 'activity_log_providers.dart';
+import 'admin_users_providers.dart';
+import 'admin_providers.dart';
+import 'admin_read.dart';
+import 'widgets/not_authorized_view.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
@@ -7,14 +14,81 @@ import 'package:fyp_foreseeme/core/theme/foreseeme_tokens.dart';
 import 'package:fyp_foreseeme/features/auth/domain/models/user_directory_entry.dart';
 import 'package:fyp_foreseeme/features/risk/domain/services/risk_staleness.dart';
 
-/// Read-only user detail (Sprint M8.4, SDS FR8.5 "View User Details" —
-/// business rule: "User details must be read-only unless editing is
-/// permitted"; this sprint permits no editing, so the screen is entirely
-/// read-only). Pushed from [AdminUsersScreen] with the tapped
-/// [UserDirectoryEntry] as `extra`.
-class AdminUserDetailScreen extends StatelessWidget {
+class AdminUserDetailScreen extends ConsumerStatefulWidget {
   final UserDirectoryEntry entry;
   const AdminUserDetailScreen({super.key, required this.entry});
+
+  @override
+  ConsumerState<AdminUserDetailScreen> createState() =>
+      _AdminUserDetailScreenState();
+}
+
+class _AdminUserDetailScreenState extends ConsumerState<AdminUserDetailScreen> {
+  bool _busy = false;
+  UserDirectoryEntry get entry => widget.entry;
+
+  Future<void> _change(String action, String label) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('$label account?'),
+        content: Text(switch (action) {
+          'delete' =>
+            'Permanently delete the Firebase Authentication account for '
+                '${entry.email.isEmpty ? entry.uid : entry.email}? '
+                'The directory entry will be removed. Firestore records and subcollections will be retained.',
+          'suspend' =>
+            'Disable new sign-ins and revoke refresh tokens for this account?',
+          _ => 'Allow this account to sign in again?',
+        }),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(label),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(adminApiClientProvider)
+          .post(
+            ['users', entry.uid],
+            {
+              'action': action,
+              if (action == 'delete') ...{
+                'confirmUid': entry.uid,
+                'retention': 'retain_firestore',
+              },
+            },
+          );
+      if (!mounted) return;
+      ref.invalidate(userDirectoryListProvider);
+      ref.invalidate(recentActivityLogProvider);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account updated.')));
+      context.pop();
+    } catch (error) {
+      if (!mounted) return;
+      ref.invalidate(userDirectoryListProvider);
+      ref.invalidate(recentActivityLogProvider);
+      final message = error is AdminApiException
+          ? error.toString()
+          : 'Could not update the account.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,57 +109,82 @@ class AdminUserDetailScreen extends StatelessWidget {
         title: Text('User Details', style: text.titleLarge),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            ForeSeeMeSpacing.gutter,
-            ForeSeeMeSpacing.md,
-            ForeSeeMeSpacing.gutter,
-            ForeSeeMeSpacing.xxxl,
-          ),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
-              decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(context, 'Name', entry.name ?? '—'),
-                  _divider(context),
-                  _row(context, 'Email', entry.email),
-                  _divider(context),
-                  _row(context, 'Status', entry.status.label),
-                  _divider(context),
-                  _row(context, 'Registered', riskAgeLabel(entry.createdAt)),
-                  _divider(context),
-                  _row(context, 'User ID', entry.uid),
-                ],
+        child: ref
+            .watch(isAdminProvider)
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: AdminReadError(
+                  message: 'Could not verify the administrator session.',
+                  error: error,
+                  retry: () => ref.invalidate(isAdminProvider),
+                ),
               ),
-            ),
-            const SizedBox(height: ForeSeeMeSpacing.lg),
-            Container(
-              padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
-              decoration: BoxDecoration(
-                color: palette.tertiary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(ForeSeeMeRadius.md),
-                border: Border.all(color: palette.tertiary.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 18, color: palette.tertiary),
-                  const SizedBox(width: ForeSeeMeSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'This view is read-only. Suspending, reactivating, or '
-                      'deleting this account requires an operator script — see '
-                      'docs/user_management.md.',
-                      style: text.bodySmall?.copyWith(color: palette.textSecondary),
+              data: (allowed) => !allowed
+                  ? const NotAuthorizedView()
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        ForeSeeMeSpacing.gutter,
+                        ForeSeeMeSpacing.md,
+                        ForeSeeMeSpacing.gutter,
+                        ForeSeeMeSpacing.xxxl,
+                      ),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(ForeSeeMeSpacing.lg),
+                          decoration: ForeSeeMeSurface.card(
+                            context,
+                            radius: ForeSeeMeRadius.md,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _row(context, 'Name', entry.name ?? '—'),
+                              _divider(context),
+                              _row(context, 'Email', entry.email),
+                              _divider(context),
+                              _row(context, 'Status', entry.status.label),
+                              _divider(context),
+                              _row(
+                                context,
+                                'Registered',
+                                riskAgeLabel(entry.createdAt),
+                              ),
+                              _divider(context),
+                              _row(context, 'User ID', entry.uid),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: ForeSeeMeSpacing.lg),
+                        if (_busy) const LinearProgressIndicator(),
+                        Wrap(
+                          spacing: ForeSeeMeSpacing.sm,
+                          children: [
+                            if (entry.status == UserStatus.blocked)
+                              OutlinedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _change('reactivate', 'Reactivate'),
+                                child: const Text('Reactivate account'),
+                              )
+                            else
+                              OutlinedButton(
+                                onPressed: _busy
+                                    ? null
+                                    : () => _change('suspend', 'Suspend'),
+                                child: const Text('Suspend account'),
+                              ),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _change('delete', 'Delete'),
+                              child: const Text('Delete account'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
-          ],
-        ),
       ),
     );
   }

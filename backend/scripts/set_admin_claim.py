@@ -74,9 +74,14 @@ def set_admin(identifier: str, *, grant: bool) -> None:
     else:
         claims.pop("admin", None)
     auth.set_custom_user_claims(uid, claims)
+    if not grant:
+        auth.revoke_refresh_tokens(uid)
     action = "granted" if grant else "revoked"
-    logger.info("admin claim %s for uid=%s (%s)", action, uid, identifier)
-    logger.info("The user must refresh their ID token for the change to apply.")
+    logger.info("Admin claim %s.", action)
+    if grant:
+        logger.info("The operator must sign in again with an enrolled factor.")
+    else:
+        logger.info("Refresh tokens revoked. Existing Firestore ID tokens can remain valid until expiry.")
 
 
 def main(argv: list[str] | None = None) -> int:

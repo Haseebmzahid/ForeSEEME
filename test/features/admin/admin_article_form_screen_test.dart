@@ -3,32 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:fyp_foreseeme/features/admin/domain/models/admin_activity_log_entry.dart';
-import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_activity_log_repository.dart';
-import 'package:fyp_foreseeme/features/admin/presentation/activity_log_providers.dart';
+import 'package:fyp_foreseeme/features/admin/data/repositories/admin_api_client.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_article_form_screen.dart';
-import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
-import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
+import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
-import 'package:fyp_foreseeme/features/resources/domain/repositories/resource_content_repository.dart';
-import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
-
-class _FakeContentRepo implements ResourceContentRepository {
-  final List<ResourceArticle> saved = [];
-
-  @override
-  Future<void> saveArticle(ResourceArticle article) async => saved.add(article);
-}
-
-class _FakeActivityLogRepo implements AdminActivityLogRepository {
-  final List<AdminActivityLogEntry> entries = [];
-
-  @override
-  Future<void> append(AdminActivityLogEntry entry) async => entries.add(entry);
-
-  @override
-  Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async => entries;
-}
+import 'fake_admin_api.dart';
 
 GoRouter _buildRouter() {
   return GoRouter(
@@ -36,8 +15,7 @@ GoRouter _buildRouter() {
     routes: [
       GoRoute(
         path: '/admin/content',
-        builder: (context, state) =>
-            const Scaffold(body: Text('Content List')),
+        builder: (context, state) => const Scaffold(body: Text('Content List')),
       ),
       GoRoute(
         path: '/admin/content/add',
@@ -47,7 +25,9 @@ GoRouter _buildRouter() {
       GoRoute(
         path: '/admin/content/edit',
         builder: (context, state) => Scaffold(
-          body: AdminArticleFormScreen(article: state.extra as ResourceArticle?),
+          body: AdminArticleFormScreen(
+            article: state.extra as ResourceArticle?,
+          ),
         ),
       ),
     ],
@@ -62,11 +42,6 @@ Future<GoRouter> _pumpAt(
   String path, {
   List<dynamic> overrides = const [],
   Object? extra,
-  // Only tests that override `authStateProvider` (and reach
-  // AdminArticleFormController._logAction) need this — see the comment below.
-  // Warming it up unconditionally would make the OTHER tests newly depend on
-  // Firebase Auth just to build the screen, when today they never touch it.
-  bool warmUpAuth = false,
 }) async {
   // A tall viewport so the whole (lazily-built) form ListView renders for
   // assertions — mirrors test/features/resources/resource_center_test.dart's
@@ -78,42 +53,15 @@ Future<GoRouter> _pumpAt(
 
   final router = _buildRouter();
 
-  if (warmUpAuth) {
-    // Riverpod 3 StreamProvider gotcha (see the identical workaround in
-    // test/features/admin/risk_override_test.dart's `ready()`): a
-    // `Stream.value(...)`-backed override only delivers on a real event-loop
-    // turn, so a synchronous `ref.read(authStateProvider).value` immediately
-    // after first touching the provider can still see `null`. Building the
-    // container explicitly lets us subscribe and wait for that turn before
-    // the form is interacted with.
-    //
-    // Inside `testWidgets`, that wait MUST be `tester.pump(duration)`, not a
-    // bare `Future.delayed`: `TestWidgetsFlutterBinding` runs on a virtual
-    // clock that only advances when pumped, so an un-pumped `Future.delayed`
-    // schedules a `Timer` that never fires and hangs the test forever
-    // (`risk_override_test.dart`'s `ready()` gets away with a bare
-    // `Future.delayed` only because it's a plain `test()`, outside that
-    // binding). A widget must exist before the first `pump()`, so the empty
-    // container is pumped once before the wait, then again with the delay.
-    final container = ProviderContainer(overrides: [...overrides]);
-    addTearDown(container.dispose);
-    container.listen(authStateProvider, (_, _) {});
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 20));
-  } else {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [...overrides],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-  }
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        isAdminProvider.overrideWith((ref) async => true),
+        ...overrides,
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
 
   router.push(path, extra: extra);
   await tester.pumpAndSettle();
@@ -141,7 +89,10 @@ void main() {
       await _pumpAt(tester, '/admin/content/add', overrides: _baseOverrides);
 
       await tester.enterText(find.byKey(const Key('article-title-field')), 'T');
-      await tester.enterText(find.byKey(const Key('article-summary-field')), 'S');
+      await tester.enterText(
+        find.byKey(const Key('article-summary-field')),
+        'S',
+      );
       await tester.enterText(
         find.byKey(const Key('article-source-name-field')),
         'WHO',
@@ -161,7 +112,10 @@ void main() {
       await _pumpAt(tester, '/admin/content/add', overrides: _baseOverrides);
 
       await tester.enterText(find.byKey(const Key('article-title-field')), 'T');
-      await tester.enterText(find.byKey(const Key('article-summary-field')), 'S');
+      await tester.enterText(
+        find.byKey(const Key('article-summary-field')),
+        'S',
+      );
       await tester.enterText(
         find.byKey(const Key('article-source-name-field')),
         'WHO',
@@ -186,26 +140,12 @@ void main() {
       'a valid submit saves the article with a title-derived slug id, logs '
       'the action, and pops back to the list',
       (tester) async {
-        final contentRepo = _FakeContentRepo();
-        final activityLog = _FakeActivityLogRepo();
+        final api = FakeAdminApi();
 
         await _pumpAt(
           tester,
           '/admin/content/add',
-          warmUpAuth: true,
-          overrides: [
-            resourceContentRepositoryProvider.overrideWithValue(contentRepo),
-            adminActivityLogRepositoryProvider.overrideWithValue(activityLog),
-            authStateProvider.overrideWith(
-              (ref) => Stream.value(
-                UserModel(
-                  uid: 'op-1',
-                  email: 'op@example.com',
-                  createdAt: DateTime.utc(2026, 1, 1),
-                ),
-              ),
-            ),
-          ],
+          overrides: [adminApiClientProvider.overrideWithValue(api)],
         );
 
         await tester.enterText(
@@ -229,15 +169,13 @@ void main() {
         await tester.tap(find.text('Publish article'));
         await tester.pumpAndSettle();
 
-        expect(contentRepo.saved, hasLength(1));
-        final saved = contentRepo.saved.single;
-        expect(saved.id, 'staying-safe-in-extreme-heat');
-        expect(saved.title, 'Staying Safe In Extreme Heat');
-        expect(saved.content.single.text, 'Drink water regularly.');
-
-        expect(activityLog.entries, hasLength(1));
-        expect(activityLog.entries.single.action, 'article_create');
-        expect(activityLog.entries.single.target, 'staying-safe-in-extreme-heat');
+        final (path, payload) = api.calls.single;
+        expect(path, ['articles', 'staying-safe-in-extreme-heat']);
+        expect(payload?['title'], 'Staying Safe In Extreme Heat');
+        expect(payload?['content'], [
+          {'kind': 'paragraph', 'text': 'Drink water regularly.'},
+        ]);
+        expect(payload?['create'], isTrue);
 
         // Popped back to the list on success.
         expect(find.text('Content List'), findsOneWidget);
@@ -259,7 +197,9 @@ void main() {
       topic: ResourceTopic.heat,
     );
 
-    testWidgets('prefills every field and both existing blocks', (tester) async {
+    testWidgets('prefills every field and both existing blocks', (
+      tester,
+    ) async {
       await _pumpAt(
         tester,
         '/admin/content/edit',
@@ -267,10 +207,7 @@ void main() {
         extra: existing,
       );
 
-      expect(
-        find.text('Staying safe in extreme heat'),
-        findsOneWidget,
-      );
+      expect(find.text('Staying safe in extreme heat'), findsOneWidget);
       expect(
         find.text('Reduce heat-illness risk during hot spells.'),
         findsOneWidget,
@@ -285,26 +222,12 @@ void main() {
       'saving an edit keeps the original id even if the title changed, and '
       'logs an update (not a create)',
       (tester) async {
-        final contentRepo = _FakeContentRepo();
-        final activityLog = _FakeActivityLogRepo();
+        final api = FakeAdminApi();
 
         await _pumpAt(
           tester,
           '/admin/content/edit',
-          warmUpAuth: true,
-          overrides: [
-            resourceContentRepositoryProvider.overrideWithValue(contentRepo),
-            adminActivityLogRepositoryProvider.overrideWithValue(activityLog),
-            authStateProvider.overrideWith(
-              (ref) => Stream.value(
-                UserModel(
-                  uid: 'op-1',
-                  email: 'op@example.com',
-                  createdAt: DateTime.utc(2026, 1, 1),
-                ),
-              ),
-            ),
-          ],
+          overrides: [adminApiClientProvider.overrideWithValue(api)],
           extra: existing,
         );
 
@@ -315,12 +238,10 @@ void main() {
         await tester.tap(find.text('Save changes'));
         await tester.pumpAndSettle();
 
-        expect(contentRepo.saved.single.id, 'extreme-heat'); // unchanged
-        expect(
-          contentRepo.saved.single.title,
-          'Staying safe in EXTREME heat (updated)',
-        );
-        expect(activityLog.entries.single.action, 'article_update');
+        final (path, payload) = api.calls.single;
+        expect(path, ['articles', 'extreme-heat']);
+        expect(payload?['title'], 'Staying safe in EXTREME heat (updated)');
+        expect(payload?['create'], isFalse);
       },
     );
   });

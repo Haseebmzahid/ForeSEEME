@@ -32,6 +32,8 @@ class AdminActivityLogEntry {
 
   /// Audit: when the action was performed (UTC).
   final DateTime createdAt;
+  final String? outcome;
+  final String? requestId;
 
   const AdminActivityLogEntry({
     this.id,
@@ -41,6 +43,8 @@ class AdminActivityLogEntry {
     required this.authorUid,
     required this.authorEmail,
     required this.createdAt,
+    this.outcome,
+    this.requestId,
   });
 
   factory AdminActivityLogEntry.fromJson(
@@ -55,6 +59,8 @@ class AdminActivityLogEntry {
       authorUid: (json['authorUid'] as String?) ?? '',
       authorEmail: (json['authorEmail'] as String?) ?? '',
       createdAt: DateTime.parse(json['createdAt'] as String).toUtc(),
+      outcome: json['outcome'] as String?,
+      requestId: json['requestId'] as String?,
     );
   }
 
@@ -68,6 +74,8 @@ class AdminActivityLogEntry {
       'authorUid': authorUid,
       'authorEmail': authorEmail,
       'createdAt': createdAt.toUtc().toIso8601String(),
+      if (outcome != null) 'outcome': outcome,
+      if (requestId != null) 'requestId': requestId,
     };
   }
 
@@ -89,6 +97,13 @@ class AdminActivityLogEntry {
           other.createdAt == createdAt;
 
   @override
-  int get hashCode =>
-      Object.hash(id, action, target, summary, authorUid, authorEmail, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    action,
+    target,
+    summary,
+    authorUid,
+    authorEmail,
+    createdAt,
+  );
 }

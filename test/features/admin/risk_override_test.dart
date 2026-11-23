@@ -3,14 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:fyp_foreseeme/features/admin/domain/models/admin_activity_log_entry.dart';
-import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_activity_log_repository.dart';
+import 'package:fyp_foreseeme/features/admin/data/repositories/admin_api_client.dart';
+import 'fake_admin_api.dart';
 import 'package:fyp_foreseeme/features/admin/domain/repositories/admin_repository.dart';
-import 'package:fyp_foreseeme/features/admin/presentation/activity_log_providers.dart';
 import 'package:fyp_foreseeme/features/admin/presentation/admin_providers.dart';
-import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
-import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/risk/data/repositories/firestore_risk_override_repository.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_estimate_model.dart';
 import 'package:fyp_foreseeme/features/risk/domain/models/risk_override.dart';
@@ -70,26 +67,6 @@ class _FakeOverrideRepo implements RiskOverrideRepository {
   }
 }
 
-class _FakeActivityLogRepo implements AdminActivityLogRepository {
-  final List<AdminActivityLogEntry> entries = [];
-
-  @override
-  Future<void> append(AdminActivityLogEntry entry) async => entries.add(entry);
-
-  @override
-  Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async =>
-      entries.reversed.take(limit).toList();
-}
-
-class _ThrowingActivityLogRepo implements AdminActivityLogRepository {
-  @override
-  Future<void> append(AdminActivityLogEntry entry) async =>
-      throw Exception('log sink unavailable');
-
-  @override
-  Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async => [];
-}
-
 class _FakeAdmin implements AdminRepository {
   final bool admin;
   _FakeAdmin(this.admin);
@@ -113,11 +90,15 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            currentCityRiskProvider.overrideWith((ref) async => _estimate(RiskLevel.low)),
+            currentCityRiskProvider.overrideWith(
+              (ref) async => _estimate(RiskLevel.low),
+            ),
             currentCityOverrideProvider.overrideWith(
               (ref) async => _override(level: RiskLevel.high),
             ),
-            riskTrendProvider.overrideWith((ref) async => TrendDirection.stable),
+            riskTrendProvider.overrideWith(
+              (ref) async => TrendDirection.stable,
+            ),
           ],
           child: _cardHost,
         ),
@@ -145,7 +126,9 @@ void main() {
             currentCityOverrideProvider.overrideWith(
               (ref) async => _override(level: RiskLevel.medium),
             ),
-            riskTrendProvider.overrideWith((ref) async => TrendDirection.stable),
+            riskTrendProvider.overrideWith(
+              (ref) async => TrendDirection.stable,
+            ),
           ],
           child: _cardHost,
         ),
@@ -154,7 +137,10 @@ void main() {
 
       expect(find.text('Operator-set'), findsOneWidget);
       expect(find.text('Medium Risk'), findsOneWidget);
-      expect(find.text('No risk data yet'), findsNothing); // override, not empty
+      expect(
+        find.text('No risk data yet'),
+        findsNothing,
+      ); // override, not empty
     });
 
     testWidgets('no override → the normal model card, no operator label', (
@@ -163,9 +149,13 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            currentCityRiskProvider.overrideWith((ref) async => _estimate(RiskLevel.high)),
+            currentCityRiskProvider.overrideWith(
+              (ref) async => _estimate(RiskLevel.high),
+            ),
             currentCityOverrideProvider.overrideWith((ref) async => null),
-            riskTrendProvider.overrideWith((ref) async => TrendDirection.rising),
+            riskTrendProvider.overrideWith(
+              (ref) async => TrendDirection.rising,
+            ),
           ],
           child: _cardHost,
         ),
@@ -206,140 +196,77 @@ void main() {
 
   // ── Firestore repository round-trip (real impl, fake backend) ──────────────
   group('FirestoreRiskOverrideRepository', () {
-    test('set then get returns the override; clear marks it inactive', () async {
-      final firestore = FakeFirebaseFirestore();
-      final repo = FirestoreRiskOverrideRepository(firestore: firestore);
+    test(
+      'set then get returns the override; clear marks it inactive',
+      () async {
+        final firestore = FakeFirebaseFirestore();
+        final repo = FirestoreRiskOverrideRepository(firestore: firestore);
 
-      expect(await repo.getOverride('Lahore'), isNull);
+        expect(await repo.getOverride('Lahore'), isNull);
 
-      await repo.setOverride(_override());
-      final loaded = await repo.getOverride('Lahore');
-      expect(loaded, isNotNull);
-      expect(loaded!.riskLevel, RiskLevel.high);
-      expect(loaded.authorEmail, 'op@example.com');
-      expect(loaded.isActive(), isTrue);
+        await repo.setOverride(_override());
+        final loaded = await repo.getOverride('Lahore');
+        expect(loaded, isNotNull);
+        expect(loaded!.riskLevel, RiskLevel.high);
+        expect(loaded.authorEmail, 'op@example.com');
+        expect(loaded.isActive(), isTrue);
 
-      await repo.clearOverride('Lahore');
-      final cleared = await repo.getOverride('Lahore');
-      expect(cleared, isNotNull);
-      expect(cleared!.isActive(), isFalse); // audit record preserved, inactive
-    });
+        await repo.clearOverride('Lahore');
+        final cleared = await repo.getOverride('Lahore');
+        expect(cleared, isNotNull);
+        expect(
+          cleared!.isActive(),
+          isFalse,
+        ); // audit record preserved, inactive
+      },
+    );
   });
 
-  // ── Admin write controller (author fields from auth; audit recorded) ───────
   group('AdminOverrideController', () {
-    // Bare ProviderContainer + StreamProvider.future hangs under Riverpod 3, so
-    // we subscribe and let `Stream.value` deliver via a real event-loop turn,
-    // then read the resolved value (never `.future`).
-    Future<ProviderContainer> ready(
-      _FakeOverrideRepo repo, {
-      AdminActivityLogRepository? activityLog,
-    }) async {
-      final c = ProviderContainer(
-        overrides: [
-          riskOverrideRepositoryProvider.overrideWithValue(repo),
-          userCityProvider.overrideWith((ref) async => 'Lahore'),
-          if (activityLog != null)
-            adminActivityLogRepositoryProvider.overrideWithValue(activityLog),
-          authStateProvider.overrideWith(
-            (ref) => Stream.value(
-              UserModel(
-                uid: 'op-1',
-                email: 'op@example.com',
-                createdAt: DateTime.utc(2026, 1, 1),
-              ),
-            ),
-          ),
-        ],
+    ProviderContainer ready(FakeAdminApi api) {
+      final container = ProviderContainer(
+        overrides: [adminApiClientProvider.overrideWithValue(api)],
       );
-      addTearDown(c.dispose);
-      c.listen(authStateProvider, (_, _) {}); // subscribe so the stream emits
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      return c;
+      addTearDown(container.dispose);
+      return container;
     }
 
-    test('submit writes an override stamped with the signed-in author', () async {
-      final repo = _FakeOverrideRepo();
-      final c = await ready(repo);
-      expect(c.read(authStateProvider).value?.uid, 'op-1'); // sanity
-
-      await c.read(adminOverrideControllerProvider.notifier).submit(
-            city: 'Lahore',
-            riskLevel: RiskLevel.high,
-            disease: 'Smog',
-            reason: '  AQI spiked  ',
-          );
-
-      final written = repo.store['Lahore']!;
-      expect(written.riskLevel, RiskLevel.high);
-      expect(written.reason, 'AQI spiked'); // trimmed
-      expect(written.authorUid, 'op-1'); // from auth, not client-supplied
-      expect(written.authorEmail, 'op@example.com');
-      expect(written.active, isTrue);
-    });
-
-    test('clear delegates to the repository', () async {
-      final repo = _FakeOverrideRepo()..store['Lahore'] = _override();
-      final c = await ready(repo);
-
-      await c.read(adminOverrideControllerProvider.notifier).clear('Lahore');
-      expect(repo.cleared, contains('Lahore'));
-      expect(repo.store['Lahore']!.active, isFalse);
-    });
-
-    // ── Sprint M8.2: submit/clear append to the admin activity log ──────────
-    test('submit appends an activity-log entry stamped with the author', () async {
-      final repo = _FakeOverrideRepo();
-      final activityLog = _FakeActivityLogRepo();
-      final c = await ready(repo, activityLog: activityLog);
-
-      await c.read(adminOverrideControllerProvider.notifier).submit(
-            city: 'Lahore',
-            riskLevel: RiskLevel.high,
-            disease: 'Smog',
-            reason: 'AQI spiked',
-          );
-
-      expect(activityLog.entries, hasLength(1));
-      final logged = activityLog.entries.single;
-      expect(logged.action, 'override_set');
-      expect(logged.target, 'Lahore');
-      expect(logged.summary, contains('High'));
-      expect(logged.summary, contains('Smog'));
-      expect(logged.authorUid, 'op-1');
-      expect(logged.authorEmail, 'op@example.com');
-    });
-
-    test('clear appends an activity-log entry', () async {
-      final repo = _FakeOverrideRepo()..store['Lahore'] = _override();
-      final activityLog = _FakeActivityLogRepo();
-      final c = await ready(repo, activityLog: activityLog);
-
-      await c.read(adminOverrideControllerProvider.notifier).clear('Lahore');
-
-      expect(activityLog.entries, hasLength(1));
-      expect(activityLog.entries.single.action, 'override_clear');
-      expect(activityLog.entries.single.target, 'Lahore');
-    });
-
-    test('a logging failure never fails the underlying override write', () async {
-      final repo = _FakeOverrideRepo();
-      final c = await ready(repo, activityLog: _ThrowingActivityLogRepo());
-
-      // Must complete without throwing — the override write already
-      // succeeded and the audit trail is best-effort.
-      await c.read(adminOverrideControllerProvider.notifier).submit(
-            city: 'Lahore',
-            riskLevel: RiskLevel.high,
-            disease: 'Smog',
-            reason: 'AQI spiked',
-          );
-
-      expect(repo.store['Lahore'], isNotNull);
-      expect(
-        c.read(adminOverrideControllerProvider),
-        isA<AsyncData<void>>(),
+    test('sends only validated override inputs to the service', () async {
+      final api = FakeAdminApi();
+      final container = ready(api);
+      final now = DateTime.utc(2026, 11, 22);
+      final controller = container.read(
+        adminOverrideControllerProvider.notifier,
       );
+      await container.read(adminOverrideControllerProvider.future);
+      await controller.submit(
+        city: 'Lahore',
+        riskLevel: RiskLevel.high,
+        disease: 'Smog',
+        reason: '  AQI spiked  ',
+        now: now,
+      );
+      final (path, body) = api.calls.single;
+      expect(path, ['overrides', 'Lahore']);
+      expect(body, {
+        'riskLevel': 'High',
+        'disease': 'Smog',
+        'reason': 'AQI spiked',
+        'expiresAt': now.add(const Duration(days: 1)).toIso8601String(),
+      });
+    });
+
+    test('clear surfaces an unconfirmed operation', () async {
+      final api = FakeAdminApi()
+        ..failure = const AdminApiException('operation_unconfirmed');
+      final container = ready(api);
+      final controller = container.read(
+        adminOverrideControllerProvider.notifier,
+      );
+      await container.read(adminOverrideControllerProvider.future);
+      await controller.clear('Lahore');
+      expect(api.calls.single.$1, ['overrides', 'Lahore', 'clear']);
+      expect(container.read(adminOverrideControllerProvider).hasError, isTrue);
     });
   });
 
@@ -364,8 +291,8 @@ void main() {
       expect(await read(_FakeAdmin(false)), isFalse);
     });
 
-    test('fails closed (false) when the claim read throws', () async {
-      expect(await read(_ThrowingAdmin()), isFalse);
+    test('surfaces authorization lookup failure', () async {
+      await expectLater(read(_ThrowingAdmin()), throwsException);
     });
   });
 }

@@ -5,11 +5,9 @@ import '../../domain/repositories/admin_activity_log_repository.dart';
 
 /// Firestore implementation of [AdminActivityLogRepository].
 ///
-/// Writes (auto-id `add()`, never `set()` — entries are never updated) and
-/// reads the top-level `adminActivityLog` collection. `firestore.rules` gates
-/// both to the `admin` claim and denies update/delete to everyone, including
-/// admins, so the trail is immutable once written.
-class FirestoreAdminActivityLogRepository implements AdminActivityLogRepository {
+/// Reads the backend-maintained audit history.
+class FirestoreAdminActivityLogRepository
+    implements AdminActivityLogRepository {
   final FirebaseFirestore _firestore;
 
   FirestoreAdminActivityLogRepository({FirebaseFirestore? firestore})
@@ -18,17 +16,12 @@ class FirestoreAdminActivityLogRepository implements AdminActivityLogRepository 
   static const String collectionPath = 'adminActivityLog';
 
   @override
-  Future<void> append(AdminActivityLogEntry entry) async {
-    await _firestore.collection(collectionPath).add(entry.toJson());
-  }
-
-  @override
   Future<List<AdminActivityLogEntry>> recent({int limit = 100}) async {
     final snapshot = await _firestore
         .collection(collectionPath)
         .orderBy('createdAt', descending: true)
         .limit(limit)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     return snapshot.docs.map(_fromSnapshot).toList();
   }

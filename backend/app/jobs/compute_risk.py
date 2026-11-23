@@ -388,14 +388,15 @@ def run_and_report(
     started_at = datetime.now(timezone.utc)
     generated_at = generated_at or started_at
     try:
+        bundle = bundle or load_bundle(resolve_artifact_path())
         outcomes = run(
             provider, repository, bundle=bundle, cities=cities,
             generated_at=generated_at,
         )
-    except Exception as exc:  # unexpected: emit a failed signal, then propagate
+    except Exception:  # unexpected: emit a failed signal, then propagate
         report = observability.failed_report(
             JOB_NAME, started_at, datetime.now(timezone.utc),
-            f"{type(exc).__name__}: {exc}",
+            "job_execution_failed",
         )
         observability.emit(report, sink=heartbeat, logger=logger)
         raise
@@ -404,6 +405,7 @@ def run_and_report(
     report = observability.RunReport(
         JOB_NAME, status, started_at, datetime.now(timezone.utc),
         counts=observability.count_by_status(outcomes),
+        model_version=bundle["model_version"] if status == observability.STATUS_OK else None,
     )
     observability.emit(report, sink=heartbeat, logger=logger)
     logger.info("run_evidence", extra={

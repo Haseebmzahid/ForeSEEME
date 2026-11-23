@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'admin_read.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
@@ -69,7 +70,10 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
     // Surface submit/clear results without leaving the screen.
     ref.listen(adminOverrideControllerProvider, (previous, next) {
       next.whenOrNull(
-        error: (e, _) => _snack('Could not save override: $e', isError: true),
+        error: (e, _) {
+          _submitted = false;
+          _snack('Could not save override: $e', isError: true);
+        },
         data: (_) {
           if (_submitted && previous is AsyncLoading) {
             _submitted = false;
@@ -82,7 +86,13 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
     return SafeArea(
       child: isAdminAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const NotAuthorizedView(),
+        error: (error, _) => Center(
+          child: AdminReadError(
+            message: 'Could not verify the administrator session.',
+            error: error,
+            retry: () => ref.invalidate(isAdminProvider),
+          ),
+        ),
         data: (isAdmin) => isAdmin ? _form() : const NotAuthorizedView(),
       ),
     );
@@ -120,6 +130,11 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
                           },
                   ),
                 ),
+          error: (error, _) => AdminReadError(
+            message: 'Could not load the current override.',
+            error: error,
+            retry: () => ref.invalidate(activeOverrideForCityProvider(_city)),
+          ),
           orElse: () => const SizedBox.shrink(),
         ),
         _label('City'),
@@ -152,19 +167,39 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final reason = _reasonController.text.trim();
     if (reason.isEmpty) {
       _snack('A reason is required — it is shown to users.', isError: true);
       return;
     }
+    final city = _city;
+    final disease = _disease;
+    final level = _level;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Apply manual override?'),
+        content: Text(
+          '${level.toJson()} risk for $disease in $city. The override expires in 24 hours.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     _submitted = true;
-    ref.read(adminOverrideControllerProvider.notifier).submit(
-          city: _city,
-          riskLevel: _level,
-          disease: _disease,
-          reason: reason,
-        );
+    ref
+        .read(adminOverrideControllerProvider.notifier)
+        .submit(city: city, riskLevel: level, disease: disease, reason: reason);
   }
 
   void _snack(String message, {bool isError = false}) {
@@ -184,12 +219,12 @@ class _AdminOverrideScreenState extends ConsumerState<AdminOverrideScreen> {
   }
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: ForeSeeMeSpacing.sm),
-        child: Text(
-          text,
-          style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: ForeSeeMeSpacing.sm),
+    child: Text(
+      text,
+      style: context.fsmText.labelSmall?.copyWith(letterSpacing: 1.2),
+    ),
+  );
 }
 
 // ── Pieces ───────────────────────────────────────────────────────────────────
@@ -232,7 +267,10 @@ class _ActiveOverrideCard extends StatelessWidget {
   final RiskOverride riskOverride;
   final VoidCallback? onClear;
 
-  const _ActiveOverrideCard({required this.riskOverride, required this.onClear});
+  const _ActiveOverrideCard({
+    required this.riskOverride,
+    required this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +283,10 @@ class _ActiveOverrideCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ACTIVE OVERRIDE', style: text.labelSmall?.copyWith(letterSpacing: 1.2)),
+          Text(
+            'ACTIVE OVERRIDE',
+            style: text.labelSmall?.copyWith(letterSpacing: 1.2),
+          ),
           const SizedBox(height: ForeSeeMeSpacing.sm),
           Row(
             children: [
@@ -328,14 +369,14 @@ class _DiseaseDropdown extends StatelessWidget {
 }
 
 Widget _dropShell(BuildContext context, Widget child) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.lg),
-      decoration: BoxDecoration(
-        color: ForeSeeMeSurface.fill(context),
-        borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
-        border: Border.all(color: ForeSeeMeSurface.stroke(context)),
-      ),
-      child: child,
-    );
+  padding: const EdgeInsets.symmetric(horizontal: ForeSeeMeSpacing.lg),
+  decoration: BoxDecoration(
+    color: ForeSeeMeSurface.fill(context),
+    borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
+    border: Border.all(color: ForeSeeMeSurface.stroke(context)),
+  ),
+  child: child,
+);
 
 class _LevelSelector extends StatelessWidget {
   final RiskLevel value;
@@ -407,7 +448,8 @@ class _ReasonField extends StatelessWidget {
       maxLength: 200,
       style: text.bodyLarge?.copyWith(color: palette.textPrimary),
       decoration: InputDecoration(
-        hintText: 'e.g. Pipeline delayed; AQI spiked per PMD advisory 2026-07-02.',
+        hintText:
+            'e.g. Pipeline delayed; AQI spiked per PMD advisory 2026-07-02.',
         hintStyle: text.bodySmall,
         filled: true,
         fillColor: ForeSeeMeSurface.fill(context),

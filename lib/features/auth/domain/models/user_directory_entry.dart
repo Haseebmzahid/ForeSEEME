@@ -1,15 +1,7 @@
 // Pure-Dart model for one entry in the admin user directory (Sprint M8.4,
 // SDS FR8.5). Framework-free, mirroring [RiskOverride]/[JobHeartbeat].
 //
-// A deliberately minimal, honest projection of "registered users" — see
-// docs/user_management.md for the full scope decision. In particular there is
-// no "blocked" status: this app has no in-app mechanism that actually revokes
-// access (that requires the Firebase Auth Admin SDK, only reachable via the
-// operator scripts in backend/scripts/), so modelling a status this UI cannot
-// truthfully enforce would mislead an admin into thinking a "blocked" user is
-// actually blocked.
-
-/// Onboarding status derived from real app state — never admin-settable.
+/// Directory onboarding status and the backend's Firebase Auth suspension state.
 enum UserStatus {
   /// Registered (account created) but has not yet completed health-profile
   /// setup — the router blocks them from the rest of the app until they do,
@@ -17,11 +9,15 @@ enum UserStatus {
   pending,
 
   /// Has completed health-profile setup at least once.
-  active;
+  active,
+
+  /// Firebase Authentication has disabled this account.
+  blocked;
 
   String get label => switch (this) {
     UserStatus.pending => 'Pending',
     UserStatus.active => 'Active',
+    UserStatus.blocked => 'Blocked',
   };
 }
 
@@ -58,7 +54,10 @@ class UserDirectoryEntry {
     required this.status,
   });
 
-  factory UserDirectoryEntry.fromJson(Map<String, dynamic> json, {required String uid}) {
+  factory UserDirectoryEntry.fromJson(
+    Map<String, dynamic> json, {
+    required String uid,
+  }) {
     return UserDirectoryEntry(
       uid: uid,
       name: json['name'] as String?,
@@ -67,15 +66,17 @@ class UserDirectoryEntry {
       // prior register() call — e.g. a Google-sign-in account, see class doc)
       // would have no createdAt at all. Never throw parsing one bad/missing
       // entry and break the whole admin list for every other user.
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toUtc() ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '')?.toUtc() ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      status: UserStatusX.fromJson(json['status'] as String?),
+      status: json['authDisabled'] == true
+          ? UserStatus.blocked
+          : UserStatusX.fromJson(json['status'] as String?),
     );
   }
 
   @override
-  String toString() =>
-      'UserDirectoryEntry(uid: $uid, email: $email, status: ${status.name})';
+  String toString() => 'UserDirectoryEntry(status: ${status.name})';
 
   @override
   bool operator ==(Object other) =>

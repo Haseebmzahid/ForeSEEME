@@ -99,7 +99,7 @@ void main() {
     expect(find.text('Pending'), findsNWidgets(2));
 
     // Honest scope: no suspend/block/delete controls in-app.
-    expect(find.textContaining('operator actions'), findsOneWidget);
+    expect(find.byTooltip('Refresh directory'), findsOneWidget);
   });
 
   testWidgets('search filters by name or email', (tester) async {
@@ -115,20 +115,21 @@ void main() {
     expect(find.text('bob@example.com'), findsNothing);
   });
 
-  testWidgets('a search with no matches shows the filtered-empty state, distinct from true-empty', (
-    tester,
-  ) async {
-    await _pump(tester, [
-      isAdminProvider.overrideWith((ref) async => true),
-      userDirectoryListProvider.overrideWith((ref) async => [_alice, _bob]),
-    ]);
+  testWidgets(
+    'a search with no matches shows the filtered-empty state, distinct from true-empty',
+    (tester) async {
+      await _pump(tester, [
+        isAdminProvider.overrideWith((ref) async => true),
+        userDirectoryListProvider.overrideWith((ref) async => [_alice, _bob]),
+      ]);
 
-    await tester.enterText(find.byType(TextField), 'nobody-matches-this');
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'nobody-matches-this');
+      await tester.pumpAndSettle();
 
-    expect(find.text('No matching users'), findsOneWidget);
-    expect(find.text('No registered users yet'), findsNothing);
-  });
+      expect(find.text('No matching users'), findsOneWidget);
+      expect(find.text('No registered users yet'), findsNothing);
+    },
+  );
 
   testWidgets('status filter shows only users in that status', (tester) async {
     await _pump(tester, [

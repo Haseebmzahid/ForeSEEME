@@ -1,5 +1,7 @@
 # Manual Risk Override / Admin Fallback (Sprint 5, Prompt 13)
 
+The current override write path is the MFA-protected admin API. For request confirmation, expiry, audit and release details, see the [Module 8 engineering report](MODULE_8_FINALIZATION.md). Historical implementation notes below describe the original sprint.
+
 *The long-flagged safety valve (audit H2): when the scheduled pipeline lags or
 errs, an authorised operator can transparently correct a city's displayed risk.*
 

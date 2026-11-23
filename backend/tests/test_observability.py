@@ -114,7 +114,7 @@ def test_emit_failed_raises_error_signal_with_alert(caplog) -> None:
         observability.emit(report, sink=hb, logger=logging.getLogger("t.fail"))
 
     assert hb.docs["compute_risk"]["status"] == "failed"
-    assert hb.docs["compute_risk"]["error"] == "RuntimeError: boom"
+    assert hb.docs["compute_risk"]["error"] == "job_execution_failed"
     (rec,) = _job_run_records(caplog)
     assert rec.levelno == logging.ERROR
     assert rec.alert is True
@@ -237,7 +237,7 @@ def test_compute_risk_crash_emits_failed_then_reraises() -> None:
             bundle=_BUNDLE, cities=[{"no_name": True}], generated_at=_GEN_AT,
         )
     assert hb.docs["compute_risk"]["status"] == "failed"
-    assert hb.docs["compute_risk"]["error"].startswith("KeyError")
+    assert hb.docs["compute_risk"]["error"] == "job_execution_failed"
 
 
 # --- dispatch_alerts / weekly_report: zero sends is healthy -----------------

@@ -341,14 +341,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'edit',
-                    pageBuilder: (context, state) {
-                      final extra = state.extra;
-                      final article = extra is ResourceArticle ? extra : null;
-                      return _motionPage(
-                        state,
-                        AdminArticleFormScreen(article: article),
-                      );
-                    },
+                    redirect: (_, state) => state.extra is ResourceArticle
+                        ? null
+                        : '/admin/content',
+                    pageBuilder: (context, state) => _motionPage(
+                      state,
+                      AdminArticleFormScreen(
+                        article: state.extra as ResourceArticle,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -363,6 +364,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'detail',
+                    redirect: (_, state) => state.extra is UserDirectoryEntry
+                        ? null
+                        : '/admin/users',
                     pageBuilder: (context, state) => _motionPage(
                       state,
                       AdminUserDetailScreen(

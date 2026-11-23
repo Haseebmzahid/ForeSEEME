@@ -14,6 +14,7 @@ enum JobRunStatus {
   ok,
   degraded,
   failed,
+
   /// No heartbeat has ever been written, or the stored value is unrecognised —
   /// distinct from [failed] so the dashboard can say "never run" rather than
   /// implying a run happened and failed.
@@ -23,7 +24,7 @@ enum JobRunStatus {
     JobRunStatus.ok => 'Healthy',
     JobRunStatus.degraded => 'Degraded',
     JobRunStatus.failed => 'Failed',
-    JobRunStatus.unknown => 'No data yet',
+    JobRunStatus.unknown => 'Unknown',
   };
 }
 
@@ -57,9 +58,27 @@ class JobHeartbeat {
   /// Per-status tally of the run's outcomes (e.g. `{"written": 5}`).
   final Map<String, int> counts;
 
-  /// `"TypeName: message"` on a crash; `null` otherwise. Never a secret
-  /// (GOLDEN_RULES §7) — the backend only ever writes a type/message string.
   final String? error;
+  final DateTime? lastSuccessfulAt;
+  final String? lastSuccessfulModelVersion;
+  final Object? readError;
+
+  bool get hasRun => finishedAt.millisecondsSinceEpoch != 0;
+
+  bool isStale(DateTime now) {
+    if (!hasRun) return false;
+    final threshold = job == 'weekly_report'
+        ? const Duration(days: 8)
+        : const Duration(hours: 36);
+    return now.difference(finishedAt) > threshold;
+  }
+
+  JobRunStatus healthAt(DateTime now) {
+    if (status == JobRunStatus.ok && isStale(now)) {
+      return JobRunStatus.degraded;
+    }
+    return status;
+  }
 
   const JobHeartbeat({
     required this.job,
@@ -70,12 +89,15 @@ class JobHeartbeat {
     required this.total,
     required this.counts,
     this.error,
+    this.lastSuccessfulAt,
+    this.lastSuccessfulModelVersion,
+    this.readError,
   });
 
   /// A placeholder for a job with no heartbeat document yet (e.g. it has never
   /// run). Callers distinguish this from real data via [status] ==
   /// [JobRunStatus.unknown]; [startedAt]/[finishedAt] are not meaningful.
-  factory JobHeartbeat.none(String job) => JobHeartbeat(
+  factory JobHeartbeat.none(String job, {Object? readError}) => JobHeartbeat(
     job: job,
     status: JobRunStatus.unknown,
     startedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
@@ -83,6 +105,7 @@ class JobHeartbeat {
     durationMs: 0,
     total: 0,
     counts: const {},
+    readError: readError,
   );
 
   factory JobHeartbeat.fromJson(Map<String, dynamic> json) {
@@ -93,11 +116,17 @@ class JobHeartbeat {
       finishedAt: DateTime.parse(json['finishedAt'] as String).toUtc(),
       durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
       total: (json['total'] as num?)?.toInt() ?? 0,
-      counts: (json['counts'] as Map<String, dynamic>?)?.map(
+      counts:
+          (json['counts'] as Map<String, dynamic>?)?.map(
             (key, value) => MapEntry(key, (value as num).toInt()),
           ) ??
           const {},
-      error: json['error'] as String?,
+      error: json['error'] == null ? null : 'Job execution failed',
+      lastSuccessfulAt: DateTime.tryParse(
+        (json['lastSuccessfulAt'] as String?) ??
+            (json['status'] == 'ok' ? json['finishedAt'] as String : ''),
+      )?.toUtc(),
+      lastSuccessfulModelVersion: json['lastSuccessfulModelVersion'] as String?,
     );
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'admin_read.dart';
+import 'admin_content_providers.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
@@ -32,7 +34,13 @@ class AdminContentScreen extends ConsumerWidget {
     return SafeArea(
       child: isAdminAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const NotAuthorizedView(),
+        error: (error, _) => Center(
+          child: AdminReadError(
+            message: 'Could not verify the administrator session.',
+            error: error,
+            retry: () => ref.invalidate(isAdminProvider),
+          ),
+        ),
         data: (isAdmin) =>
             isAdmin ? const _ArticleList() : const NotAuthorizedView(),
       ),
@@ -45,10 +53,7 @@ class _ArticleList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final articlesAsync = ref.watch(resourceArticlesAsyncProvider);
-    final palette = context.fsmPalette;
-    final text = context.fsmText;
-
+    final articlesAsync = ref.watch(adminArticlesProvider);
     return Column(
       children: [
         Padding(
@@ -67,10 +72,14 @@ class _ArticleList extends ConsumerWidget {
         Expanded(
           child: articlesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => Center(
-              child: Text(
-                'Could not load articles.',
-                style: text.bodyMedium?.copyWith(color: palette.error),
+            error: (error, _) => Center(
+              child: AdminReadError(
+                message: 'Could not load articles.',
+                error: error,
+                retry: () {
+                  ref.invalidate(resourceArticlesAsyncProvider);
+                  ref.invalidate(adminArticlesProvider);
+                },
               ),
             ),
             data: (articles) {
@@ -135,12 +144,16 @@ class _ArticleListTile extends StatelessWidget {
                 children: [
                   Text(
                     article.title,
-                    style: text.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                    style: text.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     resourceTopicLabel(article.topic),
-                    style: text.bodySmall?.copyWith(color: palette.textTertiary),
+                    style: text.bodySmall?.copyWith(
+                      color: palette.textTertiary,
+                    ),
                   ),
                 ],
               ),

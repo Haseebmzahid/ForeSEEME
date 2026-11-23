@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
@@ -15,13 +17,22 @@ final riskOverrideRepositoryProvider = Provider<RiskOverrideRepository>((ref) {
 /// The **active** operator override for an explicit [city], or `null` when none
 /// is in force. Read-only; applies [RiskOverride.isActive] (honouring expiry) so
 /// a cleared/expired override never leaks onto a risk surface.
-final activeOverrideForCityProvider =
-    FutureProvider.family<RiskOverride?, String>((ref, city) async {
-      final override =
-          await ref.watch(riskOverrideRepositoryProvider).getOverride(city);
-      if (override == null || !override.isActive()) return null;
+final activeOverrideForCityProvider = FutureProvider.autoDispose
+    .family<RiskOverride?, String>((ref, city) async {
+      final override = await ref
+          .watch(riskOverrideRepositoryProvider)
+          .getOverride(city)
+          .timeout(const Duration(seconds: 12));
+      if (!ref.mounted || override == null || !override.isActive()) return null;
+      if (override.expiresAt case final expiration?) {
+        final timer = Timer(
+          expiration.difference(DateTime.now()),
+          ref.invalidateSelf,
+        );
+        ref.onDispose(timer.cancel);
+      }
       return override;
-    });
+    }, retry: (_, _) => null);
 
 /// The active override for the **current user's** city, or `null`.
 ///
@@ -34,7 +45,9 @@ final activeOverrideForCityProvider =
 /// genuine estimate, so any failure to resolve the city or read the override
 /// degrades to `null` (no override) rather than surfacing an error onto the risk
 /// display — the honest model estimate must always win through.
-final currentCityOverrideProvider = FutureProvider<RiskOverride?>((ref) async {
+final currentCityOverrideProvider = FutureProvider.autoDispose<RiskOverride?>((
+  ref,
+) async {
   try {
     final city = await ref.watch(userCityProvider.future);
     if (city == null) return null;
