@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from app.notification_registrations import Registration
 from app.jobs import compute_risk, dispatch_alerts
 from app.jobs.alerting.messaging import SendResult
 from app.jobs.alerting.targeting import CityRisk, TargetUser
@@ -105,8 +106,11 @@ class PipelineStore:
             for b in self.logs.values()
         )
 
-    def prune_token(self, uid: str) -> None:
-        self.pruned.append(uid)
+    def is_current_registration(self, registration):
+        return registration.uid not in self.pruned
+
+    def prune_token(self, registration) -> None:
+        self.pruned.append(registration.uid)
 
     def claim_dispatch(self, log_id: str, now: datetime) -> bool:
         if log_id in self.logs:
@@ -128,7 +132,7 @@ class FakeSender:
         self.result = result or SendResult("sent", message_id="m1")
         self.sends: list[dict] = []
 
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         self.sends.append({"token": token, "data": data})
         return self.result
 
@@ -182,7 +186,7 @@ def _asthma_user(uid: str = "asthma_ok", prefs: dict | None = None) -> TargetUse
         uid=uid,
         city="Lahore",
         conditions=("Asthma",),
-        fcm_token="tok",
+        registrations=(Registration(uid, "tok", 1, "test"),),
         preferences=prefs if prefs is not None else _PREFS_ALL,
     )
 

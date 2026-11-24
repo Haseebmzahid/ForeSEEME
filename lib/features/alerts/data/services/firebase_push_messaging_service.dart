@@ -23,6 +23,10 @@ class FirebasePushMessagingService implements PushMessagingService {
     : _messaging = messaging ?? FirebaseMessaging.instance;
 
   @override
+  Future<NotificationPermissionStatus> permissionStatus() async =>
+      _map((await _messaging.getNotificationSettings()).authorizationStatus);
+
+  @override
   Future<NotificationPermissionStatus> requestPermission() async {
     final settings = await _messaging.requestPermission();
     return _map(settings.authorizationStatus);

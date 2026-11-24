@@ -24,7 +24,10 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 from app.jobs.account_metrics import account_projection
 from app.jobs.compute_risk import load_cities
 from app.jobs.firestore_runtime import get_firestore_client
-from app.session_revocation import record_revocation
+from app.notification_registrations import InactiveSession, RegistrationConflict, RegistrationStore
+from app.session_revocation import (
+    LogoutRejected, LogoutUnconfirmed, complete_logout, record_revocation,
+)
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 logger = logging.getLogger(__name__)
@@ -91,6 +94,20 @@ class AccountAction(Input):
     retention: Literal["retain_firestore"] | None = None
 
 
+FcmToken = Annotated[str, StringConstraints(
+    strict=True, strip_whitespace=False, min_length=1, max_length=4096,
+    pattern=r"^[A-Za-z0-9:_-]+$",
+)]
+
+
+class NotificationToken(Input):
+    token: FcmToken
+
+
+class NotificationRegistration(NotificationToken):
+    previousToken: FcmToken | None = None
+
+
 def problem(status: int, code: str):
     return HTTPException(status, detail={"code": code})
 
@@ -123,12 +140,31 @@ def db_client():
     return get_firestore_client()
 
 
-def verify_admin(token: str, *, now: float) -> dict:
+def verify_session_token(token: str) -> dict:
     try:
-        claims = auth.verify_id_token(token, check_revoked=True)
+        return auth.verify_id_token(token, check_revoked=True)
     except (auth.InvalidIdTokenError, auth.ExpiredIdTokenError, auth.RevokedIdTokenError,
             auth.UserDisabledError, auth.UserNotFoundError, ValueError):
         raise problem(401, "invalid_session") from None
+
+
+def bearer_token(request: Request) -> str:
+    header = request.headers.get("authorization", "")
+    if not header.startswith("Bearer ") or not 8 < len(header) <= 8192:
+        raise problem(401, "token_required")
+    return header[7:]
+
+
+def session_identity(claims):
+    uid = claims.get("uid")
+    auth_time = claims.get("auth_time")
+    if not isinstance(uid, str) or not uid or "/" in uid or type(auth_time) is not int or auth_time < 0:
+        raise problem(401, "invalid_session")
+    return uid, auth_time
+
+
+def verify_admin(token: str, *, now: float) -> dict:
+    claims = verify_session_token(token)
     if claims.get("admin") is not True:
         raise problem(403, "admin_required")
     firebase_claims = claims.get("firebase")
@@ -158,13 +194,11 @@ def rate_limit(db, uid: str, now: float):
 
 
 def authorize(request: Request):
-    header = request.headers.get("authorization", "")
-    if not header.startswith("Bearer ") or not 8 < len(header) <= 8192:
-        raise problem(401, "token_required")
+    token = bearer_token(request)
     try:
         db = db_client()
         now = time.time()
-        actor = verify_admin(header[7:], now=now)
+        actor = verify_admin(token, now=now)
         cutoff = db.collection("sessionRevocations").document(actor["uid"]).get(timeout=5)
         if cutoff.exists and actor["auth_time"] <= cutoff.to_dict()["throughAuthTime"]:
             raise problem(401, "invalid_session")
@@ -185,30 +219,71 @@ Access = Annotated[tuple, Depends(authorize)]
 @app.post("/v1/session/logout", status_code=204)
 def revoke_own_session(request: Request):
     """Revoke every Firebase session belonging to the verified caller."""
-    header = request.headers.get("authorization", "")
-    if not header.startswith("Bearer ") or not 8 < len(header) <= 8192:
-        raise problem(401, "token_required")
+    token = bearer_token(request)
     try:
         db = db_client()
-        claims = auth.verify_id_token(header[7:], check_revoked=True)
+        try:
+            claims = auth.verify_id_token(token, check_revoked=True)
+            may_start = True
+        except auth.RevokedIdTokenError:
+            # A signature-verified revoked token can only resume its existing receipt.
+            claims = auth.verify_id_token(token, check_revoked=False)
+            may_start = False
+        uid, authenticated_at = session_identity(claims)
     except (auth.InvalidIdTokenError, auth.ExpiredIdTokenError, auth.RevokedIdTokenError,
-            auth.UserDisabledError, auth.UserNotFoundError):
+            auth.UserDisabledError, auth.UserNotFoundError, ValueError):
         raise problem(401, "invalid_session") from None
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Session verification unavailable (%s)", type(exc).__name__)
         raise problem(503, "revocation_unconfirmed") from None
 
-    uid = claims.get("uid")
-    authenticated_at = claims.get("auth_time")
-    if not isinstance(uid, str) or not uid or "/" in uid or type(authenticated_at) is not int:
-        raise problem(401, "invalid_session")
     try:
-        auth.revoke_refresh_tokens(uid)
-        valid_after_ms = auth.get_user(uid).tokens_valid_after_timestamp
-        record_revocation(db, uid, max(authenticated_at, valid_after_ms // 1000))
+        complete_logout(
+            db, uid, authenticated_at, may_start=may_start,
+            read_valid_after=lambda: auth.get_user(uid).tokens_valid_after_timestamp,
+            revoke=lambda: auth.revoke_refresh_tokens(uid),
+        )
+    except LogoutRejected:
+        raise problem(401, "invalid_session") from None
+    except LogoutUnconfirmed:
+        raise problem(503, "revocation_unconfirmed") from None
     except Exception as exc:
         logger.error("Session revocation unconfirmed (%s)", type(exc).__name__)
         raise problem(503, "revocation_unconfirmed") from None
+
+
+def change_registration(
+    request: Request, token_value: str, *, register: bool, previous_token: str | None = None,
+):
+    token = bearer_token(request)
+    try:
+        store = RegistrationStore(db_client())
+        uid, auth_time = session_identity(verify_session_token(token))
+        if register:
+            store.register(uid, auth_time, token_value, previous_token)
+        else:
+            store.unregister(uid, auth_time, token_value)
+    except HTTPException:
+        raise
+    except InactiveSession:
+        raise problem(401, "invalid_session") from None
+    except RegistrationConflict:
+        raise problem(409, "registration_conflict") from None
+    except Exception as exc:
+        logger.error("Notification registration unavailable (%s)", type(exc).__name__)
+        raise problem(503, "registration_unavailable") from None
+
+
+@app.post("/v1/notifications/register", status_code=204)
+def register_notification(request: Request, body: NotificationRegistration):
+    change_registration(request, body.token, register=True, previous_token=body.previousToken)
+
+
+@app.post("/v1/notifications/unregister", status_code=204)
+def unregister_notification(request: Request, body: NotificationToken):
+    change_registration(request, body.token, register=False)
 
 
 def audit(db, actor, action, target, request_id, outcome, summary):
@@ -372,6 +447,9 @@ def change_account(uid: Annotated[str, Key], body: AccountAction, access: Access
         raise problem(503, "audit_unavailable") from None
 
     try:
+        ends_sessions = body.action in ("suspend", "delete")
+        if ends_sessions:
+            record_revocation(db, uid, int(time.time()))
         if body.action == "delete":
             auth.delete_user(uid)
             try:
@@ -388,6 +466,9 @@ def change_account(uid: Annotated[str, Key], body: AccountAction, access: Access
             target = auth.get_user(uid)
             if target.disabled != disabled:
                 raise RuntimeError("Account status unconfirmed")
+        if ends_sessions:
+            # Cover sessions authenticated while the Auth mutation was in flight.
+            record_revocation(db, uid, int(time.time()))
 
         log_ref, event = audit(db, actor, action, uid, request_id, "success", "Auth state verified")
         batch = db.batch()

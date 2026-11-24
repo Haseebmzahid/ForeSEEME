@@ -51,7 +51,14 @@ class LocalNotificationService {
   static final StreamController<String> _tapController =
       StreamController<String>.broadcast();
 
-  static Stream<String> get onNotificationTapped => _tapController.stream;
+  static const pushPayloadPrefix = 'foreseeme-push-v1:';
+
+  static Stream<String> get onNotificationTapped => _tapController.stream.where(
+    (payload) => !payload.startsWith(pushPayloadPrefix),
+  );
+
+  static Stream<String> get onPushNotificationTapped => _tapController.stream
+      .where((payload) => payload.startsWith(pushPayloadPrefix));
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -96,12 +103,15 @@ class LocalNotificationService {
   /// terminated state, or null if the app wasn't launched by a tap. Reads
   /// the plugin's launch details exactly once per cold start — call it after
   /// [initialize] and after the router is ready to navigate.
-  static Future<String?> consumeLaunchPayload() async {
+  static Future<String?> consumeLaunchPayload({bool push = false}) async {
     await _ensureInitialized();
     final details = await _notificationsPlugin
         .getNotificationAppLaunchDetails();
     if (details == null || !details.didNotificationLaunchApp) return null;
-    return details.notificationResponse?.payload;
+    final payload = details.notificationResponse?.payload;
+    return payload != null && payload.startsWith(pushPayloadPrefix) == push
+        ? payload
+        : null;
   }
 
   /// Schedules (or reschedules in place) the primary daily reminder at

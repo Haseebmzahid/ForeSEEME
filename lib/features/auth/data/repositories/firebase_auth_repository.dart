@@ -12,14 +12,18 @@ class FirebaseAuthRepository implements AuthRepository {
   final firebase_auth.FirebaseAuth _firebaseAuth;
   final GoogleSignIn _googleSignIn;
   final Future<void> Function(String)? _revokeSessions;
+  final Future<void> Function(String uid, String bearer)?
+  _unregisterNotifications;
 
   FirebaseAuthRepository({
     firebase_auth.FirebaseAuth? firebaseAuth,
     GoogleSignIn? googleSignIn,
     Future<void> Function(String)? revokeSessions,
+    Future<void> Function(String uid, String bearer)? unregisterNotifications,
   }) : _firebaseAuth = firebaseAuth ?? firebase_auth.FirebaseAuth.instance,
        _googleSignIn = googleSignIn ?? GoogleSignIn(),
-       _revokeSessions = revokeSessions;
+       _revokeSessions = revokeSessions,
+       _unregisterNotifications = unregisterNotifications;
 
   @override
   Stream<UserModel?> get currentUser {
@@ -194,6 +198,7 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<Either<AuthException, void>> signOut() async {
     var revocationConfirmed = true;
+    var notificationsConfirmed = true;
     final user = _firebaseAuth.currentUser;
     if (user != null) {
       try {
@@ -204,13 +209,23 @@ class FirebaseAuthRepository implements AuthRepository {
         if (revoke == null || token == null) {
           throw StateError('Session service unavailable');
         }
+        try {
+          await _unregisterNotifications
+              ?.call(user.uid, token)
+              .timeout(const Duration(seconds: 6));
+        } on Object {
+          notificationsConfirmed = false;
+        }
         await revoke(token);
       } on Object {
         revocationConfirmed = false;
       }
     }
     try {
-      await Future.wait([_firebaseAuth.signOut(), _googleSignIn.signOut()]);
+      final currentUid = _firebaseAuth.currentUser?.uid;
+      if (currentUid == null || currentUid == user?.uid) {
+        await Future.wait([_firebaseAuth.signOut(), _googleSignIn.signOut()]);
+      }
     } on Object {
       return Left(
         AuthException(
@@ -225,6 +240,14 @@ class FirebaseAuthRepository implements AuthRepository {
       return Left(
         AuthException(
           'Signed out on this device. Sign-out on other devices could not be confirmed.',
+          'logout_unconfirmed',
+        ),
+      );
+    }
+    if (!notificationsConfirmed) {
+      return const Left(
+        AuthException(
+          'Signed out. Notification cleanup could not be confirmed.',
           'logout_unconfirmed',
         ),
       );

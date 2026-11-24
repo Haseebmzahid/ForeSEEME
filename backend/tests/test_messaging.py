@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from firebase_admin import messaging as fcm
 
-from app.jobs.alerting.messaging import FirebaseAdminFcmSender, PUSH_DISCLAIMER, build_notification
+from app.jobs.alerting.messaging import FirebaseAdminFcmSender, PUSH_DISCLAIMER, build_inbox_copy
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import Target
 
@@ -47,23 +47,14 @@ def _sleep_recorder():
     return sleep, calls
 
 
-# --- build_notification -------------------------------------------------------
+# --- build_inbox_copy -------------------------------------------------------
 
 
-def test_build_notification_shape() -> None:
-    title, body, data = build_notification(_TARGET, _REC, "Lahore_2026-06-30")
+def test_build_inbox_copy_shape() -> None:
+    title, body = build_inbox_copy(_TARGET, _REC)
 
     assert title == "Air quality rising in Lahore"
     assert body == f"{PUSH_DISCLAIMER} High Smog risk. Limit outdoor exertion."
-    assert data == {
-        "type": "risk_alert",
-        "deepLink": "/resources",
-        "category": "respiratory",
-        "city": "Lahore",
-        "riskLevel": "High",
-        "riskEstimateId": "Lahore_2026-06-30",
-    }
-    assert all(isinstance(v, str) for v in data.values())  # FCM requires strings
 
 
 # --- FirebaseAdminFcmSender: classification -----------------------------------
@@ -96,13 +87,13 @@ def test_send_unregistered_error_is_token_invalid_no_retry() -> None:
 
 
 def test_send_generic_token_invalid_message_no_retry() -> None:
-    """A non-Unregistered exception whose text still says token+invalid is
-    classified token_invalid (existing heuristic), not retried."""
+    from firebase_admin.exceptions import InvalidArgumentError
+
     sleep, calls = _sleep_recorder()
     sender = FirebaseAdminFcmSender(sleep=sleep)
 
     with patch.object(
-        fcm, "send", side_effect=ValueError("Requested entity was not found: invalid token")
+        fcm, "send", side_effect=InvalidArgumentError("Invalid FCM registration token")
     ) as mock_send:
         result = sender.send(token="tok-1", title="t", body="b", data={})
 
@@ -124,6 +115,16 @@ def test_send_generic_failure_retries_then_succeeds() -> None:
     assert result.message_id == "msg-456"
     assert mock_send.call_count == 2
     assert calls == [0.5]  # one backoff before the successful retry
+
+
+def test_retry_stops_if_the_registration_is_no_longer_current():
+    with patch.object(fcm, "send", side_effect=RuntimeError("network failure")) as send:
+        result = FirebaseAdminFcmSender(sleep=lambda _: None).send(
+            token="fixture", title="neutral", body="neutral", data={},
+            still_current=lambda: False,
+        )
+    assert result.status == "stale"
+    assert send.call_count == 1
 
 
 def test_send_generic_failure_exhausts_retries_and_redacts_provider_error(caplog) -> None:

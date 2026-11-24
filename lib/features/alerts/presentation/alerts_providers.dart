@@ -1,8 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/core/routes/app_router.dart';
 import 'package:fyp_foreseeme/core/services/local_notification_service.dart';
-import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_notification_preferences_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/repositories/firestore_user_alerts_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/data/services/debug_alert_analytics.dart';
@@ -11,7 +11,6 @@ import 'package:fyp_foreseeme/features/alerts/data/services/local_notification_a
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permission_status.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/notification_preferences.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/models/user_alert.dart';
-import 'package:fyp_foreseeme/features/alerts/domain/repositories/fcm_token_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/notification_preferences_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/user_alerts_repository.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_analytics.dart';
@@ -19,7 +18,6 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.da
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/alerts_controller.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_preferences_controller.dart';
-import 'package:fyp_foreseeme/features/alerts/presentation/services/alert_id_resolver.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/fcm_message_handler.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 
@@ -28,10 +26,11 @@ final pushMessagingServiceProvider = Provider<PushMessagingService>((ref) {
   return FirebasePushMessagingService();
 });
 
-/// FCM-token persistence (Firestore). Overridable with a fake in tests.
-final fcmTokenRepositoryProvider = Provider<FcmTokenRepository>((ref) {
-  return FirestoreFcmTokenRepository();
-});
+/// Live Firebase user used to guard asynchronous push operations.
+final notificationAuthUserProvider = Provider<User? Function()>(
+  (ref) =>
+      () => FirebaseAuth.instance.currentUser,
+);
 
 /// Coordinates the permission request + token capture/refresh.
 final alertsControllerProvider =
@@ -45,7 +44,9 @@ final alertsControllerProvider =
 /// this presenter genuinely reuses it (rather than constructing its own),
 /// consistent with `LocalNotificationSchedulerAdapter` on the medication side.
 final alertPresenterProvider = Provider<AlertPresenter>((ref) {
-  return LocalNotificationAlertPresenter(plugin: LocalNotificationService.plugin);
+  return LocalNotificationAlertPresenter(
+    plugin: LocalNotificationService.plugin,
+  );
 });
 
 /// Deep-link engagement analytics sink (Prompt 9). Overridable in tests and
@@ -62,8 +63,23 @@ final fcmMessageHandlerProvider = Provider<FcmMessageHandler>((ref) {
     presenter: ref.watch(alertPresenterProvider),
     navigate: (route) => ref.read(appRouterProvider).go(route),
     analytics: ref.watch(alertAnalyticsProvider),
-    markRead: ref.watch(markAlertReadFromPushProvider),
+    currentUid: () => ref.read(notificationAuthUserProvider)()?.uid,
+    restoredUid: () async => (await ref.read(authStateProvider.future))?.uid,
+    resolveInboxRoute: (uid, pushId) async {
+      final alert = await ref
+          .read(userAlertsRepositoryProvider)
+          .getAlertForPush(uid, pushId);
+      return alert == null ? null : (id: alert.id, route: alert.deepLink);
+    },
+    markRead: (uid, id) =>
+        ref.read(userAlertsRepositoryProvider).markRead(uid, id),
   );
+  final localTaps = LocalNotificationService.onPushNotificationTapped.listen(
+    (payload) => handler.openLocalPayload(
+      payload.substring(LocalNotificationService.pushPayloadPrefix.length),
+    ),
+  );
+  ref.onDispose(localTaps.cancel);
   ref.onDispose(handler.dispose);
   return handler;
 });
@@ -138,26 +154,6 @@ final markAllAlertsReadProvider = Provider<Future<void> Function()>((ref) {
     await repository.markAllRead(uid);
   };
 });
-
-/// Marks the alert referenced by an inbound push payload read, for the
-/// current user (Sprint 6A, S6A-01).
-///
-/// Reconstructs the alert's document id via [AlertIdResolver] (no extra
-/// Firestore read) and reuses [UserAlertsRepository.markRead] — the same write
-/// path the inbox already uses on tap. No-op when signed out or the payload
-/// doesn't resolve to a known alert id, so a malformed/foreign payload can
-/// never write to the wrong document or throw.
-final markAlertReadFromPushProvider =
-    Provider<Future<void> Function(Map<String, String> data)>((ref) {
-      final uid = ref.watch(authStateProvider).value?.uid;
-      final repository = ref.watch(userAlertsRepositoryProvider);
-      return (data) async {
-        if (uid == null) return;
-        final alertId = AlertIdResolver.resolve(data, uid: uid);
-        if (alertId == null) return;
-        await repository.markRead(uid, alertId);
-      };
-    });
 
 /// Notification-preferences persistence (Firestore). Overridable in tests.
 final notificationPreferencesRepositoryProvider =

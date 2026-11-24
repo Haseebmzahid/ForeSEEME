@@ -4,7 +4,7 @@ import 'package:fyp_foreseeme/features/alerts/domain/models/notification_prefere
 import 'package:fyp_foreseeme/features/alerts/domain/repositories/notification_preferences_repository.dart';
 
 /// Stores preferences in the `notificationPreferences` field on `users/{uid}`
-/// (same document as `fcmToken`), via `set(..., merge: true)`. The Firestore
+/// via `set(..., merge: true)`. The Firestore
 /// rule allows a user to write only their own document.
 class FirestoreNotificationPreferencesRepository
     implements NotificationPreferencesRepository {

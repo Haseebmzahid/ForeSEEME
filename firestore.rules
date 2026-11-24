@@ -53,13 +53,13 @@ service cloud.firestore {
     }
 
     function validUserSettings(data, changed) {
-      return changed.hasOnly(['fcmToken', 'fcmTokenUpdatedAt', 'notificationPreferences'])
+      return changed.hasOnly(['notificationPreferences'])
         && (!changed.hasAny(['notificationPreferences'])
-          || validPreferences(data.get('notificationPreferences', {})))
-        && (!changed.hasAny(['fcmToken'])
-          || (data.get('fcmToken', '') is string && data.get('fcmToken', '').size() <= 4096))
-        && (!changed.hasAny(['fcmTokenUpdatedAt'])
-          || data.get('fcmTokenUpdatedAt', request.time) is timestamp);
+          || validPreferences(data.get('notificationPreferences', {})));
+    }
+
+    match /notificationRegistrations/{registrationId} {
+      allow read, write: if false;
     }
 
     match /users/{userId} {
@@ -164,8 +164,12 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly([
                          'title', 'body', 'category', 'city', 'riskLevel',
                          'disease', 'recommendation', 'deepLink', 'riskEstimateId',
-                         'createdAt', 'read', 'readAt'
+                         'createdAt', 'pushId', 'read', 'readAt'
                        ])
+                    && request.resource.data.get('pushId', null)
+                         == resource.data.get('pushId', null)
+                    && request.resource.data.keys().hasAny(['pushId'])
+                         == resource.data.keys().hasAny(['pushId'])
                     && request.resource.data.get('title', null)
                          == resource.data.get('title', null)
                     && request.resource.data.get('body', null)

@@ -1,5 +1,70 @@
 # ForeSeeMe Module 9 verification and closure
 
+## Release requirement matrix
+
+The security controls below were reviewed against the supplied SRS wording and the checked-in [SDS transcription](<ForeSeeMe SDS final(SP23-BSE-034 & 040).docx.md>). FR9.4 HTTPS enforcement and the production pinning commitment in Table 4.8 are separate acceptance decisions. This work establishes local code and emulator evidence. It does not establish production compliance.
+
+| Requirement and source | Existing implementation | Final change and local evidence | Status | Outstanding acceptance |
+| --- | --- | --- | --- | --- |
+| FR9.1, SRS and SDS Table 2.21 | Firestore stores user profile, medication and adherence data. | No storage or project configuration change. Owner access and data shape were retested. | Requires staging verification. | Confirm encryption, backups, exports, region and authorized access in the deployed project. |
+| FR9.2, SRS and SDS Table 2.21 | Owner and MFA rules, server-only fields and default-deny. | Demo checks cover the registry, private inbox and profile, logout receipts, stale access and current sign-ins. Admin suspension and deletion now advance the cutoff. | Implemented and tested locally. | Validate deployed rule and IAM parity. |
+| FR9.3, SRS and SDS Table 2.21 | Profile categories and inference schemas restrict clinical inputs. | The FCM payload uses only neutral copy and recipient and inbox identifiers. Rule and inference validation regressions passed. | Implemented and tested locally. | Review legacy records, medication free text, processors and any future explicit-consent collection. |
+| FR9.4, SRS and SDS Table 2.21 | HTTPS-only first-party URL parsing, redirect refusal, FastAPI scope checks, Android cleartext restriction and iOS ATS. | Added invalid port rejection and tests for malformed configuration, HTTPS redirects and cleartext session and registry routes. The inference liveness exemption was unchanged. | Requires staging verification. | Verify signed APK and iOS release, ingress/proxy trust and Firebase SDK network behaviour. |
+| FR9.5, SRS and SDS Table 2.21 | Native Firebase persistence and API logout with a Firestore cutoff. | Firestore cutoff and receipt before Firebase mutation, monotonic confirmation, bounded client retry and fault-injection/emulator coverage. | Requires supervisor/client approval. | Approve Android native persistence disposition. Rehearse two-device and offline behaviour and operational recovery for pending receipts. |
+| FR9.6, SRS and SDS Table 2.21 | Current-version, server-timestamped acceptance and authenticated dashboard route. | Tested version separation, route denial, FCM recipient checks and exact risk/weekly disclaimer copy. | Requires physical-device verification. | Verify restart, next-version rollout and lock-screen rendering in foreground, background and terminated states. |
+| NFR-S1, SDS §2.7.4 | Firebase manages password hashing and the app uses Firebase Auth over TLS. | No password architecture or hashing change. Source contains no app-owned password store. | Requires supervisor/client approval. | Verify only the deployed hashing algorithm label and import history. Approve the discrepancy with original bcrypt wording. |
+| NFR-S2, SDS §2.7.4 | Inference requires Google's signed service identity with expected audience and numeric subject. | Local inference tests cover missing configuration, unauthenticated callers and invalid identity. The frozen inference implementation was unchanged. | Requires staging verification. | Confirm Cloud Run IAM, identity and ingress. |
+| NFR-S3, SDS §2.7.4 | Refreshed admin claim, MFA, recent authentication and live role verification. | Added cutoff-first role removal and account-state changes. Demo and fault tests cover password-only denial, MFA, stale privileged access and removed role. | Requires staging verification. | Rehearse TOTP or SMS enrollment, recovery and out-of-band role changes. |
+| NFR-S4, SDS §2.7.4 | Restricted application data and role-scoped access. | Updated the privacy draft for registry, retention, neutral push, receipts and cached data. | Requires supervisor/client approval. | Approve privacy policy, processors, retention, deletion, incident ownership and applicable legal review. |
+| SDS §4.3.3, native data storage | Android Firebase Auth uses app-private preferences. Apple persistence is SDK-managed. | No duplicate token storage or SDK redesign. The previous local Android storage finding remains open. | Requires supervisor/client approval. | Resolve secure-storage wording, validate signed mobile artifacts and review cache and backup handling. |
+| SDS §4.3.4 / Table 4.8, production pinning | Standard HTTPS and platform trust. | Production pinning is unimplemented. HTTPS regressions were exercised independently. | Requires supervisor/client approval. | Approve first-party host, key owner, backup keys, rotation and recovery, or formally disposition the design commitment. |
+
+### Remaining release checks
+
+Staging must confirm registry re-enrollment before cutover, disable legacy senders, and test safe rollback by pausing push. Run signed Android and iOS two-device logout, permission, token rotation, account switch and real FCM/APNs display tests. Confirm staging Cloud Run service identity and trusted ingress configuration. No production deploy, production data operation, live FCM delivery or physical-device run occurred during this work.
+
+Module 2 remains a separate follow-up. Previously scheduled local medication notifications can show medication names after account switching. This work changes neither medication reminder scheduling nor dose tracking.
+
+### Final executed validation
+
+| Command and context | Observed result |
+| --- | --- |
+| `flutter test --no-pub --reporter expanded test/features/auth test/features/alerts test/features/health_profile/disclaimer_acceptance_test.dart test/features/core/medical_disclaimer_test.dart` | 155 passed. |
+| `flutter test --no-pub --reporter expanded` | 947 passed, four configured golden-suite skips, zero failed. |
+| `flutter analyze --no-pub` | No issues. |
+| `python -B -m pytest -q -rs tests/test_session_revocation.py tests/test_admin_api.py tests/test_notification_registrations.py tests/test_inference_auth.py tests/test_push_disclaimer.py`, from `backend` | 65 passed in the first focused run. The full backend run includes the subsequent role-removal and transport assertions. |
+| `python -m ruff check app ml scripts tests --select E9,F63,F7,F82`, from `backend` | Passed. |
+| `python -B -m pytest -q -rs`, from `backend` | 755 passed, four paired-emulator tests skipped, zero failed. The installed Starlette TestClient emitted a deprecation warning. |
+| `node test_rules/firestore_rules.test.mjs` under demo Auth and Firestore | 103 rule checks passed. |
+| `python -B -m pytest -q -rs backend/tests/test_admin_emulator.py` under demo Auth and Firestore | All four emulator tests passed, including logout replay after a later sign-in. |
+| `python -B backend/scripts/verify_dispatch_pipeline.py` under demo Auth and Firestore | Passed using a recording sender. |
+
+The three demo commands ran under `firebase.cmd --config <temporary-config> emulators:exec --only auth,firestore --project demo-foreseeme`, with Firestore on loopback port 18380 and Auth on port 19299. The temporary configuration was removed. The full Flutter test command compiled the changed Dart modules. This pass did not run a signed release build or physical-device tests.
+
+## FCM ownership verification
+
+The server-owned FCM lifecycle was implemented on clean `main` at `3ff200c529624b9355e23efa4e96b95b123bb428`. See the [implementation report](MODULE_9_SECURITY_IMPLEMENTATION_REPORT.md#server-owned-push-registration) for API and storage details. The following results are from this FCM change. The later sections retain the earlier Module 9 evidence.
+
+| Check | Observed result |
+| --- | --- |
+| Flutter alerts, auth, disclaimer, medication and host integration regressions | 350 passed, two golden suites skipped by `dart_test.yaml`, zero failed. |
+| Final focused Flutter registration, push handling and logout rerun | 22 passed, zero failed or skipped. |
+| Flutter analyzer | No issues on the final run. |
+| Backend registry, admin API, inference auth, dispatch, dispatch deployment, weekly, pipeline, targeting, messaging, disclaimer and observability suites | 219 passed, zero failed or skipped. The installed Starlette TestClient emitted an HTTPX deprecation warning. |
+| Ruff error-class check on backend app, tests and scripts | Passed. |
+| Firestore rules on `demo-foreseeme` | 101 passed, zero failed. Includes direct registry denial, owner-only inbox lookup, existing revocation checks, and mark-read on both old and new inbox records. |
+| Paired Auth and Firestore emulator API suite | Three passed, including reassignment, stale registration rejection, delayed unregister and stale pruning with synthetic registration values. |
+| Emulator dispatch smoke | Passed with a recording sender. Verified neutral copy, durable inbox linkage and rerun idempotency. No live FCM message was sent. |
+
+Earlier validation attempts exposed inactive Flutter test subscriptions, an incorrect observability fixture, and an inbox schema check that needed the new server-owned reference. The first analyzer run flagged two missing brace blocks. Those issues were corrected. The rules suite also exposed a mark-read regression when the server reference was present. The updated rule requires the field and its presence to stay equal to the stored document. A default emulator port conflict was resolved with temporary loopback ports. No emulator configuration change is included.
+
+### Remaining staging and device evidence
+
+- Verify authentication and registration on signed Android and iOS builds using the intended staging API and rule set. Cover install, upgrade, app resume, denied permission, refresh, and two devices per user.
+- Exercise A to B switching, offline logout, delayed unregister and provider delivery after the switch. Check lock-screen, foreground, background and terminated displays and taps for both risk and weekly notifications. A queued notification must show the approved neutral text. An old tap must not access a different account's content.
+- Confirm both job images are registry-only before cutover, measure re-enrollment, verify Firebase IAM and ingress, and agree a rollback that pauses push if necessary. No legacy records were migrated or deleted by this task.
+- Test medication reminder lock-screen content and outstanding schedules separately under Module 2. This FCM change does not close native Auth storage, certificate pinning, or release privacy sign-off.
+
 ## A. Verification summary
 
 **Ready for staging verification.** The baseline was `main` at `3ac3b5dfa007b494424ca2d60efaf7ac4b0d06ec` with the previous Module 9 implementation still uncommitted. Final consolidation preserved the implementation and specification and corrected the Flutter test dependency and fixtures. Android secure storage, production pinning, and staging and production verification remain open.

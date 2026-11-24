@@ -37,40 +37,29 @@ _DRIVER_PHRASE: dict[str, str] = {
 
 
 PUSH_DISCLAIMER = "Health awareness only — not a medical diagnosis."
+PUSH_TITLE = "ForeSeeMe update"
+PUSH_BODY = f"{PUSH_DISCLAIMER} Open ForeSeeMe to view your updates."
 
 def with_push_disclaimer(body: str) -> str:
-    return body if body.startswith(f"{PUSH_DISCLAIMER} ") else f"{PUSH_DISCLAIMER} {body}"
+    if body == PUSH_DISCLAIMER or body.startswith(f"{PUSH_DISCLAIMER} "):
+        return body
+    return f"{PUSH_DISCLAIMER} {body}"
 
 
-def build_notification(
-    target: Target,
-    recommendation: Recommendation,
-    risk_estimate_id: str,
-) -> tuple[str, str, dict[str, str]]:
-    """Returns ``(title, body, data)`` for the FCM message + in-app routing.
-
-    ``data`` carries the deep link + identifiers used by the in-app handlers
-    (Prompt 4); all values are strings, as FCM requires.
-    """
+def build_inbox_copy(target: Target, recommendation: Recommendation) -> tuple[str, str]:
+    """Build the personalized copy for the authenticated inbox."""
     phrase = _DRIVER_PHRASE.get(target.driver, "Risk")
     title = f"{phrase} rising in {target.city}"
     body = with_push_disclaimer(
         f"{target.risk_level} {target.disease} risk. {recommendation.text}"
     )
-    data = {
-        "type": "risk_alert",
-        "deepLink": recommendation.deep_link,
-        "category": target.category,
-        "city": target.city,
-        "riskLevel": target.risk_level,
-        "riskEstimateId": risk_estimate_id,
-    }
-    return title, body, data
+    return title, body
 
 
 class FcmSender(Protocol):
     def send(
-        self, *, token: str, title: str, body: str, data: dict[str, str]
+        self, *, token: str, title: str, body: str, data: dict[str, str],
+        still_current: Callable[[], bool] | None = None,
     ) -> SendResult: ...
 
 
@@ -100,9 +89,10 @@ class FirebaseAdminFcmSender:
         self._sleep = sleep
 
     def send(
-        self, *, token: str, title: str, body: str, data: dict[str, str]
+        self, *, token: str, title: str, body: str, data: dict[str, str],
+        still_current: Callable[[], bool] | None = None,
     ) -> SendResult:
-        from firebase_admin import messaging
+        from firebase_admin import exceptions, messaging
 
         message = messaging.Message(
             token=token,
@@ -112,16 +102,20 @@ class FirebaseAdminFcmSender:
 
         attempt = 0
         while True:
+            if attempt and still_current is not None and not still_current():
+                return SendResult(status="stale")
             try:
                 message_id = messaging.send(message)
                 return SendResult(status="sent", message_id=message_id)
             except messaging.UnregisteredError:
-                # Token no longer valid — Prompt 3 prunes it from `users`.
                 return SendResult(status="token_invalid", error="unregistered")
             except Exception as exc:  # noqa: BLE001 — classify any other failure
-                invalid = "token" in str(exc).lower() and "invalid" in str(exc).lower()
-                if invalid:
-                    return SendResult(status="token_invalid", error="invalid_token")
+                if isinstance(exc, exceptions.InvalidArgumentError):
+                    message_text = str(exc).lower()
+                    if "registration token" in message_text and (
+                        "invalid" in message_text or "not a valid" in message_text
+                    ):
+                        return SendResult(status="token_invalid", error="invalid_token")
                 if attempt >= self._max_retries:
                     return SendResult(status="failed", error=type(exc).__name__)
                 logger.warning(

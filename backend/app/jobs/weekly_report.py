@@ -16,10 +16,8 @@ token (not gated on a risk transition), carries ``category="weekly_report"`` and
 ``deepLink="/weekly-report"``, and is **idempotent per (user, week)** so a re-run
 in the same week sends nothing new (the same spam-safety discipline as Phase 1).
 
-The pushed digest summarises what the backend holds — the week's environmental
-risk plus a cited recommendation; the full report (which also folds in the user's
-adherence) is composed in-app on the Weekly Report screen this alert deep-links
-to. No medical text is generated here.
+The push is account-neutral. The authenticated inbox summarises the week's
+environmental risk and includes a cited recommendation and a Weekly Report link.
 
 Run (sibling of dispatch_alerts)::
 
@@ -33,6 +31,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from app.jobs import observability
 from app.jobs.alerting import recommendation_lookup, targeting
@@ -43,6 +42,7 @@ from app.jobs.dispatch_alerts import (
     DispatchRepository,
     RiskHistoryProvider,
     UserDirectory,
+    send_registered,
 )
 from ml.pipelines import clean
 
@@ -113,27 +113,14 @@ def compose_weekly(
     risk: CityRisk,
     recommendation: Recommendation,
     now: datetime,
-) -> tuple[str, str, dict[str, str], dict]:
-    """Return ``(title, body, data, alert_body)`` for the weekly digest.
-
-    Descriptive and non-diagnostic; the advisory is the cited lookup verbatim.
-    ``alert_body`` mirrors the ``userAlerts`` shape the app already parses
-    (``dispatch_alerts._alert_body``), with the weekly category + deep link.
-    """
+) -> dict:
+    """Compose the personalized report for the authenticated inbox."""
     title = f"Your weekly health report — {risk.city}"
     body = with_push_disclaimer(
         f"This week: {risk.risk_level} environmental {risk.disease} risk. "
         f"{recommendation.text}"
     )
-    data = {
-        "type": CATEGORY,
-        "deepLink": DEEP_LINK,
-        "category": CATEGORY,
-        "city": risk.city,
-        "riskLevel": risk.risk_level,
-        "riskEstimateId": risk.doc_id,
-    }
-    alert_body = {
+    return {
         "title": title,
         "body": body,
         "category": CATEGORY,
@@ -152,7 +139,6 @@ def compose_weekly(
         "read": False,
         "readAt": None,
     }
-    return title, body, data, alert_body
 
 
 def _log_body(uid: str, risk: CityRisk, recommendation_id: str | None,
@@ -228,30 +214,27 @@ def _dispatch_one(
     iso_year: int,
     iso_week: int,
 ) -> WeeklyOutcome:
-    if not user.fcm_token:
+    if not user.registrations:
         return WeeklyOutcome(user.uid, risk.city, "skipped_no_token")
     if not weekly_enabled(user.preferences):
         return WeeklyOutcome(user.uid, risk.city, "skipped_opted_out")
 
     log_id = weekly_key(user.uid, iso_year, iso_week)
-    if repository.has_dispatch(log_id):  # idempotent per (user, week)
+    if repository.has_dispatch(log_id) or not repository.claim_dispatch(log_id, now):
         logger.info("skipped_idempotent", extra={"uid": user.uid, "log_id": log_id})
         return WeeklyOutcome(user.uid, risk.city, "skipped_idempotent", log_id)
 
     category, driver = _reco_key(user, risk)
     recommendation = recommendation_lookup.lookup(category, driver)
-    title, body, data, alert_body = compose_weekly(risk, recommendation, now)
-
-    result = sender.send(token=user.fcm_token, title=title, body=body, data=data)
+    alert_body = compose_weekly(risk, recommendation, now)
+    push_ref = uuid4().hex
+    result, counts = send_registered(user, push_ref, sender, repository)
     repository.write_dispatch_log(
-        log_id, _log_body(user.uid, risk, recommendation.id, result.status,
-                          now, iso_year, iso_week)
+        log_id, {**_log_body(user.uid, risk, recommendation.id, result.status,
+                             now, iso_year, iso_week), "deliveryCounts": counts}
     )
     if result.status == "sent":
-        repository.write_user_alert(user.uid, log_id, alert_body)
-    elif result.status == "token_invalid":
-        repository.prune_token(user.uid)
-        logger.info("token_pruned", extra={"uid": user.uid})
+        repository.write_user_alert(user.uid, log_id, {**alert_body, "pushId": push_ref})
 
     logger.info(
         "weekly_report_attempt",

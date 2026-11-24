@@ -15,6 +15,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.notification_registrations import Registration
 from app.jobs import compute_risk, dispatch_alerts, observability, weekly_report
 from app.jobs.alerting.messaging import SendResult
 from app.jobs.alerting.targeting import CityRisk, TargetUser
@@ -261,7 +262,8 @@ def _city_risk(level: str) -> CityRisk:
 def _user(token="tok-1") -> TargetUser:
     return TargetUser(
         uid="u1", city="Lahore", conditions=("Asthma",),  # frozen map key
-        fcm_token=token, preferences=_PREFS_ALL,
+        registrations=(Registration("u1", token, 1, "test"),) if token else (),
+        preferences=_PREFS_ALL,
     )
 
 
@@ -285,7 +287,7 @@ class _FakeSender:
     def __init__(self, result=None):
         self.result = result or SendResult("sent", message_id="m1")
 
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         return self.result
 
 
@@ -307,8 +309,11 @@ class _FakeDispatchRepo:
     def recently_sent(self, uid, category, since):
         return False
 
-    def prune_token(self, uid):
-        self.pruned.append(uid)
+    def is_current_registration(self, registration):
+        return registration.uid not in self.pruned
+
+    def prune_token(self, registration):
+        self.pruned.append(registration.uid)
 
     def claim_dispatch(self, log_id, now):
         if log_id in self.logs:

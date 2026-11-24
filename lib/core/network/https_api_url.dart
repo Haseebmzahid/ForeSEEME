@@ -3,6 +3,8 @@ Uri? httpsApiUrl(String configured) {
   if (uri == null ||
       uri.scheme != 'https' ||
       uri.host.isEmpty ||
+      uri.port < 1 ||
+      uri.port > 65535 ||
       uri.authority.contains('@') ||
       uri.hasQuery ||
       uri.hasFragment ||

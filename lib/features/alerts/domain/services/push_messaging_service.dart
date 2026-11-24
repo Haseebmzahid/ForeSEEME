@@ -7,6 +7,8 @@ import 'package:fyp_foreseeme/features/alerts/domain/models/notification_permiss
 /// Sprint 3: permission + token + refresh. Sprint 4 (Prompt 4) adds the inbound
 /// message streams so in-app handling has no firebase dependency.
 abstract class PushMessagingService {
+  Future<NotificationPermissionStatus> permissionStatus();
+
   /// Requests notification permission and returns the resulting status.
   Future<NotificationPermissionStatus> requestPermission();
 

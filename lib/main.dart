@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -53,23 +55,63 @@ class ForeSeeMeApp extends ConsumerStatefulWidget {
   ConsumerState<ForeSeeMeApp> createState() => _ForeSeeMeAppState();
 }
 
-class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp> {
+class _ForeSeeMeAppState extends ConsumerState<ForeSeeMeApp>
+    with WidgetsBindingObserver {
   final _messenger = GlobalKey<ScaffoldMessengerState>();
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Start FCM message handling once the first frame (and router) are ready,
     // so a terminated-launch tap can be routed.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(fcmMessageHandlerProvider).start();
+      unawaited(_openLocalPush());
+      _syncPushRegistration();
       // Same pattern for medication-notification taps (Sprint UX-M2.5,
       // Phase 6) — a separate handler, its own deep-link vocabulary.
       ref.read(medicationNotificationTapHandlerProvider).start();
     });
   }
 
+  Future<void> _openLocalPush() async {
+    final payload = await LocalNotificationService.consumeLaunchPayload(
+      push: true,
+    );
+    if (mounted && payload != null) {
+      await ref
+          .read(fcmMessageHandlerProvider)
+          .openLocalPayload(
+            payload.substring(
+              LocalNotificationService.pushPayloadPrefix.length,
+            ),
+            restoring: true,
+          );
+    }
+  }
+
+  void _syncPushRegistration() {
+    unawaited(
+      ref.read(alertsControllerProvider.notifier).syncGrantedPermission(),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncPushRegistration();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Keep the auth-scoped registration listener active across routed screens.
+    ref.listen(alertsControllerProvider, (_, _) {});
     ref.listen(authNotifierProvider, (_, state) {
       if (state is AuthStateLogoutUnconfirmed) {
         _messenger.currentState?.showSnackBar(

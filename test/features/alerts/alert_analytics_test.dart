@@ -10,7 +10,7 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_ser
 import 'package:fyp_foreseeme/features/alerts/presentation/services/fcm_message_handler.dart';
 
 IncomingAlert _alert(String deepLink) => IncomingAlert(
-  data: {'type': 'risk_alert', 'deepLink': deepLink, 'city': 'Lahore'},
+  data: {'recipientUid': 'u1', 'alertId': deepLink.substring(1)},
   title: 'Air quality rising in Lahore',
   body: 'High Smog risk.',
   messageId: 'm1',
@@ -29,6 +29,10 @@ class FakeMessaging implements PushMessagingService {
   Stream<IncomingAlert> get onMessageOpened => _opened.stream;
   @override
   Future<IncomingAlert?> getInitialMessage() async => initialMessage;
+  @override
+  Future<NotificationPermissionStatus> permissionStatus() =>
+      requestPermission();
+
   @override
   Future<NotificationPermissionStatus> requestPermission() async =>
       NotificationPermissionStatus.granted;
@@ -72,6 +76,9 @@ void main() {
     () async {
       handler = FcmMessageHandler(
         messaging: messaging,
+        currentUid: () => 'u1',
+        restoredUid: () async => 'u1',
+        resolveInboxRoute: (_, id) async => (id: id, route: '/$id'),
         presenter: _NoopPresenter(),
         navigate: (_) {},
         analytics: analytics,
@@ -91,6 +98,9 @@ void main() {
     messaging.initialMessage = _alert('/resources');
     handler = FcmMessageHandler(
       messaging: messaging,
+      currentUid: () => 'u1',
+      restoredUid: () async => 'u1',
+      resolveInboxRoute: (_, id) async => (id: id, route: '/$id'),
       presenter: _NoopPresenter(),
       navigate: (_) {},
       analytics: analytics,
@@ -106,6 +116,9 @@ void main() {
     final navigated = <String>[];
     handler = FcmMessageHandler(
       messaging: messaging,
+      currentUid: () => 'u1',
+      restoredUid: () async => 'u1',
+      resolveInboxRoute: (_, id) async => (id: id, route: '/$id'),
       presenter: _NoopPresenter(),
       navigate: navigated.add,
     );

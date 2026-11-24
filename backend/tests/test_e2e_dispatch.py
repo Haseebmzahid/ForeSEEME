@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+from app.notification_registrations import Registration
 from app.jobs import dispatch_alerts as job
 from app.jobs.alerting.messaging import SendResult
 from app.jobs.alerting.targeting import CityRisk, TargetUser
@@ -48,7 +49,7 @@ def _user(uid, city, conditions, prefs=None, token="tok") -> TargetUser:
         uid=uid,
         city=city,
         conditions=tuple(conditions),
-        fcm_token=token,
+        registrations=(Registration(uid, token, 1, "test"),) if token else (),
         preferences=prefs if prefs is not None else _PREFS_ALL,
     )
 
@@ -76,7 +77,7 @@ class FakeSender:
     )
     sends: list = field(default_factory=list)
 
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         self.sends.append({"token": token, "data": data})
         return self.result
 
@@ -105,8 +106,11 @@ class FakeRepository:
             for b in self.logs.values()
         )
 
-    def prune_token(self, uid):
-        self.pruned.append(uid)
+    def is_current_registration(self, registration):
+        return registration.uid not in self.pruned
+
+    def prune_token(self, registration):
+        self.pruned.append(registration.uid)
 
     def claim_dispatch(self, log_id, now):
         if log_id in self.logs:

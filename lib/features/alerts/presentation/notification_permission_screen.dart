@@ -99,7 +99,7 @@ class NotificationPermissionScreen extends ConsumerWidget {
     try {
       final status = await ref
           .read(alertsControllerProvider.notifier)
-          .enableNotifications(user.uid);
+          .enableNotifications();
       message = status.isGranted
           ? 'Notifications enabled.'
           : 'No problem — you can enable alerts anytime in Settings.';

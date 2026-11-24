@@ -8,15 +8,11 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.da
 import 'package:fyp_foreseeme/features/alerts/domain/services/push_messaging_service.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/services/fcm_message_handler.dart';
 
-IncomingAlert _alert({String? deepLink, String type = 'risk_alert'}) =>
+IncomingAlert _alert({String recipient = 'u1', String id = 'example-alert'}) =>
     IncomingAlert(
-      data: {
-        'type': type,
-        'deepLink': ?deepLink,
-        'city': 'Lahore',
-      },
-      title: 'Air quality rising in Lahore',
-      body: 'High Smog risk.',
+      data: {'recipientUid': recipient, 'alertId': id},
+      title: 'Private example title',
+      body: 'Private example detail.',
       messageId: 'm1',
     );
 
@@ -34,6 +30,10 @@ class FakeMessaging implements PushMessagingService {
   Stream<IncomingAlert> get onMessageOpened => _opened.stream;
   @override
   Future<IncomingAlert?> getInitialMessage() async => initialMessage;
+
+  @override
+  Future<NotificationPermissionStatus> permissionStatus() =>
+      requestPermission();
 
   // Unused by these tests.
   @override
@@ -57,111 +57,131 @@ void main() {
   late FakeMessaging messaging;
   late RecordingPresenter presenter;
   late List<String> navigated;
-  late List<Map<String, String>> readSyncCalls;
+  late List<(String, String)> marked;
+  late String? active;
   late FcmMessageHandler handler;
 
-  FcmMessageHandler build({bool withMarkRead = true}) => FcmMessageHandler(
+  FcmMessageHandler build({
+    Future<({String id, String route})?> Function(String, String)? resolver,
+  }) => FcmMessageHandler(
     messaging: messaging,
     presenter: presenter,
     navigate: navigated.add,
-    markRead: withMarkRead
-        ? (data) async {
-            readSyncCalls.add(data);
-          }
-        : null,
+    currentUid: () => active,
+    restoredUid: () async => active,
+    resolveInboxRoute:
+        resolver ??
+        (uid, id) async =>
+            (id: id, route: id == 'weekly' ? '/weekly-report' : '/resources'),
+    markRead: (uid, id) async => marked.add((uid, id)),
   );
 
   setUp(() {
     messaging = FakeMessaging();
     presenter = RecordingPresenter();
-    navigated = <String>[];
-    readSyncCalls = <Map<String, String>>[];
+    active = 'u1';
+    navigated = [];
+    marked = [];
   });
-
   tearDown(() => handler.dispose());
 
-  test('foreground message is displayed, not navigated, not read-synced', () async {
+  test(
+    'foreground for the active recipient is displayed with neutral copy',
+    () async {
+      handler = build();
+      await handler.start();
+      messaging.emitForeground(_alert());
+      await pumpEventQueue();
+
+      expect(presenter.shown.single.title, 'ForeSeeMe update');
+      expect(
+        presenter.shown.single.body,
+        startsWith('Health awareness only — not a medical diagnosis.'),
+      );
+      expect(presenter.shown.single.body, isNot(contains('Private')));
+      expect(navigated, isEmpty);
+      expect(marked, isEmpty);
+    },
+  );
+
+  test(
+    'background and local taps resolve the authenticated inbox item',
+    () async {
+      handler = build();
+      await handler.start();
+      messaging.emitOpened(_alert());
+      await pumpEventQueue();
+      await handler.openLocalPayload(
+        '{"recipientUid":"u1","alertId":"weekly"}',
+      );
+
+      expect(navigated, ['/resources', '/weekly-report']);
+      expect(marked, [('u1', 'example-alert'), ('u1', 'weekly')]);
+    },
+  );
+
+  test(
+    'terminated launch uses the restored UID and server-backed route',
+    () async {
+      messaging.initialMessage = _alert(id: 'weekly');
+      handler = build();
+      await handler.start();
+      expect(navigated, ['/weekly-report']);
+    },
+  );
+
+  test('foreign pushes and taps are ignored in every delivery path', () async {
+    final foreign = _alert(recipient: 'previous-user');
+    messaging.initialMessage = foreign;
     handler = build();
     await handler.start();
-
-    messaging.emitForeground(_alert(deepLink: '/resources'));
-    await pumpEventQueue();
-
-    expect(presenter.shown, hasLength(1));
-    expect(navigated, isEmpty);
-    expect(readSyncCalls, isEmpty);
-  });
-
-  test('background tap navigates to the resolved route', () async {
-    handler = build();
-    await handler.start();
-
-    messaging.emitOpened(_alert(deepLink: '/nearby-hospitals'));
-    await pumpEventQueue();
-
-    expect(navigated, ['/nearby-hospitals']);
-    expect(presenter.shown, isEmpty);
-  });
-
-  test('background tap marks the alert read via the injected callback', () async {
-    handler = build();
-    await handler.start();
-
-    messaging.emitOpened(_alert(deepLink: '/nearby-hospitals'));
-    await pumpEventQueue();
-
-    expect(readSyncCalls, hasLength(1));
-    expect(readSyncCalls.single['city'], 'Lahore');
-  });
-
-  test('terminated-launch tap routes from the initial message', () async {
-    messaging.initialMessage = _alert(deepLink: '/resources');
-    handler = build();
-
-    await handler.start();
-
-    expect(navigated, ['/resources']);
-  });
-
-  test('terminated-launch tap marks the alert read via the injected callback', () async {
-    messaging.initialMessage = _alert(deepLink: '/resources');
-    handler = build();
-
-    await handler.start();
-
-    expect(readSyncCalls, hasLength(1));
-  });
-
-  test('no initial message → no navigation, no read-sync, on start', () async {
-    handler = build();
-    await handler.start();
-
-    expect(navigated, isEmpty);
-    expect(readSyncCalls, isEmpty);
-  });
-
-  test('a failing markRead never blocks navigation', () async {
-    handler = FcmMessageHandler(
-      messaging: messaging,
-      presenter: presenter,
-      navigate: navigated.add,
-      markRead: (data) async => throw StateError('offline'),
+    messaging.emitForeground(foreign);
+    messaging.emitOpened(foreign);
+    await handler.openLocalPayload(
+      '{"recipientUid":"previous-user","alertId":"weekly"}',
     );
-    await handler.start();
-
-    messaging.emitOpened(_alert(deepLink: '/resources'));
     await pumpEventQueue();
 
-    expect(navigated, ['/resources']);
+    expect(presenter.shown, isEmpty);
+    expect(navigated, isEmpty);
+    expect(marked, isEmpty);
   });
 
-  test('omitting markRead is safe (backward compatible)', () async {
-    handler = build(withMarkRead: false);
+  test(
+    'sign-out during the inbox read prevents navigation and read marking',
+    () async {
+      final pending = Completer<({String id, String route})?>();
+      handler = build(resolver: (_, _) => pending.future);
+      await handler.start();
+      messaging.emitOpened(_alert());
+      await pumpEventQueue();
+      active = 'u2';
+      pending.complete((id: 'example-alert', route: '/weekly-report'));
+      await pumpEventQueue();
+
+      expect(navigated, isEmpty);
+      expect(marked, isEmpty);
+    },
+  );
+
+  test(
+    'a missing inbox document opens the owner inbox without a read write',
+    () async {
+      handler = build(resolver: (_, _) async => null);
+      await handler.start();
+      messaging.emitOpened(_alert());
+      await pumpEventQueue();
+
+      expect(navigated, ['/alerts']);
+      expect(marked, isEmpty);
+    },
+  );
+
+  test('a document reference containing a path is rejected', () async {
+    handler = build();
     await handler.start();
-
-    messaging.emitOpened(_alert(deepLink: '/resources'));
+    messaging.emitOpened(_alert(id: 'other/path'));
     await pumpEventQueue();
-
-    expect(navigated, ['/resources']);
+    expect(navigated, isEmpty);
   });
 }

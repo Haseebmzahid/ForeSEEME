@@ -16,12 +16,17 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
+  collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  query,
   setDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  where,
 } from 'firebase/firestore';
 
 const rules = readFileSync(
@@ -58,6 +63,11 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
   const db = context.firestore();
   await setDoc(doc(db, 'userAlerts/alice/items/a1'), {
     title: 'Air quality rising',
+    pushId: 'fixture-reference',
+    read: false,
+  });
+  await setDoc(doc(db, 'userAlerts/alice/items/legacy'), {
+    title: 'Legacy alert',
     read: false,
   });
   await setDoc(doc(db, 'alertDispatchLog/log1'), { uid: 'alice' });
@@ -75,11 +85,28 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
   await setDoc(doc(db, 'adminAccountOperations/deleted'), { deleted: true });
   // A pre-existing user document + owned subtree item.
   await setDoc(doc(db, 'users/alice'), { fcmToken: 'seed' });
+  await setDoc(doc(db, 'notificationRegistrations/seed'), { uid: 'alice' });
   await setDoc(doc(db, 'users/alice/medications/m1'), { name: 'Inhaler' });
   await setDoc(doc(db, 'users/alice/adherenceLogs/event'), { taken: true });
   // A document under a collection with NO explicit rule — must be default-denied.
   await setDoc(doc(db, 'unmatchedCollection/x1'), { any: 'thing' });
 });
+
+await check('notification registry: owner cannot read', () =>
+  assertFails(getDoc(doc(alice, 'notificationRegistrations/seed'))),
+);
+await check('notification registry: owner cannot create', () =>
+  assertFails(setDoc(doc(alice, 'notificationRegistrations/other'), { uid: 'alice' })),
+);
+await check('notification registry: owner cannot update', () =>
+  assertFails(updateDoc(doc(alice, 'notificationRegistrations/seed'), { uid: 'bob' })),
+);
+await check('notification registry: owner cannot delete', () =>
+  assertFails(deleteDoc(doc(alice, 'notificationRegistrations/seed'))),
+);
+await check('notification registry: MFA administrator cannot read', () =>
+  assertFails(getDoc(doc(admin, 'notificationRegistrations/seed'))),
+);
 
 // alertDispatchLog — service-only, no client access.
 await check('alertDispatchLog: client read denied', () =>
@@ -106,6 +133,21 @@ await check('userAlerts: owner reads own alert', () =>
 await check('userAlerts: cross-user read denied', () =>
   assertFails(getDoc(doc(bob, 'userAlerts/alice/items/a1'))),
 );
+const inboxPush = (db) => query(
+  collection(db, 'userAlerts/alice/items'),
+  where('pushId', '==', 'fixture-reference'),
+  limit(1),
+);
+await check('userAlerts: owner can query inbox by push reference', () =>
+  assertSucceeds(getDocs(inboxPush(alice))).then((snapshot) => {
+    if (snapshot.size !== 1 || snapshot.docs[0].id !== 'a1') {
+      throw new Error('The query did not resolve the expected inbox item');
+    }
+  }),
+);
+await check('userAlerts: other user cannot query owner inbox', () =>
+  assertFails(getDocs(inboxPush(bob))),
+);
 await check('userAlerts: owner cannot create', () =>
   assertFails(setDoc(doc(alice, 'userAlerts/alice/items/a2'), { title: 't' })),
 );
@@ -116,6 +158,21 @@ await check('userAlerts: owner may mark read (read/readAt only)', () =>
       readAt: serverTimestamp(),
     }),
   ),
+);
+await check('userAlerts: owner may mark a legacy alert read', () =>
+  assertSucceeds(updateDoc(doc(alice, 'userAlerts/alice/items/legacy'), {
+    read: true, readAt: serverTimestamp(),
+  })),
+);
+await check('userAlerts: owner cannot replace the server push reference', () =>
+  assertFails(updateDoc(doc(alice, 'userAlerts/alice/items/a1'), {
+    pushId: 'forged-reference',
+  })),
+);
+await check('userAlerts: owner cannot add a push reference to a legacy alert', () =>
+  assertFails(updateDoc(doc(alice, 'userAlerts/alice/items/legacy'), {
+    pushId: 'forged-reference',
+  })),
 );
 await check('userAlerts: owner cannot edit content', () =>
   assertFails(
@@ -325,8 +382,13 @@ await check('jobHeartbeats: admin claim does not grant write', () =>
 await check('users: owner reads own document', () =>
   assertSucceeds(getDoc(doc(alice, 'users/alice'))),
 );
-await check('users: owner writes own document', () =>
-  assertSucceeds(setDoc(doc(alice, 'users/alice'), { fcmToken: 'refreshed' })),
+await check('users: owner cannot write the legacy FCM token', () =>
+  assertFails(updateDoc(doc(alice, 'users/alice'), { fcmToken: 'refreshed' })),
+);
+await check('users: owner can update preferences alongside existing legacy fields', () =>
+  assertSucceeds(updateDoc(doc(alice, 'users/alice'), {
+    notificationPreferences: { highRiskAlerts: false },
+  })),
 );
 await check('users: cross-user read denied', () =>
   assertFails(getDoc(doc(bob, 'users/alice'))),
@@ -338,7 +400,9 @@ await check('users: cross-user medications read denied', () =>
   assertFails(getDoc(doc(bob, 'users/alice/medications/m1'))),
 );
 await check('users: cross-user write denied', () =>
-  assertFails(updateDoc(doc(bob, 'users/alice'), { fcmToken: 'foreign' })),
+  assertFails(updateDoc(doc(bob, 'users/alice'), {
+    notificationPreferences: { highRiskAlerts: true },
+  })),
 );
 await check('users: arbitrary privileged fields denied', () =>
   assertFails(updateDoc(doc(alice, 'users/alice'), { admin: true })),
@@ -406,6 +470,9 @@ await check('disclaimer: owner cannot delete', () => assertFails(deleteDoc(recor
 await testEnv.withSecurityRulesDisabled(async (context) => {
   const db = context.firestore();
   await setDoc(doc(db, 'sessionRevocations/alice'), { throughAuthTime: 100 });
+  await setDoc(doc(db, 'sessionRevocations/alice/logoutIntents/100'), {
+    throughAuthTime: 100,
+  });
   await setDoc(doc(db, 'sessionRevocations/op'), { throughAuthTime: 100 });
 });
 const oldAlice = testEnv.authenticatedContext('alice', { auth_time: 100 }).firestore();
@@ -413,8 +480,11 @@ const newAlice = testEnv.authenticatedContext('alice', { auth_time: 101 }).fires
 await check('session: revoked owner cannot read risk data', () =>
   assertFails(getDoc(doc(oldAlice, 'riskEstimates/Lahore_2026-07-08'))),
 );
+await check('session: revoked owner cannot read private profile data', () =>
+  assertFails(getDoc(doc(oldAlice, 'users/alice/profile/alice'))),
+);
 await check('session: revoked owner cannot write', () =>
-  assertFails(updateDoc(doc(oldAlice, 'users/alice'), { fcmToken: 'stale' })),
+  assertFails(updateDoc(doc(oldAlice, 'users/alice'), { notificationPreferences: { highRiskAlerts: false } })),
 );
 await check('session: revoked MFA administrator cannot read admin data', () =>
   assertFails(getDoc(doc(admin, 'adminActivityLog/log1'))),
@@ -426,6 +496,12 @@ await check('session: cutoff cannot be read or changed by its owner', async () =
   const cutoff = doc(newAlice, 'sessionRevocations/alice');
   await assertFails(getDoc(cutoff));
   await assertFails(setDoc(cutoff, { throughAuthTime: 0 }));
+});
+await check('session: logout receipts are inaccessible to owners and admins', async () => {
+  const path = 'sessionRevocations/alice/logoutIntents/100';
+  await assertFails(getDoc(doc(newAlice, path)));
+  await assertFails(getDoc(doc(admin, path)));
+  await assertFails(setDoc(doc(newAlice, path), { throughAuthTime: 0 }));
 });
 
 // PRODUCTION DEFAULT-DENY — a collection with no explicit rule is fully denied.

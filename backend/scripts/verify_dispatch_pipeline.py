@@ -37,8 +37,11 @@ from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.jobs import dispatch_alerts as da  # noqa: E402
-from app.jobs.alerting.messaging import FcmSender, SendResult  # noqa: E402
+from app.jobs.alerting.messaging import FcmSender, PUSH_BODY, PUSH_TITLE, SendResult  # noqa: E402
 
+from app.notification_registrations import COLLECTION, RegistrationStore, registration_id  # noqa: E402
+
+DEVICE_TOKEN = "verify-fake-token-not-a-real-device"
 CITY = "Lahore"
 UID = "verify-m72-user"
 TODAY = datetime(2026, 7, 24, tzinfo=timezone.utc)
@@ -51,7 +54,7 @@ class RecordingFcmSender(FcmSender):
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    def send(self, *, token, title, body, data) -> SendResult:
+    def send(self, *, token, title, body, data, still_current=None) -> SendResult:
         self.calls.append({"token": token, "title": title, "body": body, "data": data})
         return SendResult(status="sent", message_id=f"verify-{len(self.calls)}")
 
@@ -90,7 +93,6 @@ def seed(db) -> None:
     users = db.collection("users")
     users.document(UID).set(
         {
-            "fcmToken": "verify-fake-token-not-a-real-device",
             "notificationPreferences": {
                 "highRiskAlerts": True,
                 "mediumRiskAlerts": True,
@@ -102,6 +104,7 @@ def seed(db) -> None:
     users.document(UID).collection("profile").document(UID).set(
         {"city": CITY, "chronicConditions": ["Asthma"]}
     )
+    RegistrationStore(db).register(UID, 1, DEVICE_TOKEN)
     print(f"seeded: {CITY} Medium->High Smog transition; user {UID} (Asthma, respiratory-consented)")
 
 
@@ -111,6 +114,7 @@ def cleanup(db) -> None:
         db.collection("riskEstimates").document(doc_id).delete()
     db.collection("users").document(UID).collection("profile").document(UID).delete()
     db.collection("users").document(UID).delete()
+    db.collection(COLLECTION).document(registration_id(DEVICE_TOKEN)).delete()
     log_id = da.dispatch_key(UID, f"{CITY}_2026-07-24", "respiratory")
     db.collection("alertDispatchLog").document(log_id).delete()
     (
@@ -123,6 +127,10 @@ def cleanup(db) -> None:
 
 
 def main() -> int:
+    if os.getenv("FIREBASE_PROJECT_ID") != "demo-foreseeme" or not os.getenv(
+        "FIRESTORE_EMULATOR_HOST", ""
+    ).startswith(("127.0.0.1:", "localhost:")):
+        _fail("Requires the local demo-foreseeme Firestore emulator")
     db = da.init_firestore()
     cleanup(db)  # in case a prior interrupted run left state behind
     seed(db)
@@ -155,18 +163,13 @@ def main() -> int:
         _fail(f"expected exactly 1 FCM send, got {len(sender.calls)}")
     call = sender.calls[0]
     print(f"\nFCM payload that would be sent:\n  title: {call['title']!r}\n  body:  {call['body']!r}\n  data:  {call['data']!r}")
-    if call["token"] != "verify-fake-token-not-a-real-device":
+    if call["token"] != DEVICE_TOKEN:
         _fail("payload targeted the wrong token")
-    if CITY not in call["title"]:
-        _fail(f"title does not mention the city: {call['title']!r}")
-    if "High" not in call["body"] or "Smog" not in call["body"]:
-        _fail(f"body does not mention risk level/disease: {call['body']!r}")
-    expected_data_keys = {"type", "deepLink", "category", "city", "riskLevel", "riskEstimateId"}
-    if set(call["data"].keys()) != expected_data_keys:
-        _fail(f"data keys mismatch: {set(call['data'].keys())} != {expected_data_keys}")
-    if not all(isinstance(v, str) for v in call["data"].values()):
-        _fail("data values must all be strings (FCM requirement)")
-    _ok("FCM payload well-formed: city in title, risk level + disease in body, data keys match the contract, all-string values")
+    if call["title"] != PUSH_TITLE or call["body"] != PUSH_BODY:
+        _fail("push display content is not the expected neutral copy")
+    if set(call["data"]) != {"recipientUid", "alertId"}:
+        _fail("push data must contain only the recipient and opaque inbox reference")
+    _ok("FCM payload contains only neutral display text and the inbox reference")
 
     # --- Firestore writes -------------------------------------------------------
     log_id = da.dispatch_key(UID, f"{CITY}_2026-07-24", "respiratory")
@@ -186,23 +189,25 @@ def main() -> int:
     alert_body = alert_doc.to_dict()
     _ok(f"userAlerts/{UID}/items/{log_id} written (in-app inbox doc)")
 
-    # Cross-check against the exact field set lib/features/alerts/domain/models/
-    # user_alert.dart's UserAlertModel.fromJson reads.
+    # Check the inbox schema and the server-managed push lookup field.
     expected_alert_fields = {
         "title", "body", "category", "city", "riskLevel", "disease",
         "recommendation", "deepLink", "riskEstimateId", "createdAt", "read", "readAt",
+        "pushId",
     }
     if set(alert_body.keys()) != expected_alert_fields:
         _fail(
-            f"userAlerts doc field set does not match UserAlertModel.fromJson: "
+            f"userAlerts doc field set does not match the inbox schema: "
             f"{set(alert_body.keys())} != {expected_alert_fields}"
         )
+    if alert_body["pushId"] != call["data"]["alertId"]:
+        _fail("push reference does not link to the authenticated inbox item")
     if alert_body["read"] is not False or alert_body["readAt"] is not None:
         _fail("a freshly dispatched alert must start unread")
     rec = alert_body.get("recommendation") or {}
     if not rec.get("source") or not rec.get("sourceUrl", "").startswith("https://"):
         _fail(f"recommendation is not cited: {rec}")
-    _ok("userAlerts doc field set matches lib/.../user_alert.dart's UserAlertModel exactly; starts unread; recommendation is cited")
+    _ok("inbox schema, push reference, unread state and citation match the contract")
 
     # --- Run 2: idempotency — must NOT re-send or duplicate-write --------------
     sender2 = RecordingFcmSender()

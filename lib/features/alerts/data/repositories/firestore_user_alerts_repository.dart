@@ -28,6 +28,16 @@ class FirestoreUserAlertsRepository implements UserAlertsRepository {
       _firestore.collection('userAlerts').doc(uid).collection('items');
 
   @override
+  Future<UserAlertModel?> getAlertForPush(String uid, String pushId) async {
+    final snapshot = await _itemsRef(uid)
+        .where('pushId', isEqualTo: pushId)
+        .limit(1)
+        .get(const GetOptions(source: Source.server));
+    final doc = snapshot.docs.firstOrNull;
+    return doc == null ? null : UserAlertModel.fromJson(doc.id, doc.data());
+  }
+
+  @override
   Stream<List<UserAlertModel>> watchAlerts(String uid) {
     // Newest first: `createdAt` is a server Timestamp set by the engine, so it
     // sorts chronologically. A real-time snapshot keeps the inbox and its unread
@@ -61,9 +71,7 @@ class FirestoreUserAlertsRepository implements UserAlertsRepository {
     // one batch — still within the owner mark-read rule §6 (no new field, no
     // new permission, one write per doc exactly as a loop of markRead would
     // produce, just atomic).
-    final unread = await _itemsRef(
-      uid,
-    ).where('read', isEqualTo: false).get();
+    final unread = await _itemsRef(uid).where('read', isEqualTo: false).get();
     if (unread.docs.isEmpty) return;
 
     final batch = _firestore.batch();

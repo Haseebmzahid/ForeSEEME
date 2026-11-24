@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:fyp_foreseeme/core/services/local_notification_service.dart';
 
 import 'package:fyp_foreseeme/features/alerts/domain/models/incoming_alert.dart';
 import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.dart';
@@ -11,7 +14,8 @@ import 'package:fyp_foreseeme/features/alerts/domain/services/alert_presenter.da
 /// medication reminder path initialises, not a second one. This presenter
 /// never calls `.initialize()`; it only ensures its own channel exists and
 /// shows on it, so the medication path's registered tap handler and Android
-/// activity binding are untouched. The `deepLink` rides along as the payload.
+/// activity binding are untouched. The payload carries the recipient and
+/// reference needed to resolve the signed-in user's inbox item.
 /// The optional constructor parameter defaults to a fresh instance only so
 /// this class stays constructible in isolation (e.g. tests); production code
 /// must always pass the shared instance explicitly.
@@ -69,7 +73,8 @@ class LocalNotificationAlertPresenter implements AlertPresenter {
           priority: Priority.high,
         ),
       ),
-      payload: alert.data['deepLink'],
+      payload:
+          '${LocalNotificationService.pushPayloadPrefix}${jsonEncode(alert.data)}',
     );
   }
 }

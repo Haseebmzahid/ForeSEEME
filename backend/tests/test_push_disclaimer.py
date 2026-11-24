@@ -4,7 +4,7 @@ from firebase_admin import messaging
 from app.jobs.alerting.messaging import (
     FirebaseAdminFcmSender,
     PUSH_DISCLAIMER,
-    build_notification,
+    build_inbox_copy,
 )
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import Target
@@ -17,14 +17,13 @@ from app.jobs.alerting.targeting import Target
     ("cardiovascular", "Heat", "Smog"),
     ("vector", "Vector-borne", "Dengue"),
 ])
-def test_risk_push_preserves_content_and_includes_disclaimer(level, category, driver, disease):
+def test_risk_inbox_preserves_content_and_includes_disclaimer(level, category, driver, disease):
     target = Target("uid", "Lahore", category, driver, disease, level, "Low")
     rec = Recommendation("tip", category, driver, "Limit strenuous outdoor exercise.",
                          "Test source", "https://example.test", "/risk-details", "")
-    title, body, data = build_notification(target, rec, "risk")
+    title, body = build_inbox_copy(target, rec)
     assert "Lahore" in title
     assert body == f"{PUSH_DISCLAIMER} {level} {disease} risk. {rec.text}"
-    assert data["deepLink"] == rec.deep_link
 
 
 @pytest.mark.parametrize("body", ["Alternate copy", f"{PUSH_DISCLAIMER} Existing body"])

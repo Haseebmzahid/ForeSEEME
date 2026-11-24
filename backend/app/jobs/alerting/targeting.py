@@ -13,6 +13,10 @@ the contract §5 exactly — do not redesign them here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.notification_registrations import Registration
 
 # --- Frozen contract maps (alert_dispatch_design.md §5) ---------------------
 
@@ -75,7 +79,7 @@ class TargetUser:
     uid: str
     city: str
     conditions: tuple[str, ...]
-    fcm_token: str | None
+    registrations: tuple[Registration, ...]
     preferences: dict  # the user's notificationPreferences map
 
 
@@ -142,7 +146,7 @@ def evaluate(
     if not severity_enabled(latest.risk_level, user.preferences):
         return None
     # 4. deliverable
-    if not user.fcm_token:
+    if not user.registrations:
         return None
     # 2 + 3. vulnerability ∩ disease category, then consent for that category
     matched = user_categories(user.conditions) & disease_categories(latest.disease)

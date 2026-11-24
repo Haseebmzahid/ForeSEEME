@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import time
 from pathlib import Path
 
 import firebase_admin
@@ -80,14 +81,13 @@ def set_admin(identifier: str, *, grant: bool) -> None:
         claims["admin"] = True
     else:
         claims.pop("admin", None)
-    auth.set_custom_user_claims(uid, claims)
-    if not grant:
-        auth.revoke_refresh_tokens(uid)
+    if grant:
+        auth.set_custom_user_claims(uid, claims)
+    else:
         # Support running this script directly from the repository root.
         sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
         from app.session_revocation import record_revocation
 
-        valid_after = auth.get_user(uid).tokens_valid_after_timestamp
         if firestore_emulator:
             from google.auth.credentials import AnonymousCredentials
             from google.cloud.firestore import Client
@@ -95,7 +95,11 @@ def set_admin(identifier: str, *, grant: bool) -> None:
             db = Client(project="demo-foreseeme", credentials=AnonymousCredentials())
         else:
             db = firestore.client()
-        record_revocation(db, uid, valid_after // 1000)
+        record_revocation(db, uid, int(time.time()))
+        auth.set_custom_user_claims(uid, claims)
+        auth.revoke_refresh_tokens(uid)
+        valid_after = auth.get_user(uid).tokens_valid_after_timestamp
+        record_revocation(db, uid, max(int(time.time()), valid_after // 1000))
     action = "granted" if grant else "revoked"
     logger.info("Admin claim %s.", action)
     if grant:

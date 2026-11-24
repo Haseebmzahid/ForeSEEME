@@ -20,6 +20,10 @@ UserModel _signedInUser() =>
 /// empty state without Firebase.
 class _EmptyAlertsRepository implements UserAlertsRepository {
   @override
+  Future<UserAlertModel?> getAlertForPush(String uid, String pushId) async =>
+      null;
+
+  @override
   Stream<List<UserAlertModel>> watchAlerts(String uid) =>
       Stream.value(const []);
 

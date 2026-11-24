@@ -7,6 +7,7 @@ the deterministic single-category choice.
 
 from __future__ import annotations
 
+from app.notification_registrations import Registration
 from app.jobs.alerting import targeting
 from app.jobs.alerting.targeting import CityRisk, TargetUser
 
@@ -34,7 +35,7 @@ def user(conditions, prefs=None, token="tok-1") -> TargetUser:
         uid="u1",
         city="Lahore",
         conditions=tuple(conditions),
-        fcm_token=token,
+        registrations=(Registration("u1", token, 1, "test"),) if token else (),
         preferences=prefs if prefs is not None else _PREFS_ALL,
     )
 

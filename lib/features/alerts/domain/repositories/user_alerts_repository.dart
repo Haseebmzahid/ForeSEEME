@@ -9,6 +9,8 @@ import '../models/user_alert.dart';
 /// The engine (Admin SDK) is the only creator; this interface never creates,
 /// deletes, or edits alert content.
 abstract class UserAlertsRepository {
+  Future<UserAlertModel?> getAlertForPush(String uid, String pushId);
+
   /// Real-time stream of the user's alerts, newest first.
   ///
   /// Backs the inbox list so a freshly delivered alert appears without a manual

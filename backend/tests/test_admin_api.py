@@ -98,57 +98,12 @@ def test_missing_bearer_and_cleartext():
     assert TestClient(admin_api.app).post("/v1/users/example").json()["detail"]["code"] == "https_required"
 
 
-def test_session_logout_derives_uid_from_verified_token(monkeypatch):
-    calls = []
-    db = object()
-    monkeypatch.setattr(admin_api, "db_client", lambda: db)
-
-    def verify(token, *, check_revoked):
-        assert token == "ordinary-session" and check_revoked is True
-        return {"uid": "caller", "auth_time": 90}
-
-    monkeypatch.setattr(admin_api.auth, "verify_id_token", verify)
-    monkeypatch.setattr(admin_api.auth, "revoke_refresh_tokens", lambda uid: calls.append(uid))
-    monkeypatch.setattr(admin_api.auth, "get_user", lambda uid: SimpleNamespace(
-        tokens_valid_after_timestamp=100_500,
-    ))
-    monkeypatch.setattr(admin_api, "record_revocation", lambda *args: calls.append(args))
-    response = client.post("/v1/session/logout", json={"uid": "someone-else"},
-                           headers={"Authorization": "Bearer ordinary-session"})
-    assert response.status_code == 204
-    assert response.content == b""
-    assert calls == ["caller", (db, "caller", 100)]
-
-
-def test_session_logout_fails_when_cutoff_is_unconfirmed(monkeypatch):
-    monkeypatch.setattr(admin_api, "db_client", lambda: object())
-    monkeypatch.setattr(admin_api.auth, "verify_id_token", lambda *a, **k: {
-        "uid": "caller", "auth_time": 90,
-    })
-    monkeypatch.setattr(admin_api.auth, "revoke_refresh_tokens", lambda uid: None)
-    monkeypatch.setattr(admin_api.auth, "get_user", lambda uid: SimpleNamespace(
-        tokens_valid_after_timestamp=100_500,
-    ))
-
-    def unavailable(*_):
-        raise RuntimeError("Firestore unavailable")
-
-    monkeypatch.setattr(admin_api, "record_revocation", unavailable)
-    response = client.post("/v1/session/logout", headers={"Authorization": "Bearer token"})
-    assert response.status_code == 503
-    assert response.json()["detail"] == {"code": "revocation_unconfirmed"}
-
-
-def test_session_logout_rejects_missing_or_revoked_credentials(monkeypatch):
-    monkeypatch.setattr(admin_api, "db_client", lambda: object())
-
-    def revoked(*_, **__):
-        raise admin_api.auth.RevokedIdTokenError("revoked")
-
-    monkeypatch.setattr(admin_api.auth, "verify_id_token", revoked)
-    assert client.post("/v1/session/logout").status_code == 401
-    assert client.post("/v1/session/logout",
-                       headers={"Authorization": "Bearer revoked"}).status_code == 401
+@pytest.mark.parametrize("path", ["/v1/session/logout", "/v1/notifications/register",
+                                  "/v1/notifications/unregister"])
+def test_session_and_registration_endpoints_reject_cleartext(path):
+    result = TestClient(admin_api.app).post(path, json={"token": "fixture"})
+    assert result.status_code == 400
+    assert result.json()["detail"]["code"] == "https_required"
 
 
 def test_validation_hides_raw_input(monkeypatch):

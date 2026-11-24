@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+from app.notification_registrations import Registration
 from app.jobs import dispatch_alerts as job
 from app.jobs.alerting.messaging import SendResult
 from app.jobs.alerting.targeting import CityRisk, TargetUser
@@ -42,7 +43,7 @@ def _user(uid: str, conditions, prefs=None, token="tok-1") -> TargetUser:
         uid=uid,
         city="Lahore",
         conditions=tuple(conditions),
-        fcm_token=token,
+        registrations=(Registration(uid, token, 1, "test"),) if token else (),
         preferences=prefs if prefs is not None else _PREFS_ALL,
     )
 
@@ -68,7 +69,7 @@ class FakeSender:
     result: SendResult = field(default_factory=lambda: SendResult("sent", message_id="m1"))
     sends: list = field(default_factory=list)
 
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         self.sends.append({"token": token, "title": title, "body": body, "data": data})
         return self.result
 
@@ -99,8 +100,11 @@ class FakeRepository:
             for b in self.logs.values()
         )
 
-    def prune_token(self, uid):
-        self.pruned.append(uid)
+    def is_current_registration(self, registration):
+        return registration.uid not in self.pruned
+
+    def prune_token(self, registration):
+        self.pruned.append(registration.uid)
 
     def claim_dispatch(self, log_id, now):
         if log_id in self.logs:
@@ -156,6 +160,28 @@ def test_asthma_user_gets_one_cited_alert() -> None:
     assert alert["recommendation"]["id"] == "rec-resp-air"
     assert alert["recommendation"]["sourceUrl"].startswith("https://")
     assert alert["deepLink"] == "/resources"
+
+
+def test_transition_fans_out_with_neutral_copy_and_one_private_inbox():
+    from dataclasses import replace
+    from app.jobs.alerting.messaging import PUSH_BODY, PUSH_TITLE
+
+    user = replace(_user("u1", ["Asthma"]), registrations=(
+        Registration("u1", "device-one", 1, "g1"),
+        Registration("u1", "device-two", 1, "g2"),
+    ))
+    history = FakeHistory({"Lahore": (_city("High"), _city("Medium"))})
+    outcomes, sender, repo = _run(history, FakeDirectory({"Lahore": [user]}))
+
+    assert len(outcomes) == len(repo.logs) == len(repo.alerts) == 1
+    assert len(sender.sends) == 2
+    alert = next(iter(repo.alerts.values()))
+    for send in sender.sends:
+        assert send["title"] == PUSH_TITLE
+        assert send["body"] == PUSH_BODY
+        assert send["data"] == {"recipientUid": user.uid, "alertId": alert["pushId"]}
+    assert "Lahore" in alert["title"]
+    assert "High Smog" in alert["body"]
 
 
 def test_disabled_category_user_receives_nothing() -> None:
@@ -368,7 +394,7 @@ class _CrashingSender:
     (the real FirebaseAdminFcmSender never raises — see M7.3 — but the
     Protocol doesn't forbid it, and the claim must still be finalized)."""
 
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         raise RuntimeError("boom")
 
 
@@ -382,7 +408,8 @@ def test_send_crash_finalizes_the_claim_instead_of_leaving_it_stuck() -> None:
     log_id = "u1__Lahore_2026-06-30__respiratory"
     assert outcomes[0].status == "failed"
     assert repo.logs[log_id]["status"] == "failed"  # not stuck at "claimed"
-    assert repo.logs[log_id]["error"] == "boom"
+    assert repo.logs[log_id]["deliveryCounts"]["failed"] == 1
+    assert "boom" not in str(repo.logs[log_id])
 
     # A later run must not treat the crashed attempt as retryable/reclaimable.
     second = job.run(

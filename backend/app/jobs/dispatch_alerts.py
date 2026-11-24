@@ -25,18 +25,22 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
+from uuid import uuid4
 
 from app.jobs import observability
 from app.jobs.alerting import recommendation_lookup, targeting, throttle
 from app.jobs.alerting.messaging import (
     FcmSender,
     FirebaseAdminFcmSender,
+    PUSH_BODY,
+    PUSH_TITLE,
     SendResult,
-    build_notification,
+    build_inbox_copy,
 )
 from app.jobs.alerting.recommendation_lookup import Recommendation
 from app.jobs.alerting.targeting import CityRisk, Target, TargetUser
 from app.jobs.alerting.throttle import ThrottleDecision
+from app.notification_registrations import Registration, RegistrationStore
 from ml.pipelines import clean
 
 logger = logging.getLogger("foreseeme.jobs.dispatch_alerts")
@@ -51,6 +55,7 @@ _REASONS = {
     "sent": "delivered",
     "token_invalid": "fcm token unregistered",
     "failed": "fcm send failed",
+    "skipped_no_token": "no current delivery registration",
     "skipped_idempotent": "already dispatched for this estimate",
     "skipped_throttled": "within 24h of a prior alert for this category",
 }
@@ -86,7 +91,9 @@ class DispatchRepository(Protocol):
     def recently_sent(self, uid: str, category: str, since: datetime) -> bool: ...
 
     # Token hygiene (Prompt 3): drop a token FCM reported as unregistered.
-    def prune_token(self, uid: str) -> None: ...
+    def is_current_registration(self, registration: Registration) -> bool: ...
+
+    def prune_token(self, registration: Registration) -> None: ...
 
     # Concurrency gate (M7.4): atomically create-if-absent the log doc right
     # before send, so two overlapping dispatch runs can't both pass the
@@ -212,34 +219,21 @@ def _dispatch(
         )
 
     recommendation = recommendation_lookup.lookup(target.category, target.driver)
-    title, body, data = build_notification(target, recommendation, latest.doc_id)
-
-    assert user.fcm_token is not None  # guaranteed by targeting.evaluate
-    try:
-        result = sender.send(token=user.fcm_token, title=title, body=body, data=data)
-    except Exception as exc:  # noqa: BLE001 — the claim must always be finalized
-        logger.error(
-            "dispatch_send_crashed",
-            extra={"uid": target.uid, "log_id": log_id, "error": str(exc)},
-        )
-        repository.write_dispatch_log(
-            log_id, _crash_log_body(target, latest, str(exc), now)
-        )
-        return DispatchOutcome(target.uid, target.city, target.category, "failed", log_id)
+    title, body = build_inbox_copy(target, recommendation)
+    push_ref = uuid4().hex
+    result, counts = send_registered(user, push_ref, sender, repository)
 
     repository.write_dispatch_log(
-        log_id, _log_body(target, latest, recommendation, result, now)
+        log_id, {**_log_body(target, latest, recommendation, result, now),
+                 "deliveryCounts": counts}
     )
     if result.status == "sent":
         repository.write_user_alert(
             target.uid,
             log_id,
-            _alert_body(target, latest, recommendation, title, body, now),
+            {**_alert_body(target, latest, recommendation, title, body, now),
+             "pushId": push_ref},
         )
-    elif result.status == "token_invalid":
-        # Token hygiene: drop the dead token so future runs skip it.
-        repository.prune_token(target.uid)
-        logger.info("token_pruned", extra={"uid": target.uid})
 
     logger.info(
         "dispatch_attempt",
@@ -254,6 +248,44 @@ def _dispatch(
     return DispatchOutcome(
         target.uid, target.city, target.category, result.status, log_id
     )
+
+
+def send_registered(
+    user: TargetUser, push_ref: str, sender: FcmSender, repository: DispatchRepository,
+) -> tuple[SendResult, dict[str, int]]:
+    """Fan out under one user-level dispatch claim and one inbox document."""
+    counts = {status: 0 for status in ("sent", "failed", "token_invalid", "stale", "prune_failed")}
+    message_id = None
+    for registration in user.registrations:
+        try:
+            if not repository.is_current_registration(registration):
+                counts["stale"] += 1
+                continue
+            result = sender.send(
+                token=registration.token, title=PUSH_TITLE, body=PUSH_BODY,
+                data={"recipientUid": user.uid, "alertId": push_ref},
+                still_current=lambda: repository.is_current_registration(registration),
+            )
+            counts[result.status] += 1
+            if result.status == "sent" and message_id is None:
+                message_id = result.message_id
+        except Exception as exc:
+            # SDK errors can include the raw registration token.
+            logger.error("notification_delivery_error (%s)", type(exc).__name__)
+            counts["failed"] += 1
+            continue
+        if result.status == "token_invalid":
+            try:
+                repository.prune_token(registration)
+            except Exception as exc:
+                logger.error("notification_prune_error (%s)", type(exc).__name__)
+                counts["prune_failed"] += 1
+    if counts["sent"]:
+        return SendResult("sent", message_id), counts
+    status = "failed" if counts["failed"] else (
+        "token_invalid" if counts["token_invalid"] else "skipped_no_token"
+    )
+    return SendResult(status), counts
 
 
 def dispatch_key(uid: str, risk_estimate_id: str, category: str) -> str:
@@ -339,33 +371,6 @@ def _skip_log_body(
         "fcmMessageId": None,
         "createdAt": now,
         "throttleWindowEnd": now + THROTTLE_WINDOW,
-    }
-
-
-def _crash_log_body(target: Target, latest: CityRisk, error: str, now: datetime) -> dict:
-    """Audit entry finalizing a claimed log_id whose send raised unexpectedly
-    (M7.4). Same shape as `_log_body`'s failure case, so a claim is never left
-    stuck 'claimed' forever — a later run's `has_dispatch`/`claim_dispatch`
-    correctly treats this estimate/category as already (unsuccessfully)
-    attempted, same as any other terminal `failed` outcome."""
-    return {
-        "uid": target.uid,
-        "city": target.city,
-        "category": target.category,
-        "riskEstimateId": latest.doc_id,
-        "generatedAt": latest.generated_at,
-        "previousRiskLevel": target.previous_risk_level,
-        "riskLevel": target.risk_level,
-        "disease": target.disease,
-        "driver": target.driver,
-        "modelVersion": latest.model_version,
-        "status": "failed",
-        "reason": _REASONS["failed"],
-        "recommendationId": None,
-        "fcmMessageId": None,
-        "createdAt": now,
-        "throttleWindowEnd": now + THROTTLE_WINDOW,
-        "error": error,
     }
 
 
@@ -494,11 +499,12 @@ class FirestoreRiskHistoryProvider:
 
 
 class FirestoreUserDirectory:
-    """Enumerates ``users`` (token + preferences) joined with each user's profile
+    """Enumerates ``users`` (preferences) joined with each user's profile
     (``users/{uid}/profile/{uid}`` — city + chronicConditions)."""
 
     def __init__(self, db) -> None:
         self._db = db
+        self._registrations = RegistrationStore(db)
 
     def users_in_city(self, city: str) -> list[TargetUser]:
         users: list[TargetUser] = []
@@ -521,7 +527,7 @@ class FirestoreUserDirectory:
                     uid=user_doc.id,
                     city=city,
                     conditions=tuple(profile.get("chronicConditions") or []),
-                    fcm_token=data.get("fcmToken"),
+                    registrations=self._registrations.for_user(user_doc.id),
                     preferences=data.get("notificationPreferences") or {},
                 )
             )
@@ -534,6 +540,7 @@ class FirestoreDispatchRepository:
 
     def __init__(self, db) -> None:
         self._db = db
+        self._registrations = RegistrationStore(db)
 
     def write_dispatch_log(self, log_id: str, body: dict) -> None:
         self._db.collection(COLLECTION_LOG).document(log_id).set(body)
@@ -566,12 +573,11 @@ class FirestoreDispatchRepository:
         )
         return len(list(snapshot)) > 0
 
-    def prune_token(self, uid: str) -> None:
-        from firebase_admin import firestore
+    def is_current_registration(self, registration: Registration) -> bool:
+        return self._registrations.is_current(registration)
 
-        self._db.collection("users").document(uid).update(
-            {"fcmToken": firestore.DELETE_FIELD}
-        )
+    def prune_token(self, registration: Registration) -> None:
+        self._registrations.prune(registration)
 
     def claim_dispatch(self, log_id: str, now: datetime) -> bool:
         """Atomically create-if-absent the log doc (M7.4 concurrency gate).

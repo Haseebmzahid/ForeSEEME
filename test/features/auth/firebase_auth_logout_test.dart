@@ -5,6 +5,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 class _User extends Fake implements User {
   @override
+  String get uid => 'alice';
+
+  @override
   Future<String?> getIdToken([bool forceRefresh = false]) async =>
       'firebase-test-token';
 }
@@ -35,6 +38,32 @@ class _GoogleSignIn extends Fake implements GoogleSignIn {
 }
 
 void main() {
+  test(
+    'unregister failure does not prevent revocation or local sign-out',
+    () async {
+      final events = <String>[];
+      final auth = _FirebaseAuth(events);
+      final repository = FirebaseAuthRepository(
+        firebaseAuth: auth,
+        googleSignIn: _GoogleSignIn(events),
+        unregisterNotifications: (uid, _) async {
+          expect(uid, 'alice');
+          events.add('unregister');
+          throw StateError('offline');
+        },
+        revokeSessions: (_) async => events.add('revoke'),
+      );
+      final result = await repository.signOut();
+      expect(events.take(2), ['unregister', 'revoke']);
+      expect(events.skip(2), unorderedEquals(['firebase', 'google']));
+      expect(auth.currentUser, isNull);
+      result.fold(
+        (error) => expect(error.code, 'logout_unconfirmed'),
+        (_) => fail('Unconfirmed cleanup was reported as confirmed'),
+      );
+    },
+  );
+
   for (final confirmed in [true, false]) {
     test(
       'local cleanup after global revocation confirmation=$confirmed',

@@ -14,6 +14,7 @@ from firebase_admin import auth
 
 from app import admin_api
 from app.jobs.account_metrics import backfill_record, run_aggregation
+from app.notification_registrations import COLLECTION, RegistrationStore, registration_id
 
 pytestmark = pytest.mark.skipif(
     not (os.getenv("FIREBASE_AUTH_EMULATOR_HOST") and os.getenv("FIRESTORE_EMULATOR_HOST")
@@ -28,10 +29,91 @@ def emulator_client():
     return httpx.Client(base_url=origin, timeout=10, trust_env=False)
 
 
+def test_authenticated_registration_reassignment_and_delayed_cleanup():
+    db = admin_api.db_client()
+    suffix = uuid4().hex
+    alice, bob = f"push-alice-{suffix}", f"push-bob-{suffix}"
+    password = uuid4().hex
+    device = "fixture-" + suffix
+    auth.create_user(uid=alice, email=f"{alice}@example.test", password=password)
+    auth.create_user(uid=bob, email=f"{bob}@example.test", password=password)
+    client = TestClient(admin_api.app, base_url="https://testserver")
+    registry = RegistrationStore(db)
+    try:
+        with emulator_client() as http:
+            a = password_sign_in(http, f"{alice}@example.test", password)
+            a.raise_for_status()
+            token_a = a.json()["idToken"]
+            time.sleep(1.1)
+            b = password_sign_in(http, f"{bob}@example.test", password)
+            b.raise_for_status()
+            token_b = b.json()["idToken"]
+
+        def post(action, bearer):
+            return client.post(
+                f"/v1/notifications/{action}", json={"token": device},
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+
+        assert post("register", token_a).status_code == 204
+        old, = registry.for_user(alice)
+        assert post("register", token_b).status_code == 204
+        assert post("register", token_a).status_code == 409
+        assert post("unregister", token_a).status_code == 204
+        assert not registry.prune(old)
+        assert len(registry.for_user(bob)) == 1
+        assert post("unregister", token_b).status_code == 204
+        assert not registry.for_user(bob)
+    finally:
+        db.collection(COLLECTION).document(registration_id(device)).delete()
+        for uid in (alice, bob):
+            db.collection("users").document(uid).delete()
+            auth.delete_user(uid)
+
+
 def password_sign_in(http, email, password):
     return http.post("/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
                      params={"key": "demo-api-key"},
                      json={"email": email, "password": password, "returnSecureToken": True})
+
+
+def test_logout_receipt_retries_and_fresh_sign_in_on_real_emulators():
+    db = admin_api.db_client()
+    uid = "logout-" + uuid4().hex
+    email, password = f"{uid}@example.test", uuid4().hex
+    device = f"device-{uid}"
+    cutoff = db.collection("sessionRevocations").document(uid)
+    auth.create_user(uid=uid, email=email, password=password)
+    client = TestClient(admin_api.app, base_url="https://testserver")
+    try:
+        with emulator_client() as http:
+            first_login = password_sign_in(http, email, password)
+            first_login.raise_for_status()
+            old = {"Authorization": "Bearer " + first_login.json()["idToken"]}
+            registration = "/v1/notifications/register"
+            logout = "/v1/session/logout"
+            assert client.post(registration, headers=old, json={"token": device}).status_code == 204
+            assert client.post(logout, headers=old).status_code == 204
+            first_cutoff = cutoff.get().get("throughAuthTime")
+            valid_after = auth.get_user(uid).tokens_valid_after_timestamp
+            assert first_cutoff < valid_after // 1000
+
+            fresh_login = password_sign_in(http, email, password)
+            fresh_login.raise_for_status()
+            fresh = {"Authorization": "Bearer " + fresh_login.json()["idToken"]}
+            assert client.post(logout, headers=old).status_code == 204
+            assert auth.get_user(uid).tokens_valid_after_timestamp == valid_after
+            assert cutoff.get().get("throughAuthTime") == first_cutoff
+            assert client.post(registration, headers=old, json={"token": device}).status_code == 401
+            assert client.post(registration, headers=fresh, json={"token": device}).status_code == 204
+            assert len(RegistrationStore(db).for_user(uid)) == 1
+    finally:
+        for intent in cutoff.collection("logoutIntents").stream():
+            intent.reference.delete()
+        cutoff.delete()
+        db.collection(COLLECTION).document(registration_id(device)).delete()
+        db.collection("users").document(uid).delete()
+        auth.delete_user(uid)
 
 
 def enroll_and_sign_in(http, first_factor, email, password):
@@ -105,6 +187,12 @@ def test_admin_workflow(monkeypatch):
         assert rejected.json()["detail"]["code"] == "mfa_required"
         token = enroll_and_sign_in(http, first_factor, actor_email, password)
         client.headers["Authorization"] = f"Bearer {token}"
+        old_login = password_sign_in(http, email, password)
+        old_login.raise_for_status()
+        old_headers = {"Authorization": "Bearer " + old_login.json()["idToken"]}
+        register = "/v1/notifications/register"
+        device = f"fixture-{uid}"
+        assert client.post(register, headers=old_headers, json={"token": device}).status_code == 204
         # Pin the authorized test requests to one rate-limit window.
         current = time.time()
         monkeypatch.setattr(admin_api, "time", SimpleNamespace(time=lambda: current))
@@ -114,10 +202,15 @@ def test_admin_workflow(monkeypatch):
 
         assert post("delete").status_code == 422
         assert post("suspend").status_code == 200
+        cutoff = db.collection("sessionRevocations").document(uid)
+        suspended_through = cutoff.get().get("throughAuthTime")
+        assert not RegistrationStore(db).for_user(uid)
+        assert client.post(register, headers=old_headers, json={"token": device}).status_code == 401
         assert auth.get_user(uid).disabled
         assert password_sign_in(http, email, password).status_code == 400
         assert directory.get().get("authDisabled") is True
         assert post("reactivate").status_code == 200
+        assert cutoff.get().get("throughAuthTime") == suspended_through
         assert not auth.get_user(uid).disabled
         assert password_sign_in(http, email, password).status_code == 200
         assert directory.get().get("status") == "active"
@@ -125,6 +218,7 @@ def test_admin_workflow(monkeypatch):
         retained = db.collection("users").document(uid).collection("example").document("record")
         retained.set({"retention": "test"})
         assert post("delete", confirmUid=uid, retention="retain_firestore").status_code == 200
+        assert cutoff.get().get("throughAuthTime") >= suspended_through
         with pytest.raises(auth.UserNotFoundError):
             auth.get_user(uid)
         assert not directory.get().exists
@@ -162,6 +256,8 @@ def test_admin_workflow(monkeypatch):
         assert db.collection("operationalMetrics").document("accounts").get().get("measurementWindowDays") == 30
     finally:
         http.close()
+        db.collection(COLLECTION).document(registration_id(f"fixture-{uid}")).delete()
+        db.collection("sessionRevocations").document(uid).delete()
         for account_uid in (uid, actor):
             try:
                 auth.delete_user(account_uid)

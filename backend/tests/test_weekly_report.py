@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from app.notification_registrations import Registration
 from app.jobs import weekly_report as wr
 from app.jobs.alerting.messaging import SendResult
 from app.jobs.alerting.targeting import CityRisk, TargetUser
@@ -57,7 +58,7 @@ class FakeDirectory:
 
 class FakeSender:
     def __init__(self, status="sent"): self.status = status; self.sent = []
-    def send(self, *, token, title, body, data):
+    def send(self, *, token, title, body, data, still_current=None):
         self.sent.append({"token": token, "title": title, "body": body, "data": data})
         return SendResult(status=self.status, message_id="m1")
 
@@ -71,13 +72,22 @@ class FakeRepository:
     def write_user_alert(self, uid, alert_id, body):
         self.alerts.setdefault(uid, {})[alert_id] = body
     def has_dispatch(self, log_id): return log_id in self.logs
+    def claim_dispatch(self, log_id, now):
+        if log_id in self.logs:
+            return False
+        self.logs[log_id] = {"status": "claimed", "claimedAt": now}
+        return True
+
     def recently_sent(self, uid, category, since): return False
-    def prune_token(self, uid): self.pruned.append(uid)
+    def is_current_registration(self, registration):
+        return registration.uid not in self.pruned
+
+    def prune_token(self, registration): self.pruned.append(registration.uid)
 
 
 def _user(uid, token="tok", prefs=None):
     return TargetUser(uid=uid, city="Lahore",
-                      conditions=("Asthma",), fcm_token=token,
+                      conditions=("Asthma",), registrations=(Registration(uid, token, 1, "test"),) if token else (),
                       preferences=prefs or ENABLED_PREFS)
 
 
@@ -88,13 +98,12 @@ def test_compose_weekly_is_cited_and_non_diagnostic() -> None:
     from app.jobs.alerting import recommendation_lookup
 
     rec = recommendation_lookup.lookup("respiratory", "Air quality")
-    title, body, data, alert = wr.compose_weekly(_risk("Lahore"), rec, NOW)
+    alert = wr.compose_weekly(_risk("Lahore"), rec, NOW)
+    title, body = alert["title"], alert["body"]
 
     assert "weekly health report" in title.lower()
     assert "Lahore" in title
     assert rec.text in body                         # cited advisory verbatim
-    assert data["type"] == "weekly_report"
-    assert data["deepLink"] == "/weekly-report"
     assert alert["category"] == "weekly_report"
     assert alert["deepLink"] == "/weekly-report"
     assert alert["recommendation"]["source"] == rec.source
@@ -131,6 +140,32 @@ def test_sends_one_weekly_report_per_consenting_user() -> None:
 
 
 # --- Idempotency per (user, week): re-run sends nothing ---------------------
+
+
+def test_weekly_fans_out_with_neutral_copy_and_one_private_inbox():
+    from dataclasses import replace
+    from app.jobs.alerting.messaging import PUSH_BODY, PUSH_TITLE
+
+    user = replace(_user("u1"), registrations=(
+        Registration("u1", "device-one", 1, "g1"),
+        Registration("u1", "device-two", 1, "g2"),
+    ))
+    repo = FakeRepository()
+    sender = FakeSender()
+    outcomes = wr.run(
+        history=FakeHistory({"Lahore": _risk("Lahore")}),
+        directory=FakeDirectory({"Lahore": [user]}), sender=sender,
+        repository=repo, cities=[{"name": "Lahore"}], now=NOW,
+    )
+    assert len(outcomes) == len(repo.logs) == len(repo.alerts[user.uid]) == 1
+    assert len(sender.sent) == 2
+    alert = next(iter(repo.alerts[user.uid].values()))
+    for send in sender.sent:
+        assert send["title"] == PUSH_TITLE
+        assert send["body"] == PUSH_BODY
+        assert send["data"] == {"recipientUid": user.uid, "alertId": alert["pushId"]}
+    assert "Lahore" in alert["title"]
+    assert "environmental" in alert["body"]
 
 
 def test_rerun_same_week_sends_nothing() -> None:
