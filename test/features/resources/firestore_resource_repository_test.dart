@@ -30,6 +30,28 @@ void main() {
       expect(articles.single.title, 'Protecting your lungs on smog days');
     });
 
+    test('preserves sourced dates and omits a CMS creation date', () async {
+      final firestore = FakeFirebaseFirestore();
+      final source = (await const StaticResourceRepository().articles())
+          .firstWhere((article) => article.publishedAt != null);
+      final articles = firestore.collection('articles');
+      await articles.doc(source.id).set(source.toJson());
+      await articles.doc('cms-created').set({
+        ...source.toJson(),
+        'verified': false,
+        'authority': 'other',
+        'lastVerifiedAt': null,
+        'publishedAt': DateTime.utc(2026, 5, 1).toIso8601String(),
+      });
+
+      final result = await FirestoreResourceRepository(
+        firestore: firestore,
+      ).articles();
+      final byId = {for (final article in result) article.id: article};
+      expect(byId[source.id]?.publishedAt, source.publishedAt);
+      expect(byId['cms-created']?.publishedAt, isNull);
+    });
+
     test(
       'falls back to the static curated content when the collection is unseeded',
       () async {

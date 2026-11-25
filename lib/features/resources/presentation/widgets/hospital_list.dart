@@ -97,6 +97,7 @@ class HospitalCard extends StatelessWidget {
                                 fontSize: 15,
                               ),
                             ),
+                            Text(hospital.kind.label, style: text.bodySmall),
                             if (hospital.address.isNotEmpty) ...[
                               const SizedBox(height: 3),
                               Text(

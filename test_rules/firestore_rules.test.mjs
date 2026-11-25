@@ -438,6 +438,41 @@ const profileData = {
 };
 await check('profile: owner can save allowed fields', () => assertSucceeds(setDoc(profile, profileData)));
 await check('profile: owner can read the legacy schema', () => assertSucceeds(getDoc(profile)));
+const bookmarkPath = 'users/alice/profile/alice/bookmarks/smog-guide';
+const bookmarkData = { articleId: 'smog-guide', savedAt: serverTimestamp() };
+await check('bookmarks: create, synchronize across clients, repeat save and remove', async () => {
+  const first = doc(alice, bookmarkPath);
+  const second = testEnv.authenticatedContext('alice', { email_verified: true }).firestore();
+  const reopened = doc(second, bookmarkPath);
+  await assertSucceeds(setDoc(first, bookmarkData));
+  if (!(await assertSucceeds(getDoc(reopened))).exists()) throw new Error('Missing bookmark');
+  await assertSucceeds(setDoc(reopened, bookmarkData));
+  await assertSucceeds(deleteDoc(first));
+  await assertSucceeds(deleteDoc(first));
+  if ((await assertSucceeds(getDoc(reopened))).exists()) throw new Error('Bookmark remained');
+});
+await check('bookmarks: cross-user, signed-out and unverified access denied', async () => {
+  const first = doc(alice, bookmarkPath);
+  await assertSucceeds(setDoc(first, bookmarkData));
+  const pending = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+  for (const db of [bob, anon, pending]) {
+    const path = doc(db, bookmarkPath);
+    await assertFails(getDoc(path));
+    await assertFails(setDoc(path, bookmarkData));
+    await assertFails(deleteDoc(path));
+  }
+});
+await check('bookmarks: malformed fields and wrong profile denied', async () => {
+  for (const data of [
+    { ...bookmarkData, articleId: 'wrong-id' },
+    { ...bookmarkData, savedAt: new Date(0) },
+    { ...bookmarkData, admin: true },
+    { articleId: 'smog-guide' },
+  ]) {
+    await assertFails(setDoc(doc(alice, bookmarkPath), data));
+  }
+  await assertFails(setDoc(doc(alice, 'users/alice/profile/bob/bookmarks/smog-guide'), bookmarkData));
+});
 await check('profile: owner can change city and save custom conditions', () =>
   assertSucceeds(updateDoc(profile, {
     city: 'Karachi', chronicConditions: [], customConditions: ['Custom label', 'Another label'],
@@ -512,6 +547,13 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
 });
 const oldAlice = testEnv.authenticatedContext('alice', { auth_time: 100, email_verified: true }).firestore();
 const newAlice = testEnv.authenticatedContext('alice', { auth_time: 101, email_verified: true }).firestore();
+await check('bookmarks: revoked session cannot read, save or remove', async () => {
+  const old = doc(oldAlice, bookmarkPath);
+  await assertFails(getDoc(old));
+  await assertFails(setDoc(old, bookmarkData));
+  await assertFails(deleteDoc(old));
+  await assertSucceeds(getDoc(doc(newAlice, bookmarkPath)));
+});
 await check('session: revoked owner cannot read risk data', () =>
   assertFails(getDoc(doc(oldAlice, 'riskEstimates/Lahore_2026-07-08'))),
 );

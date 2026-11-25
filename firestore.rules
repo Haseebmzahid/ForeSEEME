@@ -108,6 +108,18 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(profileFields());
         allow update: if owns(userId) && validProfile(request.resource.data)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileFields());
+
+        match /bookmarks/{articleId} {
+          function bookmarkOwner() {
+            return owns(userId) && profileId == userId;
+          }
+
+          allow read, delete: if bookmarkOwner();
+          allow create, update: if bookmarkOwner()
+            && request.resource.data.keys().hasOnly(['articleId', 'savedAt'])
+            && request.resource.data.articleId == articleId
+            && request.resource.data.savedAt == request.time;
+        }
       }
 
       match /medications/{id} {

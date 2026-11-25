@@ -77,6 +77,7 @@ class HospitalDetailSheet extends StatelessWidget {
               ),
             ],
           ),
+          Text(hospital.kind.label, style: text.bodySmall),
           if (hospital.address.isNotEmpty) ...[
             const SizedBox(height: 10),
             Row(
@@ -110,18 +111,27 @@ class HospitalDetailSheet extends StatelessWidget {
                   rating: hospital.rating!,
                   count: hospital.userRatingCount,
                 ),
-              if (hospital.openNow != null) OpenNowChip(open: hospital.openNow!),
+              if (hospital.openNow != null)
+                OpenNowChip(open: hospital.openNow!)
+              else
+                const Text('Hours unknown'),
             ],
           ),
           if (canCall) ...[
             const SizedBox(height: 14),
             Row(
               children: [
-                Icon(Icons.call_outlined, size: 16, color: palette.textTertiary),
+                Icon(
+                  Icons.call_outlined,
+                  size: 16,
+                  color: palette.textTertiary,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   hospital.phoneNumber!,
-                  style: text.bodyMedium?.copyWith(color: palette.textSecondary),
+                  style: text.bodyMedium?.copyWith(
+                    color: palette.textSecondary,
+                  ),
                 ),
               ],
             ),

@@ -56,9 +56,21 @@ class FirestoreResourceRepository implements ResourceRepository {
       if (snapshot.docs.isEmpty) {
         return const StaticResourceRepository().articles();
       }
-      return snapshot.docs
-          .map((doc) => ResourceArticle.fromJson(doc.data(), id: doc.id))
-          .toList();
+      return snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.of(doc.data());
+        // The CMS stamps creation time in the same field that the
+        // verified catalogue uses for the source's publication date.
+        final authority = ResourceAuthorityX.fromJson(
+          data['authority'] as String?,
+        );
+        if (data['verified'] != true ||
+            !authority.isTrusted ||
+            data['lastVerifiedAt'] is! String ||
+            DateTime.tryParse(data['lastVerifiedAt'] as String) == null) {
+          data.remove('publishedAt');
+        }
+        return ResourceArticle.fromJson(data, id: doc.id);
+      }).toList();
     } on Exception {
       // See the class doc: a reader who cannot reach the live library still
       // gets the trusted catalogue that shipped with the app, rather than a

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,10 +15,12 @@ import 'package:fyp_foreseeme/features/resources/domain/models/location_result.d
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
 import 'package:fyp_foreseeme/features/resources/domain/repositories/places_repository.dart';
 import 'package:fyp_foreseeme/features/resources/domain/services/location_service.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/nearby_care_tracking.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_detail_sheet.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospital_list.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospitals_map_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/nearby_hospitals_entry.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 
@@ -41,9 +46,12 @@ Hospital _hospital(String name, {String? phone, double distance = 1.2}) =>
 
 class _FakeLocationService implements LocationService {
   final LocationResult result;
-  const _FakeLocationService(this.result);
+  const _FakeLocationService(this.result, {this.fixes});
+  final Stream<LocationResult>? fixes;
   @override
   Future<LocationResult> currentLocation() async => result;
+  @override
+  Stream<LocationResult> watchLocation() => fixes ?? Stream.multi((_) {});
   @override
   Future<void> openAppSettings() async {}
   @override
@@ -70,6 +78,299 @@ class _RecordingPlacesRepository implements PlacesRepository {
 }
 
 void main() {
+  test('automatic map recentering ignores GPS noise and frequent moves', () {
+    const initial = LocationResult.granted(31.5, 74.3);
+    const nearby = LocationResult.granted(31.501, 74.3);
+    const moved = LocationResult.granted(31.51, 74.3);
+    const quiet = Duration(seconds: 8);
+    expect(
+      nearbyCareCameraTarget(
+        previous: initial,
+        position: nearby,
+        elapsed: quiet,
+      ),
+      isNull,
+    );
+    expect(
+      nearbyCareCameraTarget(
+        previous: initial,
+        position: moved,
+        elapsed: Duration.zero,
+      ),
+      isNull,
+    );
+    final target = nearbyCareCameraTarget(
+      previous: initial,
+      position: moved,
+      elapsed: quiet,
+    )!;
+    expect(target.latitude, moved.latitude);
+    expect(target.longitude, moved.longitude);
+  });
+
+  test('call affordance needs a dialable provider number', () {
+    expect(_hospital('A', phone: ' unavailable ').hasPhone, isFalse);
+    expect(_hospital('B', phone: ' +92 (42) 123-4567 ').hasPhone, isTrue);
+  });
+
+  for (final streamError in [false, true]) {
+    testWidgets(
+      'foreground fixes update distances and stop on ${streamError ? 'stream error' : 'permission loss'}',
+      (tester) async {
+        var subscriptions = 0;
+        var cancellations = 0;
+        late MultiStreamController<LocationResult> fixes;
+        final stream = Stream<LocationResult>.multi((controller) {
+          fixes = controller;
+          subscriptions++;
+          controller.onCancel = () async {
+            cancellations++;
+          };
+        });
+        const initial = LocationResult.granted(31.49, 74.30);
+        final result = NearbyHospitalsResult(
+          hospitals: [_hospital('Facility').measuredFrom(31.49, 74.30)],
+          fetchedAt: DateTime.utc(2026),
+          servedFromCache: false,
+          devicePosition: initial,
+        );
+        NearbyHospitalsResult? latest;
+        LocationStatus? lost;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              locationServiceProvider.overrideWithValue(
+                _FakeLocationService(initial, fixes: stream),
+              ),
+            ],
+            child: MaterialApp(
+              home: NearbyCareTracking(
+                initial: result,
+                builder: (result, loss, _) {
+                  latest = result;
+                  lost = loss;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(subscriptions, 1);
+        expect(latest!.devicePosition, same(initial));
+        expect(latest!.hospitals.single.distanceKm, greaterThan(1));
+
+        fixes.addSync(const LocationResult.granted(31.50, 74.30));
+        await tester.pump();
+        expect(latest!.hospitals.single.distanceKm, closeTo(0, 0.01));
+
+        final navigator = tester.state<NavigatorState>(
+          find.byType(Navigator),
+        );
+        unawaited(
+          navigator.push(
+            MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(cancellations, 1);
+        navigator.pop();
+        await tester.pumpAndSettle();
+        await tester.pump();
+        expect(subscriptions, 2);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.paused,
+        );
+        await tester.pump();
+        expect(cancellations, 2);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(subscriptions, 3);
+        if (streamError) {
+          fixes.addErrorSync(StateError('GPS fixture'));
+        } else {
+          fixes.addSync(const LocationResult.denied());
+        }
+        await tester.pump();
+        expect(
+          lost,
+          streamError ? LocationStatus.noFix : LocationStatus.denied,
+        );
+        expect(cancellations, 3);
+
+        // Recreate the route and dispose with an active subscription.
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              locationServiceProvider.overrideWithValue(
+                _FakeLocationService(initial, fixes: stream),
+              ),
+            ],
+            child: MaterialApp(
+              home: NearbyCareTracking(
+                initial: result,
+                builder: (_, _, _) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(subscriptions, 4);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        expect(cancellations, 4);
+      },
+    );
+  }
+
+  test(
+    'map markers represent the filtered facilities and select the tapped record',
+    () {
+      final facility = _hospital('Directory fixture');
+      Hospital? selected;
+      final marker = nearbyCareMarkers([
+        facility,
+      ], (value) => selected = value).single;
+      expect(marker.markerId.value, facility.id);
+      expect(marker.position.latitude, facility.latitude);
+      expect(marker.position.longitude, facility.longitude);
+      marker.onTap!();
+      expect(selected, same(facility));
+    },
+  );
+
+  test(
+    'one Places request includes hospitals and clinics and deduplicates by id',
+    () async {
+      var requests = 0;
+      final repo = GooglePlacesRepository(
+        apiKey: 'fixture',
+        client: MockClient((request) async {
+          requests++;
+          final payload = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(
+            payload['includedTypes'],
+            containsAll(['hospital', 'medical_clinic']),
+          );
+          final mask = request.headers.entries
+              .singleWhere(
+                (entry) => entry.key.toLowerCase() == 'x-goog-fieldmask',
+              )
+              .value;
+          expect(mask, contains('places.primaryType'));
+          return http.Response('''
+          {"places":[
+            {"id":"hospital","primaryType":"general_hospital","location":{"latitude":31.5,"longitude":74.3}},
+            {"id":"clinic","primaryType":"medical_clinic","location":{"latitude":31.51,"longitude":74.3}},
+            {"id":"clinic","types":["medical_clinic"],"location":{"latitude":31.51,"longitude":74.3}}
+          ]}''', 200);
+        }),
+      );
+      final results = await Future.wait([
+        repo.nearbyHospitals(latitude: 31.5, longitude: 74.3),
+        repo.nearbyHospitals(latitude: 31.5, longitude: 74.3),
+      ]);
+      expect(requests, 1);
+      expect(results.first.hospitals.map((place) => place.kind), [
+        FacilityKind.hospital,
+        FacilityKind.clinic,
+      ]);
+      expect(
+        results.last.hospitals.map((facility) => facility.id),
+        results.first.hospitals.map((facility) => facility.id),
+      );
+    },
+  );
+
+  test(
+    'a provider 429 consumes the attempt budget and surfaces quota exhaustion',
+    () async {
+      var requests = 0;
+      final repo = GooglePlacesRepository(
+        apiKey: 'fixture',
+        maxLiveCalls: 1,
+        client: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 429);
+        }),
+      );
+      for (var i = 0; i < 2; i++) {
+        await expectLater(
+          repo.nearbyHospitals(latitude: 31.5, longitude: 74.3),
+          throwsA(isA<PlacesQuotaExceededException>()),
+        );
+      }
+      expect(requests, 1);
+    },
+  );
+
+  test(
+    'public lookup uses GPS and never reads the profile city on denial',
+    () async {
+      final repo = _RecordingPlacesRepository();
+      for (final result in [
+        const LocationResult.granted(31.5, 74.3),
+        const LocationResult.denied(),
+        const LocationResult.noFix(),
+      ]) {
+        final container = ProviderContainer(
+          overrides: [
+            placesApiKeyProvider.overrideWithValue('fixture'),
+            placesRepositoryProvider.overrideWithValue(repo),
+            locationServiceProvider.overrideWithValue(
+              _FakeLocationService(result),
+            ),
+            userCityProvider.overrideWith(
+              (_) => throw StateError('Public profile read'),
+            ),
+          ],
+        );
+        final subscription = container.listen(
+          publicNearbyHospitalsProvider,
+          (_, _) {},
+        );
+        try {
+          final search = container.read(
+            publicNearbyHospitalsProvider.future,
+          );
+          if (result.status == LocationStatus.granted) {
+            await search;
+            expect(repo.latitude, 31.5);
+          } else if (result.status == LocationStatus.denied) {
+            await expectLater(
+              search,
+              throwsA(
+                isA<LocationPermissionDeniedException>().having(
+                  (error) => error.hasCityFallback,
+                  'hasCityFallback',
+                  false,
+                ),
+              ),
+            );
+          } else {
+            await expectLater(
+              search,
+              throwsA(
+                isA<LocationUnavailableException>().having(
+                  (error) => error.fallbackCity,
+                  'fallbackCity',
+                  isNull,
+                ),
+              ),
+            );
+          }
+        } finally {
+          subscription.close();
+          container.dispose();
+        }
+      }
+    },
+  );
+
   group('GooglePlacesRepository caching & quota', () {
     late DateTime clock;
     late int calls;
@@ -160,7 +461,10 @@ void main() {
         maxLiveCalls: 1,
       );
 
-      await repo.nearbyHospitals(latitude: 10, longitude: 10); // spends budget
+      await repo.nearbyHospitals(
+        latitude: 10,
+        longitude: 10,
+      ); // spends budget
       expect(
         () => repo.nearbyHospitals(latitude: 50, longitude: 50),
         throwsA(isA<PlacesQuotaExceededException>()),
@@ -245,7 +549,9 @@ void main() {
           overrides: [
             placesApiKeyProvider.overrideWithValue('k'),
             locationServiceProvider.overrideWithValue(
-              const _FakeLocationService(LocationResult.granted(24.86, 67.00)),
+              const _FakeLocationService(
+                LocationResult.granted(24.86, 67.00),
+              ),
             ),
             placesRepositoryProvider.overrideWithValue(repo),
           ],
@@ -338,7 +644,10 @@ void main() {
 
         await container.read(nearbyHospitalsProvider.future);
 
-        expect(repo.latitude, 31.5497); // Lahore centroid (cities.yaml parity)
+        expect(
+          repo.latitude,
+          31.5497,
+        ); // Lahore centroid (cities.yaml parity)
         expect(repo.longitude, 74.3436);
       },
     );
@@ -378,7 +687,11 @@ void main() {
             body: HospitalList(
               hospitals: [
                 _hospital('Mayo Hospital', phone: '042111', distance: 1.2),
-                _hospital('Services Hospital', phone: '042222', distance: 2.8),
+                _hospital(
+                  'Services Hospital',
+                  phone: '042222',
+                  distance: 2.8,
+                ),
               ],
               onCall: (h) => called = h,
               onDirections: (h) => directed = h,
@@ -743,6 +1056,63 @@ void main() {
     });
 
     testWidgets(
+      'distance and rating controls sort and filter locally, then reset',
+      (tester) async {
+        var loads = 0;
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(800, 1200);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentCityRiskProvider.overrideWith((_) async => null),
+              nearbyHospitalsProvider.overrideWith((_) async {
+                loads++;
+                return NearbyHospitalsResult(
+                  hospitals: [
+                    const Hospital(
+                      id: 'far',
+                      name: 'Rated Clinic',
+                      address: 'Jail Road',
+                      latitude: 31.5,
+                      longitude: 74.3,
+                      distanceKm: 6,
+                      rating: 4.8,
+                      kind: FacilityKind.clinic,
+                    ),
+                    _hospital('Closest Hospital'),
+                  ],
+                  fetchedAt: DateTime.utc(2026),
+                  servedFromCache: false,
+                );
+              }),
+            ],
+            child: app,
+          ),
+        );
+        await tester.pumpAndSettle();
+        double top(String name) => tester.getTopLeft(find.text(name)).dy;
+        expect(top('Closest Hospital'), lessThan(top('Rated Clinic')));
+        expect(find.text('Clinic'), findsOneWidget);
+        await tester.tap(find.text('Highest rated first'));
+        await tester.pumpAndSettle();
+        expect(top('Rated Clinic'), lessThan(top('Closest Hospital')));
+        await tester.tap(find.text('Within 5 km'));
+        await tester.pumpAndSettle();
+        expect(find.text('Rated Clinic'), findsNothing);
+        await tester.tap(find.text('Reset filters'));
+        await tester.pumpAndSettle();
+        expect(top('Closest Hospital'), lessThan(top('Rated Clinic')));
+        await tester.enterText(find.byType(TextField), 'Jail Road');
+        await tester.pumpAndSettle();
+        expect(find.text('Rated Clinic'), findsOneWidget);
+        expect(find.text('Closest Hospital'), findsNothing);
+        expect(loads, 1);
+      },
+    );
+
+    testWidgets(
       'a search with no matches shows the filtered-empty state, distinct '
       'from true-empty, with a clear-filters action',
       (tester) async {
@@ -816,7 +1186,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Open now'), findsWidgets); // filter chip + card chip
+        expect(
+          find.text('Open now'),
+          findsWidgets,
+        ); // filter chip + card chip
         await tester.tap(find.text('Open now').first);
         await tester.pumpAndSettle();
 

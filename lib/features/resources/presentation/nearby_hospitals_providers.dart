@@ -51,37 +51,75 @@ final cityFallbackRequestedProvider =
 /// * [PlacesRequestException] / [PlacesQuotaExceededException] — API errors.
 /// There is **no** "not configured" state: the key is resolved at startup, and an
 /// empty key degrades to a normal error, not a placeholder screen.
-final nearbyHospitalsProvider = FutureProvider<NearbyHospitalsResult>((
-  ref,
-) async {
+final nearbyHospitalsProvider = FutureProvider<NearbyHospitalsResult>(
+  (ref) => _loadNearby(ref, allowProfile: true),
+  retry: (_, _) => null,
+);
+
+/// Public emergency directory. This provider has no profile or risk dependency.
+final publicNearbyHospitalsProvider =
+    FutureProvider.autoDispose<NearbyHospitalsResult>(
+      (ref) => _loadNearby(ref, allowProfile: false),
+      retry: (_, _) => null,
+    );
+
+Future<NearbyHospitalsResult> _loadNearby(
+  Ref ref, {
+  required bool allowProfile,
+}) async {
   if (ref.watch(placesApiKeyProvider).isEmpty) {
     // Misconfiguration is treated as a plain API error (retryable), never a
     // "coming soon"/"not configured" placeholder.
     throw const PlacesRequestException(401, 'Missing Maps/Places API key');
   }
 
-  final (latitude, longitude) = await _resolveOrigin(ref);
+  final repository = ref.watch(placesRepositoryProvider);
+  final (latitude, longitude, devicePosition) = await _resolveOrigin(
+    ref,
+    allowProfile: allowProfile,
+  );
+  if (!ref.mounted) throw const LocationUnavailableException();
 
-  return ref
-      .watch(placesRepositoryProvider)
-      .nearbyHospitals(latitude: latitude, longitude: longitude);
-});
+  final result = await repository.nearbyHospitals(
+    latitude: latitude,
+    longitude: longitude,
+  );
+  return NearbyHospitalsResult(
+    hospitals: result.hospitals,
+    fetchedAt: result.fetchedAt,
+    servedFromCache: result.servedFromCache,
+    devicePosition: devicePosition,
+  );
+}
 
 /// Resolves the search origin from the device location, or the profile-city
 /// centroid when the user has explicitly requested the city fallback.
-Future<(double, double)> _resolveOrigin(Ref ref) async {
-  if (ref.watch(cityFallbackRequestedProvider)) {
-    return _cityOrigin(ref);
+Future<(double, double, LocationResult?)> _resolveOrigin(
+  Ref ref, {
+  required bool allowProfile,
+}) async {
+  if (allowProfile && ref.watch(cityFallbackRequestedProvider)) {
+    final (latitude, longitude) = await _cityOrigin(ref);
+    return (latitude, longitude, null);
   }
 
-  final location = await ref.watch(locationServiceProvider).currentLocation();
-  if (location.status == LocationStatus.granted) {
-    return (location.latitude!, location.longitude!);
+  final location = await ref
+      .watch(locationServiceProvider)
+      .currentLocation();
+  if (!ref.mounted) throw const LocationUnavailableException();
+  if (location.hasValidFix) {
+    return (location.latitude!, location.longitude!, location);
   }
 
   // Denied or services-off: surface a permission state, carrying the city so the
   // UI can offer "search near my city".
-  final city = await ref.watch(userCityProvider.future);
+  final city = allowProfile
+      ? await ref.watch(userCityProvider.future)
+      : null;
+  if (location.status == LocationStatus.noFix ||
+      location.status == LocationStatus.granted) {
+    throw LocationUnavailableException(fallbackCity: city);
+  }
   throw LocationPermissionDeniedException(
     fallbackCity: city,
     servicesDisabled: location.status == LocationStatus.unavailable,

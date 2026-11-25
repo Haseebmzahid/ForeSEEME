@@ -6,6 +6,9 @@ abstract class LocationService {
   /// denied/unavailable result — never throws for the permission path.
   Future<LocationResult> currentLocation();
 
+  /// Watches foreground fixes without requesting permission.
+  Stream<LocationResult> watchLocation();
+
   /// Opens the OS app-settings screen so the user can grant location permission.
   Future<void> openAppSettings();
 

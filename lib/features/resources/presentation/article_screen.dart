@@ -78,7 +78,10 @@ class _ArticleScreenState extends ConsumerState<ArticleScreen> {
             ),
           ),
           if (article == null)
-            _MissingArticle(theme: theme, pad: pad)
+            if (ref.watch(resourceArticlesAsyncProvider).isLoading)
+              const Center(child: CircularProgressIndicator())
+            else
+              _MissingArticle(theme: theme, pad: pad)
           else
             NotificationListener<ScrollNotification>(
               onNotification: (n) {
@@ -410,7 +413,7 @@ class _GlassCircleButton extends StatelessWidget {
   final ResourceCenterTheme theme;
   final String tooltip;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -418,6 +421,7 @@ class _GlassCircleButton extends StatelessWidget {
       message: tooltip,
       child: Semantics(
         button: true,
+        enabled: onTap != null,
         label: tooltip,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -634,23 +638,61 @@ class _MissingArticle extends StatelessWidget {
   }
 }
 
-class _BookmarkAction extends ConsumerWidget {
+class _BookmarkAction extends ConsumerStatefulWidget {
   const _BookmarkAction({required this.theme, required this.articleId});
 
   final ResourceCenterTheme theme;
   final String articleId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookmarked = ref.watch(
-      bookmarkedArticleIdsProvider.select((ids) => ids.contains(articleId)),
-    );
+  ConsumerState<_BookmarkAction> createState() => _BookmarkActionState();
+}
+
+class _BookmarkActionState extends ConsumerState<_BookmarkAction> {
+  String? _writingFor;
+
+  Future<void> _save(String uid, bool saved) async {
+    if (ref.read(bookmarkOwnerProvider) != uid) return;
+    setState(() => _writingFor = uid);
+    try {
+      await ref.read(articleBookmarkStoreProvider).setSaved(
+        uid, widget.articleId, saved: saved,
+      );
+    } catch (_) {
+      if (mounted && ref.read(bookmarkOwnerProvider) == uid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update the bookmark. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted && _writingFor == uid) setState(() => _writingFor = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = ref.watch(bookmarkOwnerProvider);
+    final snapshot = ref.watch(articleBookmarksProvider);
+    final data = snapshot.asData?.value;
+    final bookmarked = data?.ids.contains(widget.articleId) ?? false;
+    final pending = uid != null && (_writingFor == uid || data?.pending == true);
     return _GlassCircleButton(
-      theme: theme,
-      tooltip: bookmarked ? 'Remove bookmark' : 'Bookmark this guide',
-      icon: bookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-      onTap: () =>
-          ref.read(bookmarkedArticleIdsProvider.notifier).toggle(articleId),
+      theme: widget.theme,
+      tooltip: pending
+          ? 'Bookmark sync pending'
+          : snapshot.hasError
+          ? 'Bookmarks unavailable'
+          : bookmarked
+          ? 'Remove bookmark'
+          : 'Bookmark this guide',
+      icon: pending
+          ? Icons.sync_rounded
+          : bookmarked
+          ? Icons.bookmark_rounded
+          : Icons.bookmark_border_rounded,
+      onTap: uid == null || data == null || pending
+          ? null
+          : () => _save(uid, !bookmarked),
     );
   }
 }

@@ -134,7 +134,7 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
       hours: _facilityHours(hospital),
       updated: 'RECORD ${_relativeAge(fetchedAt)}',
       phone: hospital.hasPhone ? hospital.phoneNumber : null,
-      onDirections: () => openHospitalDirections(ref, hospital),
+      onDirections: () => openHospitalDirections(context, ref, hospital),
       onCall: hospital.hasPhone
           ? () => callHospital(context, ref, hospital)
           : null,
@@ -200,9 +200,20 @@ class _ResourceCenterScreenState extends ConsumerState<ResourceCenterScreen> {
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(pad, 12, pad, 0),
-                child: RcSearchButton(
-                  theme: theme,
-                  onTap: () => _openSearch(theme, visible),
+                child: Row(
+                  children: [
+                    Expanded(child: RcSearchButton(
+                      theme: theme,
+                      onTap: () => _openSearch(theme, visible),
+                    )),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Saved Articles',
+                      color: theme.fg,
+                      onPressed: () => context.push('/resources/saved'),
+                      icon: const Icon(Icons.bookmarks_outlined),
+                    ),
+                  ],
                 ),
               ),
               Padding(
@@ -776,9 +787,7 @@ class _FullCatalogue extends StatelessWidget {
 
 // ── Facility copy ────────────────────────────────────────────────────────────
 
-/// The Places lookup queries hospitals, so the type line says exactly that —
-/// it is never inferred from the facility's name.
-String _facilityType(Hospital hospital) => 'HOSPITAL';
+String _facilityType(Hospital hospital) => hospital.kind.label.toUpperCase();
 
 /// Opening hours are shown only when Places actually returned them; otherwise
 /// the prototype's own honest placeholder stands.

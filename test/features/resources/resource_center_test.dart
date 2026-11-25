@@ -1,15 +1,16 @@
 import 'dart:async';
 
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fyp_foreseeme/core/services/launcher_service.dart';
 import 'package:fyp_foreseeme/core/services/share_service.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/resources/data/repositories/static_resource_repository.dart';
+import 'package:fyp_foreseeme/features/resources/data/repositories/firestore_article_bookmarks.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/resource_article.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
@@ -17,6 +18,7 @@ import 'package:fyp_foreseeme/features/resources/presentation/article_bookmark_p
 import 'package:fyp_foreseeme/features/resources/presentation/article_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/saved_articles_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resources_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_center_chrome.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/resource_center_sheets.dart';
@@ -55,6 +57,16 @@ class FakeShareService implements ShareService {
   }
 }
 
+class _RejectedBookmarkStore extends Fake implements FirestoreArticleBookmarks {
+  @override
+  Stream<ArticleBookmarks> watch(String uid) => Stream.value(const ArticleBookmarks());
+
+  @override
+  Future<void> setSaved(String uid, String articleId, {required bool saved}) async {
+    throw StateError('fixture write failure');
+  }
+}
+
 /// Builds a router mirroring the app's `/resources` + nested article route,
 /// so navigation (push to article, pop back) exercises real GoRouter behaviour
 /// rather than a mocked callback.
@@ -66,6 +78,10 @@ GoRouter _buildRouter() {
         path: '/resources',
         builder: (context, state) => const ResourceCenterScreen(),
         routes: [
+          GoRoute(
+            path: 'saved',
+            builder: (_, _) => const SavedArticlesScreen(),
+          ),
           GoRoute(
             path: 'article/:articleId',
             builder: (context, state) =>
@@ -88,10 +104,9 @@ GoRouter _buildRouter() {
 Future<FakeLauncherService> pumpCenter(
   WidgetTester tester, {
   List<dynamic> extraOverrides = const [],
+  String? bookmarkUid,
 }) async {
   final launcher = FakeLauncherService();
-  SharedPreferences.setMockInitialValues({});
-  final prefs = await SharedPreferences.getInstance();
 
   // A tall viewport so the whole (lazy) list renders for assertions.
   tester.view.physicalSize = const Size(800, 3600);
@@ -103,9 +118,7 @@ Future<FakeLauncherService> pumpCenter(
     ProviderScope(
       overrides: [
         launcherServiceProvider.overrideWithValue(launcher),
-        articleBookmarkStoreProvider.overrideWithValue(
-          ArticleBookmarkStore(prefs),
-        ),
+        bookmarkOwnerProvider.overrideWithValue(bookmarkUid),
         // Sprint M8.3: the default `resourceRepositoryProvider` now performs a
         // real Firestore read; pin it to the deterministic static fixture so
         // these tests stay fast, offline, and independent of seed state.
@@ -246,8 +259,6 @@ void main() {
   group('loading', () {
     testWidgets('the field assembles behind shimmering slabs', (tester) async {
       final gate = Completer<List<ResourceArticle>>();
-      SharedPreferences.setMockInitialValues({});
-      final prefs = await SharedPreferences.getInstance();
 
       tester.view.physicalSize = const Size(390, 1600);
       tester.view.devicePixelRatio = 1.0;
@@ -257,9 +268,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            articleBookmarkStoreProvider.overrideWithValue(
-              ArticleBookmarkStore(prefs),
-            ),
+            bookmarkOwnerProvider.overrideWithValue(null),
             resourceArticlesAsyncProvider.overrideWith((ref) => gate.future),
           ],
           child: MaterialApp.router(
@@ -603,6 +612,29 @@ void main() {
   });
 
   group('article navigation', () {
+    testWidgets('saved view reports pending sync and tolerates an unavailable guide', (tester) async {
+      await pumpCenter(tester, bookmarkUid: 'alice', extraOverrides: [
+        articleBookmarksProvider.overrideWithValue(const AsyncData(ArticleBookmarks(
+          ids: {'unpublished-guide'}, pending: true, cached: true,
+        ))),
+      ]);
+      await tester.tap(find.byTooltip('Saved Articles'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bookmark changes are waiting to sync.'), findsOneWidget);
+      expect(find.text('One saved article is unavailable.'), findsOneWidget);
+    });
+
+    testWidgets('a rejected bookmark write reports the failure without marking saved', (tester) async {
+      await pumpCenter(tester, bookmarkUid: 'alice', extraOverrides: [
+        articleBookmarkStoreProvider.overrideWithValue(_RejectedBookmarkStore()),
+      ]);
+      await tester.tap(_gridCardFor('Protecting your lungs on smog days'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.bookmark_border_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not update the bookmark. Try again.'), findsOneWidget);
+      expect(find.byIcon(Icons.bookmark_rounded), findsNothing);
+    });
     testWidgets('opening a guide pushes the routed article screen', (
       tester,
     ) async {
@@ -640,8 +672,15 @@ void main() {
       expect(find.byType(ArticleScreen), findsOneWidget);
     });
 
-    testWidgets('bookmarking an article persists across a pop', (tester) async {
-      await pumpCenter(tester);
+    testWidgets('save, reopen from Saved Articles, and remove', (tester) async {
+      final db = FakeFirebaseFirestore();
+      await pumpCenter(
+        tester,
+        bookmarkUid: 'alice',
+        extraOverrides: [
+          articleBookmarkStoreProvider.overrideWithValue(FirestoreArticleBookmarks(db)),
+        ],
+      );
 
       await tester.tap(_gridCardFor('Protecting your lungs on smog days'));
       await tester.pumpAndSettle();
@@ -653,10 +692,17 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.arrow_back_rounded));
       await tester.pumpAndSettle();
-      await tester.tap(_gridCardFor('Protecting your lungs on smog days'));
+      await tester.tap(find.byTooltip('Saved Articles'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Protecting your lungs on smog days'));
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.bookmark_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('No saved articles yet.'), findsOneWidget);
     });
 
     testWidgets('sharing an article hands the platform sheet its title, '

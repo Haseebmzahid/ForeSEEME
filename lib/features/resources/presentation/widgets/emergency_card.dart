@@ -64,7 +64,7 @@ class EmergencyCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Tap to call now',
+                        'Call ${contact.number}',
                         style: text.bodySmall?.copyWith(
                           color: palette.textTertiary,
                         ),

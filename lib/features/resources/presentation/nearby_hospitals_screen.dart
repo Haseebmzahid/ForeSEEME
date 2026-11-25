@@ -10,8 +10,11 @@ import 'package:fyp_foreseeme/core/widgets/brand_loading.dart';
 import 'package:fyp_foreseeme/core/widgets/empty_state.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
 import 'package:fyp_foreseeme/core/widgets/offline_state.dart';
+import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/resources/domain/exceptions/places_exception.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
+import 'package:fyp_foreseeme/features/resources/domain/models/location_result.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/nearby_care_tracking.dart';
 import 'package:fyp_foreseeme/features/resources/domain/models/nearby_hospitals_result.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_providers.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/services/hospital_actions.dart';
@@ -26,18 +29,28 @@ import 'package:fyp_foreseeme/features/risk/presentation/risk_provider.dart';
 /// no results, network error, API error, or a successful list — searchable and
 /// filterable **over the real fetched set** (no new API calls, nothing invented).
 class NearbyHospitalsScreen extends ConsumerStatefulWidget {
-  const NearbyHospitalsScreen({super.key});
+  const NearbyHospitalsScreen({super.key, this.publicDirectory = false});
+
+  final bool publicDirectory;
 
   @override
   ConsumerState<NearbyHospitalsScreen> createState() =>
       _NearbyHospitalsScreenState();
 }
 
-class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
+class _NearbyHospitalsScreenState
+    extends ConsumerState<NearbyHospitalsScreen> {
   // Owned here (not recreated per build) so typing keeps focus/cursor
   // position; the listener re-renders on every keystroke via setState.
   final TextEditingController _searchController = TextEditingController();
   bool _openNowOnly = false;
+  bool _withinFiveKm = false;
+  bool _topRatedFirst = false;
+
+  FutureProvider<NearbyHospitalsResult> get _directoryProvider =>
+      widget.publicDirectory
+      ? publicNearbyHospitalsProvider
+      : nearbyHospitalsProvider;
 
   @override
   void initState() {
@@ -56,27 +69,56 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
 
   void _clearFilters() {
     _searchController.clear();
-    setState(() => _openNowOnly = false);
+    setState(() {
+      _openNowOnly = false;
+      _withinFiveKm = false;
+      _topRatedFirst = false;
+    });
   }
 
-  List<Hospital> _visible(List<Hospital> all) {
-    final q = _searchController.text.trim().toLowerCase();
-    return [
+  List<Hospital> Function(List<Hospital>) _currentFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    final openNowOnly = _openNowOnly;
+    final withinFiveKm = _withinFiveKm;
+    final topRatedFirst = _topRatedFirst;
+    return (all) =>
+        _visible(all, query, openNowOnly, withinFiveKm, topRatedFirst);
+  }
+
+  static List<Hospital> _visible(
+    List<Hospital> all,
+    String query,
+    bool openNowOnly,
+    bool withinFiveKm,
+    bool topRatedFirst,
+  ) {
+    final visible = [
       for (final h in all)
-        if ((q.isEmpty ||
-                h.name.toLowerCase().contains(q) ||
-                h.address.toLowerCase().contains(q)) &&
-            (!_openNowOnly || h.openNow == true))
+        if ((query.isEmpty ||
+                h.name.toLowerCase().contains(query) ||
+                h.address.toLowerCase().contains(query)) &&
+            (!openNowOnly || h.openNow == true) &&
+            (!withinFiveKm || h.distanceKm <= 5))
           h,
     ];
+    visible.sort((first, second) {
+      if (topRatedFirst) {
+        final byRating = (second.rating ?? -1).compareTo(first.rating ?? -1);
+        if (byRating != 0) return byRating;
+      }
+      return first.distanceKm.compareTo(second.distanceKm);
+    });
+    return visible;
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.fsmPalette;
-    final async = ref.watch(nearbyHospitalsProvider);
+    final async = ref.watch(_directoryProvider);
     final isHigh =
-        ref.watch(currentCityRiskProvider).value?.riskLevel == RiskLevel.high;
+        !widget.publicDirectory &&
+        ref.watch(currentCityRiskProvider).value?.riskLevel ==
+            RiskLevel.high;
 
     return Scaffold(
       backgroundColor: palette.background,
@@ -87,9 +129,17 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           tooltip: 'Back',
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(
+                widget.publicDirectory ? '/emergency' : '/resources',
+              );
+            }
+          },
         ),
-        title: Text('Nearby Hospitals', style: context.fsmText.titleLarge),
+        title: Text('Nearby Care', style: context.fsmText.titleLarge),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -110,7 +160,35 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
                   'Getting your location and searching facilities near you.',
             ),
             error: (error, _) => _errorView(context, ref, error),
-            data: (result) => _dataView(context, ref, result, isHigh),
+            data: (result) => NearbyCareTracking(
+              initial: result,
+              builder: (result, loss, lookupDelayed) {
+                if (loss != null) {
+                  return Consumer(
+                    builder: (context, locationRef, _) {
+                      final city = widget.publicDirectory
+                          ? null
+                          : locationRef.watch(userCityProvider).value;
+                      final error = loss == LocationStatus.noFix
+                          ? LocationUnavailableException(fallbackCity: city)
+                          : LocationPermissionDeniedException(
+                              fallbackCity: city,
+                              servicesDisabled:
+                                  loss == LocationStatus.unavailable,
+                            );
+                      return _errorView(context, locationRef, error);
+                    },
+                  );
+                }
+                return _dataView(
+                  context,
+                  ref,
+                  result,
+                  isHigh,
+                  lookupDelayed,
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -124,6 +202,7 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
     WidgetRef ref,
     NearbyHospitalsResult result,
     bool isHigh,
+    bool lookupDelayed,
   ) {
     if (result.hospitals.isEmpty) {
       return _RefreshWrap(
@@ -138,8 +217,15 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
       );
     }
 
-    final visible = _visible(result.hospitals);
+    final filter = _currentFilter();
+    final visible = filter(result.hospitals);
     final anyOpenNowData = result.hospitals.any((h) => h.openNow != null);
+    final anyRating = result.hospitals.any((h) => h.hasRating);
+    final filtered =
+        _openNowOnly ||
+        _withinFiveKm ||
+        _topRatedFirst ||
+        _searchController.text.trim().isNotEmpty;
 
     return RefreshIndicator(
       color: context.fsmPalette.primary,
@@ -149,26 +235,58 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         children: [
-          if (isHigh) ...[const _HighRiskBanner(), const SizedBox(height: 16)],
-          _SearchField(controller: _searchController),
-          if (anyOpenNowData) ...[
-            const SizedBox(height: 10),
-            _OpenNowFilterChip(
-              selected: _openNowOnly,
-              onSelected: (v) => setState(() => _openNowOnly = v),
-            ),
+          if (isHigh) ...[
+            const _HighRiskBanner(),
+            const SizedBox(height: 16),
           ],
+          if (lookupDelayed)
+            const Text(
+              'Could not refresh this area. Showing the previous search.',
+            ),
+          _SearchField(controller: _searchController),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (anyOpenNowData)
+                _OpenNowFilterChip(
+                  selected: _openNowOnly,
+                  onSelected: (v) => setState(() => _openNowOnly = v),
+                ),
+              FilterChip(
+                label: const Text('Within 5 km'),
+                selected: _withinFiveKm,
+                onSelected: (v) => setState(() => _withinFiveKm = v),
+              ),
+              if (anyRating)
+                FilterChip(
+                  label: const Text('Highest rated first'),
+                  selected: _topRatedFirst,
+                  onSelected: (v) => setState(() => _topRatedFirst = v),
+                ),
+              if (filtered && visible.isNotEmpty)
+                TextButton(
+                  onPressed: _clearFilters,
+                  child: const Text('Reset filters'),
+                ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (visible.isEmpty)
             _FilteredEmptyState(onClear: _clearFilters)
           else ...[
-            _ViewOnMapButton(onTap: () => _openMap(context, visible)),
+            _ViewOnMapButton(
+              onTap: () =>
+                  _openMap(context, NearbyCareMapArguments(result, filter)),
+            ),
             const SizedBox(height: 16),
             HospitalList(
               hospitals: visible,
               onTap: (h) => _openDetail(context, ref, h),
               onCall: (h) => callHospital(context, ref, h),
-              onDirections: (h) => openHospitalDirections(ref, h),
+              onDirections: (h) => openHospitalDirections(context, ref, h),
             ),
           ],
           const SizedBox(height: 8),
@@ -203,14 +321,27 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
     }
 
     if (error is LocationUnavailableException) {
+      if (error.fallbackCity != null) {
+        return _RefreshWrap(
+          onRefresh: () => _refresh(ref),
+          child: _PermissionDeniedView(
+            servicesDisabled: false,
+            fixUnavailable: true,
+            fallbackCity: error.fallbackCity,
+            onEnableLocation: () => _retry(ref),
+            onSearchNearCity: () => _searchNearCity(ref),
+            onRetry: () => _retry(ref),
+          ),
+        );
+      }
       return _RefreshWrap(
         onRefresh: () => _refresh(ref),
         child: _Centered(
           icon: Icons.location_off_rounded,
           title: 'Location needed',
-          message:
-              'Enable location, or set your city in your profile, to find '
-              'nearby hospitals.',
+          message: widget.publicDirectory
+              ? 'Could not get a device location. Try again to look up nearby care.'
+              : 'Could not get a device location. Try again or set your city in your profile.',
           onRetry: () => _retry(ref),
           retryLabel: 'Try again',
         ),
@@ -247,9 +378,9 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
   // ── Actions ────────────────────────────────────────────────────────────────
 
   Future<void> _refresh(WidgetRef ref) async {
-    ref.invalidate(nearbyHospitalsProvider);
+    ref.invalidate(_directoryProvider);
     try {
-      await ref.read(nearbyHospitalsProvider.future);
+      await ref.read(_directoryProvider.future);
     } catch (_) {
       // The error is rendered by the `when` builder; swallow here so the
       // RefreshIndicator spinner completes.
@@ -257,13 +388,15 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
   }
 
   void _retry(WidgetRef ref) {
-    ref.read(cityFallbackRequestedProvider.notifier).reset();
-    ref.invalidate(nearbyHospitalsProvider);
+    if (!widget.publicDirectory) {
+      ref.read(cityFallbackRequestedProvider.notifier).reset();
+    }
+    ref.invalidate(_directoryProvider);
   }
 
   void _searchNearCity(WidgetRef ref) {
     ref.read(cityFallbackRequestedProvider.notifier).useCity();
-    ref.invalidate(nearbyHospitalsProvider);
+    ref.invalidate(_directoryProvider);
   }
 
   Future<void> _enableLocation(
@@ -271,16 +404,34 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
     required bool servicesDisabled,
   }) async {
     final service = ref.read(locationServiceProvider);
-    if (servicesDisabled) {
-      await service.openLocationServiceSettings();
-    } else {
-      await service.openAppSettings();
+    try {
+      if (servicesDisabled) {
+        await service.openLocationServiceSettings();
+      } else {
+        await service.openAppSettings();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not open location settings. Check your device settings.',
+            ),
+          ),
+        );
+      }
+      return;
     }
-    _retry(ref);
+    if (mounted) _retry(ref);
   }
 
-  void _openMap(BuildContext context, List<Hospital> hospitals) {
-    context.push('/nearby-hospitals/map', extra: hospitals);
+  void _openMap(BuildContext context, NearbyCareMapArguments arguments) {
+    context.push(
+      widget.publicDirectory
+          ? '/emergency/nearby/map'
+          : '/nearby-hospitals/map',
+      extra: arguments,
+    );
   }
 
   void _openDetail(BuildContext context, WidgetRef ref, Hospital hospital) {
@@ -291,16 +442,15 @@ class _NearbyHospitalsScreenState extends ConsumerState<NearbyHospitalsScreen> {
       builder: (_) => HospitalDetailSheet(
         hospital: hospital,
         onCall: () => callHospital(context, ref, hospital),
-        onDirections: () => openHospitalDirections(ref, hospital),
+        onDirections: () => openHospitalDirections(context, ref, hospital),
       ),
     );
   }
 
   String _freshnessLabel(NearbyHospitalsResult result) {
-    if (!result.servedFromCache) return 'Updated just now';
     final mins = DateTime.now().difference(result.fetchedAt).inMinutes;
-    if (mins <= 0) return 'Cached just now';
-    return 'Cached $mins min ago';
+    final prefix = result.servedFromCache ? 'Cached' : 'Updated';
+    return mins <= 0 ? '$prefix just now' : '$prefix $mins min ago';
   }
 }
 
@@ -319,10 +469,17 @@ class _SearchField extends StatelessWidget {
       child: Container(
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: ForeSeeMeSurface.card(context, radius: ForeSeeMeRadius.sm),
+        decoration: ForeSeeMeSurface.card(
+          context,
+          radius: ForeSeeMeRadius.sm,
+        ),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, size: 20, color: palette.textTertiary),
+            Icon(
+              Icons.search_rounded,
+              size: 20,
+              color: palette.textTertiary,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -370,7 +527,10 @@ class _SearchField extends StatelessWidget {
 class _OpenNowFilterChip extends StatelessWidget {
   final bool selected;
   final ValueChanged<bool> onSelected;
-  const _OpenNowFilterChip({required this.selected, required this.onSelected});
+  const _OpenNowFilterChip({
+    required this.selected,
+    required this.onSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -390,17 +550,23 @@ class _OpenNowFilterChip extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? accent.withValues(alpha: 0.16) : Colors.transparent,
+              color: selected
+                  ? accent.withValues(alpha: 0.16)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(ForeSeeMeRadius.full),
               border: Border.all(
-                color: selected ? accent.withValues(alpha: 0.5) : palette.outlineVariant,
+                color: selected
+                    ? accent.withValues(alpha: 0.5)
+                    : palette.outlineVariant,
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  selected ? Icons.check_circle_rounded : Icons.schedule_rounded,
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.schedule_rounded,
                   size: 15,
                   color: selected ? accent : palette.textSecondary,
                 ),
@@ -432,7 +598,11 @@ class _FilteredEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 28),
       child: Column(
         children: [
-          Icon(Icons.filter_alt_off_outlined, size: 40, color: palette.textTertiary),
+          Icon(
+            Icons.filter_alt_off_outlined,
+            size: 40,
+            color: palette.textTertiary,
+          ),
           const SizedBox(height: 12),
           Text(
             'No hospitals match your search',
@@ -477,7 +647,10 @@ class _ViewOnMapButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
@@ -509,6 +682,7 @@ class _ViewOnMapButton extends StatelessWidget {
 
 class _PermissionDeniedView extends StatelessWidget {
   final bool servicesDisabled;
+  final bool fixUnavailable;
   final String? fallbackCity;
   final VoidCallback onEnableLocation;
   final VoidCallback onSearchNearCity;
@@ -516,6 +690,7 @@ class _PermissionDeniedView extends StatelessWidget {
 
   const _PermissionDeniedView({
     required this.servicesDisabled,
+    this.fixUnavailable = false,
     required this.fallbackCity,
     required this.onEnableLocation,
     required this.onSearchNearCity,
@@ -542,7 +717,9 @@ class _PermissionDeniedView extends StatelessWidget {
             Semantics(
               header: true,
               child: Text(
-                servicesDisabled
+                fixUnavailable
+                    ? 'Device location unavailable'
+                    : servicesDisabled
                     ? 'Location is turned off'
                     : 'Location permission needed',
                 style: context.fsmText.titleLarge,
@@ -551,7 +728,9 @@ class _PermissionDeniedView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              servicesDisabled
+              fixUnavailable
+                  ? 'Try again for a device location, or use your profile city.'
+                  : servicesDisabled
                   ? 'Turn on location services so we can find hospitals near '
                         'you.'
                   : 'Allow location access so we can find hospitals near you.',
@@ -561,13 +740,14 @@ class _PermissionDeniedView extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 22),
-            _PrimaryAction(
-              icon: Icons.my_location_rounded,
-              label: servicesDisabled
-                  ? 'Open location settings'
-                  : 'Enable location',
-              onTap: onEnableLocation,
-            ),
+            if (!fixUnavailable)
+              _PrimaryAction(
+                icon: Icons.my_location_rounded,
+                label: servicesDisabled
+                    ? 'Open location settings'
+                    : 'Enable location',
+                onTap: onEnableLocation,
+              ),
             if (fallbackCity != null) ...[
               const SizedBox(height: 12),
               _SecondaryAction(
@@ -611,7 +791,10 @@ class _PrimaryAction extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 13,
+            ),
             decoration: BoxDecoration(
               gradient: context.fsmColors.gradients.brand,
               borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
@@ -659,7 +842,10 @@ class _SecondaryAction extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),
           child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 12,
+            ),
             decoration: BoxDecoration(
               color: palette.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(ForeSeeMeRadius.sm),

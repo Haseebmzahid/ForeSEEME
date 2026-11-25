@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
@@ -105,7 +104,6 @@ GoRouter _router({String initialLocation = '/resources'}) => GoRouter(
 
 Widget _host({
   required Brightness brightness,
-  required SharedPreferences prefs,
   double textScale = 1.0,
   RiskLevel? risk,
   String initialLocation = '/resources',
@@ -118,7 +116,7 @@ Widget _host({
     if (withFixtureCare)
       nearbyHospitalsProvider.overrideWith((ref) async => _fixtureCare()),
     resourceRepositoryProvider.overrideWithValue(const StaticResourceRepository()),
-    articleBookmarkStoreProvider.overrideWithValue(ArticleBookmarkStore(prefs)),
+    bookmarkOwnerProvider.overrideWithValue(null),
     userCityProvider.overrideWith((ref) => risk == null ? null : 'Lahore'),
     if (risk != null)
       riskRepositoryProvider.overrideWithValue(
@@ -148,11 +146,6 @@ Widget _host({
 void main() {
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
-  late SharedPreferences prefs;
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    prefs = await SharedPreferences.getInstance();
-  });
 
   const sizes = <String, Size>{
     '360x800': Size(360, 800),
@@ -175,7 +168,7 @@ void main() {
         tester.view.devicePixelRatio = 1.0;
         addTearDown(tester.view.reset);
 
-        await tester.pumpWidget(_host(brightness: brightness, prefs: prefs));
+        await tester.pumpWidget(_host(brightness: brightness));
         await settle(tester);
 
         await expectLater(
@@ -197,7 +190,7 @@ void main() {
           tester.view.devicePixelRatio = 1.0;
           addTearDown(tester.view.reset);
 
-          await tester.pumpWidget(_host(brightness: brightness, prefs: prefs));
+          await tester.pumpWidget(_host(brightness: brightness));
           await settle(tester);
 
           await tester.drag(
@@ -226,7 +219,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_host(brightness: brightness, prefs: prefs));
+      await tester.pumpWidget(_host(brightness: brightness));
       await settle(tester);
 
       await expectLater(
@@ -246,7 +239,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        _host(brightness: Brightness.dark, prefs: prefs, risk: risk),
+        _host(brightness: Brightness.dark, risk: risk),
       );
       await settle(tester);
 
@@ -269,7 +262,6 @@ void main() {
         await tester.pumpWidget(
           _host(
             brightness: brightness,
-            prefs: prefs,
             textScale: scale,
             risk: RiskLevel.medium,
             initialLocation: '/resources/article/lungs-smog',
@@ -293,7 +285,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_host(brightness: brightness, prefs: prefs));
+      await tester.pumpWidget(_host(brightness: brightness));
       await settle(tester);
 
       await tester.tap(find.text('Need help now?'));
@@ -311,7 +303,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_host(brightness: brightness, prefs: prefs));
+      await tester.pumpWidget(_host(brightness: brightness));
       await settle(tester);
 
       await tester.tap(find.text('Search verified guidance'));
@@ -336,7 +328,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        _host(brightness: brightness, prefs: prefs, withFixtureCare: true),
+        _host(brightness: brightness, withFixtureCare: true),
       );
       await settle(tester);
 
@@ -359,7 +351,6 @@ void main() {
     await tester.pumpWidget(
       _host(
         brightness: Brightness.dark,
-        prefs: prefs,
         withFixtureCare: true,
       ),
     );
@@ -390,7 +381,6 @@ void main() {
         await tester.pumpWidget(
           _host(
             brightness: Brightness.dark,
-            prefs: prefs,
             textScale: scale,
           ),
         );

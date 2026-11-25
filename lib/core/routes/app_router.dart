@@ -27,12 +27,14 @@ import 'package:fyp_foreseeme/features/medication/presentation/check_in_screen.d
 import 'package:fyp_foreseeme/features/medication/presentation/adherence_history_screen.dart';
 
 import 'package:fyp_foreseeme/features/resources/presentation/article_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/emergency_resources_screen.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/saved_articles_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/resource_center_screen.dart';
 import 'package:fyp_foreseeme/features/profile/presentation/profile_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_map_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/risk_details_screen.dart';
 import 'package:fyp_foreseeme/features/risk/presentation/screens/comparison_screen.dart';
-import 'package:fyp_foreseeme/features/resources/domain/models/hospital.dart';
+import 'package:fyp_foreseeme/features/resources/presentation/nearby_care_tracking.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/nearby_hospitals_screen.dart';
 import 'package:fyp_foreseeme/features/resources/presentation/widgets/hospitals_map_screen.dart';
 import 'package:fyp_foreseeme/features/alerts/presentation/notification_permission_screen.dart';
@@ -114,8 +116,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final authState = ref.read(authStateProvider);
       final location = state.matchedLocation;
+      if (const {
+        '/emergency',
+        '/emergency/nearby',
+        '/emergency/nearby/map',
+      }.contains(location)) {
+        return null;
+      }
+      final authState = ref.read(authStateProvider);
       const verificationPath = '/verify-email';
 
       final isAuthRoute =
@@ -209,6 +218,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/emergency',
+        builder: (_, _) => const EmergencyResourcesScreen(),
+        routes: [
+          GoRoute(
+            path: 'nearby',
+            builder: (_, _) =>
+                const NearbyHospitalsScreen(publicDirectory: true),
+            routes: [
+              GoRoute(
+                path: 'map',
+                redirect: (_, state) => state.extra is NearbyCareMapArguments
+                    ? null
+                    : '/emergency/nearby',
+                builder: (_, state) => NearbyCareTrackedMap(
+                  arguments: state.extra as NearbyCareMapArguments,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/health-disclaimer',
@@ -281,9 +312,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'map',
+            redirect: (_, state) => state.extra is NearbyCareMapArguments
+                ? null
+                : '/nearby-hospitals',
             pageBuilder: (context, state) => _motionPage(
               state,
-              HospitalsMapScreen(hospitals: state.extra! as List<Hospital>),
+              NearbyCareTrackedMap(
+                arguments: state.extra as NearbyCareMapArguments,
+              ),
             ),
           ),
         ],
@@ -479,6 +515,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/resources',
                 builder: (context, state) => const ResourceCenterScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'saved',
+                    pageBuilder: (_, state) =>
+                        _motionPage(state, const SavedArticlesScreen()),
+                  ),
                   GoRoute(
                     path: 'article/:articleId',
                     pageBuilder: (context, state) => _motionPage(

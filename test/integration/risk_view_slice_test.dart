@@ -121,9 +121,7 @@ void main() {
               resourceRepositoryProvider.overrideWithValue(
                 const StaticResourceRepository(),
               ),
-              articleBookmarkStoreProvider.overrideWithValue(
-                ArticleBookmarkStore(prefs),
-              ),
+              bookmarkOwnerProvider.overrideWithValue(null),
             ],
             child: MaterialApp(
               home: const ResourceCenterScreen(),

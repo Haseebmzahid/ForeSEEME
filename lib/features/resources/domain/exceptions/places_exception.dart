@@ -29,7 +29,9 @@ class PlacesQuotaExceededException implements Exception {
 /// Raised when neither device location nor a city fallback is available, so we
 /// cannot determine where to search.
 class LocationUnavailableException implements Exception {
-  const LocationUnavailableException();
+  const LocationUnavailableException({this.fallbackCity});
+
+  final String? fallbackCity;
 
   @override
   String toString() =>
