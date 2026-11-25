@@ -35,7 +35,8 @@ def test_authenticated_registration_reassignment_and_delayed_cleanup():
     alice, bob = f"push-alice-{suffix}", f"push-bob-{suffix}"
     password = uuid4().hex
     device = "fixture-" + suffix
-    auth.create_user(uid=alice, email=f"{alice}@example.test", password=password)
+    auth.create_user(uid=alice, email=f"{alice}@example.test", password=password,
+                     email_verified=True)
     auth.create_user(uid=bob, email=f"{bob}@example.test", password=password)
     client = TestClient(admin_api.app, base_url="https://testserver")
     registry = RegistrationStore(db)
@@ -57,6 +58,14 @@ def test_authenticated_registration_reassignment_and_delayed_cleanup():
 
         assert post("register", token_a).status_code == 204
         old, = registry.for_user(alice)
+        pending = post("register", token_b)
+        assert pending.status_code == 403
+        assert pending.json()["detail"]["code"] == "email_verification_required"
+        auth.update_user(bob, email_verified=True)
+        with emulator_client() as http:
+            b = password_sign_in(http, f"{bob}@example.test", password)
+            b.raise_for_status()
+            token_b = b.json()["idToken"]
         assert post("register", token_b).status_code == 204
         assert post("register", token_a).status_code == 409
         assert post("unregister", token_a).status_code == 204
@@ -83,7 +92,7 @@ def test_logout_receipt_retries_and_fresh_sign_in_on_real_emulators():
     email, password = f"{uid}@example.test", uuid4().hex
     device = f"device-{uid}"
     cutoff = db.collection("sessionRevocations").document(uid)
-    auth.create_user(uid=uid, email=email, password=password)
+    auth.create_user(uid=uid, email=email, password=password, email_verified=True)
     client = TestClient(admin_api.app, base_url="https://testserver")
     try:
         with emulator_client() as http:
@@ -159,7 +168,8 @@ def test_admin_workflow(monkeypatch):
     email = f"{uid}@example.org"
     actor_email = f"{actor}@example.org"
     password = uuid4().hex
-    auth.create_user(uid=uid, email=email, password=password, display_name="Emulator User")
+    auth.create_user(uid=uid, email=email, password=password, email_verified=True,
+                     display_name="Emulator User")
     auth.create_user(uid=actor, email=actor_email, password=password, email_verified=True)
     http = emulator_client()
     try:

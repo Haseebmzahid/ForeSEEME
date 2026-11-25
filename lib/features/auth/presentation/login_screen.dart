@@ -17,6 +17,7 @@ import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_state.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/widgets/google_auth_button.dart';
 import 'widgets/second_factor_dialog.dart';
+import 'widgets/emergency_help_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,7 +44,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool get _isLoading => _isEmailLoading || _isGoogleLoading;
 
   Future<void> _signIn() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isLoading || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
     setState(() => _isEmailLoading = true);
@@ -56,6 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
     setState(() => _isGoogleLoading = true);
 
     await ref.read(authNotifierProvider.notifier).signInWithGoogle();
@@ -213,7 +215,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                         return 'Email is required';
                                       }
                                       if (!RegExp(
-                                        r'^[^@]+@[^@]+\.[^@]+',
+                                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                                       ).hasMatch(v.trim())) {
                                         return 'Enter a valid email';
                                       }
@@ -313,6 +315,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
 
                           const Spacer(),
+                          const EmergencyHelpButton(),
 
                           // ── Bottom register row ────────────────────
                           Padding(

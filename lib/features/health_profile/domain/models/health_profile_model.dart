@@ -1,17 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Immutable model representing a user's health profile stored under
-/// `users/{uid}/profile` in Firestore.
+/// `users/{uid}/profile/{uid}` in Firestore.
 class HealthProfileModel {
   final String uid;
   final String city;
   final List<String> chronicConditions;
+  final List<String> customConditions;
   final DateTime lastUpdated;
 
   const HealthProfileModel({
     required this.uid,
     required this.city,
     required this.chronicConditions,
+    this.customConditions = const [],
     required this.lastUpdated,
   });
 
@@ -22,7 +24,7 @@ class HealthProfileModel {
   factory HealthProfileModel.fromJson(String uid, Map<String, dynamic> json) {
     DateTime parseDate(dynamic value) {
       if (value is Timestamp) return value.toDate();
-      if (value is String) return DateTime.parse(value);
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
       return DateTime.now();
     }
 
@@ -31,6 +33,9 @@ class HealthProfileModel {
       city: (json['city'] as String?) ?? '',
       chronicConditions: List<String>.from(
         (json['chronicConditions'] as List<dynamic>?) ?? const [],
+      ),
+      customConditions: List<String>.from(
+        (json['customConditions'] as List<dynamic>?) ?? const [],
       ),
       lastUpdated: parseDate(json['lastUpdated']),
     );
@@ -43,6 +48,7 @@ class HealthProfileModel {
       'uid': uid,
       'city': city,
       'chronicConditions': chronicConditions,
+      'customConditions': customConditions,
       'lastUpdated': FieldValue.serverTimestamp(),
     };
   }
@@ -53,12 +59,14 @@ class HealthProfileModel {
     String? uid,
     String? city,
     List<String>? chronicConditions,
+    List<String>? customConditions,
     DateTime? lastUpdated,
   }) {
     return HealthProfileModel(
       uid: uid ?? this.uid,
       city: city ?? this.city,
       chronicConditions: chronicConditions ?? this.chronicConditions,
+      customConditions: customConditions ?? this.customConditions,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
@@ -66,7 +74,7 @@ class HealthProfileModel {
   @override
   String toString() =>
       'HealthProfileModel(uid: $uid, city: $city, '
-      'conditions: $chronicConditions, lastUpdated: $lastUpdated)';
+      'lastUpdated: $lastUpdated)';
 
   @override
   bool operator ==(Object other) =>

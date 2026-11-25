@@ -259,8 +259,11 @@ def change_registration(
 ):
     token = bearer_token(request)
     try:
+        claims = verify_session_token(token)
+        uid, auth_time = session_identity(claims)
+        if register and claims.get("email_verified") is not True:
+            raise problem(403, "email_verification_required")
         store = RegistrationStore(db_client())
-        uid, auth_time = session_identity(verify_session_token(token))
         if register:
             store.register(uid, auth_time, token_value, previous_token)
         else:

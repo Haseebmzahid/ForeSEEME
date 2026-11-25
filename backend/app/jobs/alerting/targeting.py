@@ -81,6 +81,7 @@ class TargetUser:
     conditions: tuple[str, ...]
     registrations: tuple[Registration, ...]
     preferences: dict  # the user's notificationPreferences map
+    custom_conditions: tuple[str, ...] = ()  # Unmapped user-entered labels.
 
 
 @dataclass(frozen=True)

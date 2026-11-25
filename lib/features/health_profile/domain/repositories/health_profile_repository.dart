@@ -11,7 +11,7 @@ abstract class HealthProfileRepository {
   Future<Either<HealthProfileException, HealthProfileModel?>> getProfile(
       String uid);
 
-  /// Persist a complete [HealthProfileModel] (create or overwrite).
+  /// Persist a complete [HealthProfileModel], preserving unrelated fields.
   Future<Either<HealthProfileException, void>> saveProfile(
       HealthProfileModel profile);
 
@@ -21,5 +21,6 @@ abstract class HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   });
 }

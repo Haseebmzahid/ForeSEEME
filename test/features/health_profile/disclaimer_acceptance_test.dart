@@ -29,11 +29,18 @@ void main() {
   final user = UserModel(
     uid: 'alice',
     email: 'alice@example.test',
+    emailVerified: true,
     createdAt: DateTime.utc(2026),
+  );
+  final pendingUser = UserModel(
+    uid: user.uid,
+    email: user.email,
+    createdAt: user.createdAt,
   );
 
   for (final (label, account, hasProfile, accepted, destination) in [
     ('signed-out user', null, false, false, '/login'),
+    ('unverified owner with profile', pendingUser, true, true, '/verify-email'),
     ('missing profile', user, false, false, '/health-profile'),
     ('committed acceptance', user, true, true, '/home'),
   ]) {
@@ -65,6 +72,41 @@ void main() {
       expect(match.uri.path, destination);
     });
   }
+
+  testWidgets('verification replaces the gate and leaves reset reachable', (tester) async {
+    final accounts = StreamController<UserModel?>();
+    final container = ProviderContainer(overrides: [
+      authStateProvider.overrideWith((_) => accounts.stream),
+      profileExistsProvider.overrideWithValue(const AsyncData(false)),
+      disclaimerAcceptedProvider.overrideWithValue(const AsyncData(false)),
+    ]);
+    addTearDown(accounts.close);
+    addTearDown(container.dispose);
+    container.listen(authStateProvider, (_, _) {});
+    final router = container.read(appRouterProvider);
+    addTearDown(router.dispose);
+    late BuildContext context;
+    await tester.pumpWidget(Builder(builder: (value) {
+      context = value;
+      return const SizedBox.shrink();
+    }));
+
+    Future<String> destination(String path) async {
+      final matches = await router.routeInformationParser.parseRouteInformationWithDependencies(
+        RouteInformation(uri: Uri.parse(path)), context,
+      );
+      return matches.uri.path;
+    }
+
+    accounts.add(pendingUser);
+    await tester.pump();
+    expect(await destination('/medications/add'), '/verify-email');
+    expect(await destination('/verify-email'), '/verify-email');
+    expect(await destination('/forgot-password'), '/forgot-password');
+    accounts.add(user);
+    await tester.pump();
+    expect(await destination('/verify-email'), '/health-profile');
+  });
 
   ProviderContainer containerFor(DisclaimerRepository repository) {
     final container = ProviderContainer(

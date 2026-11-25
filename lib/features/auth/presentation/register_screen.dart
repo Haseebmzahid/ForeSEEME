@@ -16,6 +16,7 @@ import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_state.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/widgets/google_auth_button.dart';
+import 'widgets/second_factor_dialog.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -46,7 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool get _isLoading => _isEmailLoading || _isGoogleLoading;
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isLoading || !_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _isEmailLoading = true);
     await ref.read(authNotifierProvider.notifier).signUp(
@@ -58,10 +59,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _signInWithGoogle() async {
+    if (_isLoading) return;
     FocusScope.of(context).unfocus();
     setState(() => _isGoogleLoading = true);
     await ref.read(authNotifierProvider.notifier).signInWithGoogle();
     if (mounted) setState(() => _isGoogleLoading = false);
+  }
+
+  Future<void> _completeSecondFactor(AuthStateSecondFactor challenge) async {
+    final notifier = ref.read(authNotifierProvider.notifier);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => SecondFactorDialog(
+        choices: challenge.choices,
+        complete: notifier.completeSecondFactor,
+      ),
+    );
+    if (mounted) notifier.cancelSecondFactor();
   }
 
   @override
@@ -69,6 +84,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final palette = context.fsmPalette;
 
     ref.listen<AuthState>(authNotifierProvider, (prev, next) {
+      if (next is AuthStateSecondFactor && mounted) {
+        _completeSecondFactor(next);
+      }
       if (next is AuthStateError && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -177,6 +195,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       if (v == null || v.trim().isEmpty) {
                                         return 'Name is required';
                                       }
+                                      if (v.trim().length > 160) {
+                                        return 'Enter up to 160 characters';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -191,17 +212,21 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       if (v == null || v.trim().isEmpty) {
                                         return 'Email is required';
                                       }
-                                      if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                                          .hasMatch(v.trim())) {
+                                      if (!RegExp(
+                                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                                      ).hasMatch(v.trim())) {
                                         return 'Enter a valid email';
                                       }
                                       return null;
                                     },
                                   ),
-                                  const SizedBox(height: ForeSeeMeSpacing.xs),
+                                  const SizedBox(
+                                    height: ForeSeeMeSpacing.xs,
+                                  ),
+                                  const Text('Use at least 8 characters.'),
                                   AppTextField(
                                     label: 'Password',
-                                    hint: 'Min. 8 characters',
+                                    hint: 'Enter your password',
                                     controller: _passwordCtrl,
                                     isPassword: true,
                                     prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -238,6 +263,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: ForeSeeMeSpacing.xxl),
+                          const Text(
+                            'We’ll email you a link to verify your address.',
+                          ),
+                          const SizedBox(height: ForeSeeMeSpacing.sm),
                           // CTA button
                           AppButton(
                             text: 'Create Account',

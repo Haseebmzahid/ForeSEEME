@@ -52,8 +52,8 @@ async function check(name, fn) {
   }
 }
 
-const alice = testEnv.authenticatedContext('alice', { email: 'alice@example.com' }).firestore();
-const bob = testEnv.authenticatedContext('bob').firestore();
+const alice = testEnv.authenticatedContext('alice', { email: 'alice@example.com', email_verified: true }).firestore();
+const bob = testEnv.authenticatedContext('bob', { email_verified: true }).firestore();
 const admin = testEnv.authenticatedContext('op', { admin: true, firebase: { sign_in_second_factor: 'totp' } }).firestore();
 const passwordAdmin = testEnv.authenticatedContext('password-admin', { admin: true }).firestore();
 const anon = testEnv.unauthenticatedContext().firestore();
@@ -437,6 +437,41 @@ const profileData = {
   uid: 'alice', city: 'Lahore', chronicConditions: ['Asthma'], lastUpdated: serverTimestamp(),
 };
 await check('profile: owner can save allowed fields', () => assertSucceeds(setDoc(profile, profileData)));
+await check('profile: owner can read the legacy schema', () => assertSucceeds(getDoc(profile)));
+await check('profile: owner can change city and save custom conditions', () =>
+  assertSucceeds(updateDoc(profile, {
+    city: 'Karachi', chronicConditions: [], customConditions: ['Custom label', 'Another label'],
+    lastUpdated: serverTimestamp(),
+  })),
+);
+await check('profile: owner can remove custom conditions', () =>
+  assertSucceeds(updateDoc(profile, { customConditions: [], lastUpdated: serverTimestamp() })),
+);
+for (const customConditions of [
+  [''], [' padded'], ['two  spaces'], ['bad\tspace'], ['a'.repeat(65)],
+  ['a', 'b', 'c', 'd', 'e', 'f'], ['same', 'same'], [42], { arbitrary: 'field' },
+]) {
+  await check(`profile: denies malformed custom conditions ${JSON.stringify(customConditions)}`, () =>
+    assertFails(updateDoc(profile, { customConditions, lastUpdated: serverTimestamp() })),
+  );
+}
+await check('profile: another verified user cannot read or edit the profile', async () => {
+  const foreign = doc(bob, profile.path);
+  await assertFails(getDoc(foreign));
+  await assertFails(updateDoc(foreign, { city: 'Islamabad', lastUpdated: serverTimestamp() }));
+});
+await check('profile: unverified owner cannot access active-user data', async () => {
+  const pending = testEnv.authenticatedContext('alice', { email_verified: false }).firestore();
+  await assertFails(getDoc(doc(pending, profile.path)));
+  await assertFails(setDoc(doc(pending, profile.path), profileData));
+  await assertFails(getDoc(doc(pending, 'riskEstimates/Lahore_2026-07-08')));
+  await assertFails(getDoc(doc(pending, 'userAlerts/alice/items/a1')));
+});
+await check('profile: wrong city, mismatched UID and protected fields denied', async () => {
+  await assertFails(setDoc(profile, { ...profileData, city: 'Unsupported' }));
+  await assertFails(setDoc(profile, { ...profileData, uid: 'bob' }));
+  await assertFails(updateDoc(profile, { customConditions: [], emailVerified: true, lastUpdated: serverTimestamp() }));
+});
 await check('profile: clinical results denied', () =>
   assertFails(setDoc(profile, { ...profileData, labResult: 'test data' })),
 );
@@ -475,8 +510,8 @@ await testEnv.withSecurityRulesDisabled(async (context) => {
   });
   await setDoc(doc(db, 'sessionRevocations/op'), { throughAuthTime: 100 });
 });
-const oldAlice = testEnv.authenticatedContext('alice', { auth_time: 100 }).firestore();
-const newAlice = testEnv.authenticatedContext('alice', { auth_time: 101 }).firestore();
+const oldAlice = testEnv.authenticatedContext('alice', { auth_time: 100, email_verified: true }).firestore();
+const newAlice = testEnv.authenticatedContext('alice', { auth_time: 101, email_verified: true }).firestore();
 await check('session: revoked owner cannot read risk data', () =>
   assertFails(getDoc(doc(oldAlice, 'riskEstimates/Lahore_2026-07-08'))),
 );

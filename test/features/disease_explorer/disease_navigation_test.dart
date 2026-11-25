@@ -151,6 +151,7 @@ void main() {
               UserModel(
                 uid: 'test',
                 email: 'test@example.com',
+                emailVerified: true,
                 createdAt: DateTime.utc(2026),
               ),
             ),

@@ -1,522 +1,127 @@
-# Authentication Flow: ForeSeeMe
+# ForeSeeMe authentication and health profile
 
-## Authentication Architecture
+## Registration and login
 
-### Overview
+Registration requires a full name, a valid email address and a matching password
+and confirmation. The form shows the eight-character minimum before submission.
+Firebase Authentication enforces email uniqueness and stores credentials. Name is
+stored on the Firebase Auth user. The existing owner-scoped admin directory
+receives a best-effort pending entry.
 
-ForeSeeMe uses **Firebase Authentication** with two primary sign-in methods:
-1. Email/password (email-based account)
-2. Google OAuth (federated identity)
+Login accepts the registered email and password. Login and registration mask
+passwords by default and expose a visibility toggle. While an authentication
+request is active, both submission methods are disabled. Credential failures use
+the same response for an unknown email, a disabled account and a wrong password.
+The Google button uses the same Firebase OAuth flow on both screens and bundles
+the official icon for offline rendering. Firebase's verification state
+determines activation for both providers. Existing enrolled second factors
+continue through the Firebase MFA resolver. [Google sign-in branding assets](https://developers.google.com/identity/branding-guidelines)
 
-All authentication is handled client-side via Firebase Auth SDK, no backend API required.
+Phone-plus-password is tracked in the [Module 1 phone-login decision](MODULE_1_PHONE_LOGIN_DECISION.md).
 
-## Sign-Up Flow
+## Verification and routing
 
-### User Journey: Registration
+1. After successful email registration, ForeSeeMe requests a Firebase
+   verification email. A send failure leaves the account available for retry.
+2. GoRouter sends pending accounts, including pending accounts restored by
+   Firebase on mobile launch, to `/verify-email`. The screen explains how to
+   open the link, supports resend and check, and rechecks on app resume.
+3. Resend attempts are limited to once per minute per account for the running app,
+   including failed requests. Firebase also applies its service quotas.
+4. Checking reloads the Firebase user. Riverpod observes `userChanges()`. A
+   verified Firebase Auth record must have a corresponding verified Firebase ID
+   token before GoRouter continues to onboarding or the usual signed-in flow.
+5. Verified accounts with no supported city go to health-profile onboarding.
+   Existing profile confirmation, notification permission and medical disclaimer
+   routes remain part of the flow. Verified accounts with complete onboarding
+   continue to their intended route or the dashboard.
 
-```
-[RegisterScreen]
-    ↓
-User enters: Email, Password, Display Name
-    ↓
-Form validation (email format, password length)
-    ↓
-[Tap "Create Account"]
-    ↓
-AuthNotifier.signUp(email, password, displayName)
-    ↓
-FirebaseAuthRepository.signUpWithEmail()
-    ↓
-Firebase Auth SDK: createUserWithEmailAndPassword()
-    ↓
-SUCCESS: User account created in Firebase
-    ↓
-updateDisplayName() on Firebase User
-    ↓
-UserModel.fromFirebaseUser() created
-    ↓
-authStateProvider emits UserModel
-    ↓
-Router: redirect to /health-profile (setup)
-    ↓
-[HealthProfileScreen] - Setup mode
-    ↓
-User completes profile (city, conditions)
-    ↓
-HealthProfileNotifier.saveProfile()
-    ↓
-Firestore: users/{uid}/profile/data created
-    ↓
-Router: redirect to /home
-    ↓
-[Home Screen] - App accessible
-```
+Signed-out users can access login, registration and password recovery. Pending
+accounts can access password recovery and sign out through the existing global
+session-revocation flow. Login and verification expose the Resource Center's
+bundled emergency phone contact without requiring a session. The full Resource
+Center retains its existing route and Firestore access requirements. Web auth
+retains the existing non-persistent Firebase setting.
 
-### Code Implementation
+## Password recovery
 
-**File:** `lib/features/auth/presentation/auth_notifier.dart`
+ForeSeeMe requests a Firebase-managed password-reset email. User feedback is
+neutral when a request is accepted or the account is absent or disabled. The
+Firebase-hosted action handler accepts a valid code and rejects invalid, reused
+and expired codes. Firebase's service determines expiry. The checked-in
+configuration and public Firebase APIs expose no reset-code TTL setting and
+provide no verified numerical duration for this project. The SRS's approximate
+30-minute example should be reconciled with the observed staging lifetime before
+recording a numeric release policy. Check the Firebase Authentication email
+provider, email templates and action-handler domain in the release environment.
+Firebase automatically revokes existing refresh tokens on password reset.
+Backend endpoints check Firebase revocation. An already issued ID token has
+its own expiry, and the app returns to its normal verification and onboarding
+gates when the user signs in again. Check propagation across devices in staging.
+[Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions)
 
-```dart
-Future<void> signUp({
-  required String email,
-  required String password,
-  required String displayName,
-}) async {
-  state = const AuthStateLoading();
-  
-  final result = await _repository.signUpWithEmail(
-    email: email,
-    password: password,
-    displayName: displayName,
-  );
+For backend account-enumeration behavior, confirm Identity Platform Email
+Enumeration Protection in the target environment. [Firebase Auth REST API](https://firebase.google.com/docs/reference/rest/auth#section-confirm-password-reset) [Identity Platform configuration](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/Config)
 
-  state = result.fold(
-    (error) => AuthStateError(error.message),
-    (user) => AuthStateAuthenticated(user),
-  );
-}
-```
+## Health profile and alert targeting
 
-## Sign-In Flow
+Profile writes are scoped to the current Firebase UID at
+`users/{uid}/profile/{uid}`. The profile stores `uid`, `city`, the existing
+`chronicConditions` list, optional `customConditions` and a server
+`lastUpdated` timestamp. The form shares the app's supported-city and predefined
+condition sources. A city is required and condition selection is optional.
+Users can add or remove up to five custom labels of up to 64 characters each.
+The form trims and collapses whitespace and rejects case-insensitive duplicates,
+including predefined labels. A missing custom field reads as an empty list.
+Leaving an edited form prompts before discarding; save and continue explicitly
+commits onboarding.
 
-### Email/Password Sign-In
+The write batch merge-sets the parent `users/{uid}` document and the profile,
+preserving notification preferences and unrelated profile fields. Dispatch reads
+the latest stored city from the same profile path on each user scan. A legacy
+profile without a parent becomes discoverable through this path on the next
+profile save. There is no bulk migration. Dispatch receives custom labels on
+`TargetUser.custom_conditions`. Its eligibility, categories, severity,
+consent and push behavior continue to use the existing predefined mapping.
+Using custom labels for eligibility requires an approved medical vocabulary and
+category mapping.
 
-```
-[LoginScreen] - Email/Password Tab
-    ↓
-User enters: Email, Password
-    ↓
-Form validation
-    ↓
-[Tap "Sign In"]
-    ↓
-AuthNotifier.signIn(email, password)
-    ↓
-FirebaseAuthRepository.signInWithEmail()
-    ↓
-Firebase Auth SDK: signInWithEmailAndPassword()
-    ↓
-SUCCESS: User authenticated
-    ↓
-UserModel created from Firebase user
-    ↓
-authStateProvider streams UserModel
-    ↓
-Router: evaluates redirect logic
-    ↓
-Is user's health profile complete?
-  ├─ No → /health-profile (setup)
-  └─ Yes → /home (app access)
-    ↓
-[Authenticated State]
-```
+Firestore uses Firebase's verified-email claim for profile, private user data,
+disclaimer, dashboard risk and alert access in addition to the existing session
+cutoff check. Profile rules constrain the UID, supported city, allowed fields,
+server timestamp and custom list contents. Directory, notification registration
+and logout-receipt restrictions retain their existing architecture.
+FCM registration waits for the token-confirmed account in the client, and the
+registration endpoint independently requires the verified-email claim. An
+authenticated user can still unregister during logout cleanup. Deploy the
+client, registration API and Firestore rules together after staging acceptance.
 
-### Google OAuth Sign-In
+## Verification
 
-```
-[LoginScreen] - Google Tab
-    ↓
-[Tap "Sign In with Google"]
-    ↓
-GoogleSignIn.signIn() - Opens Google login dialog
-    ↓
-User authenticates with Google account
-    ↓
-GoogleSignInAuthentication obtained (accessToken, idToken)
-    ↓
-Firebase Auth SDK: signInWithCredential(GoogleAuthProvider)
-    ↓
-SUCCESS: Firebase user created/linked
-    ↓
-UserModel from Firebase user (email + displayName from Google)
-    ↓
-authStateProvider streams UserModel
-    ↓
-Router: redirect to /health-profile or /home
+See the [Module 1 final acceptance report](MODULE_1_FINAL_ACCEPTANCE_REPORT.md)
+for the release review, requirement matrix, fresh test results and open gates.
+
+### Previous implementation verification
+
+The November 24, 2026 full Flutter run passed 967 tests with four opt-in golden
+suites skipped. The health-profile screen suite passed all 15 tests after the
+final discard-guard change. Dart analysis reported no issues.
+
+The combined backend and ML run passed 756 tests with four emulator-only tests
+skipped and one dependency deprecation warning. All four skipped tests passed
+when run with both emulators, with the same dependency warning.
+
+The demo emulators passed 118 Firestore rule checks and four SDK journeys
+covering email registration and verification, profile creation and re-login,
+password reset, and mock Google onboarding and restoration. The journey
+requires loopback emulator hosts and uses synthetic accounts. It does not send
+email.
+
+```text
+firebase emulators:exec --only auth,firestore --project demo-foreseeme "node test_rules/firestore_rules.test.mjs && node test_rules/module1_journey.test.mjs"
 ```
 
-### Code Implementation
-
-**File:** `lib/features/auth/data/repositories/firebase_auth_repository.dart`
-
-```dart
-@override
-Future<Either<AuthException, UserModel>> signInWithGoogle() async {
-  try {
-    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) {
-      return const Left(AuthException('Google sign in cancelled'));
-    }
-
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    final userCredential = await _firebaseAuth.signInWithCredential(credential);
-    return Right(UserModel.fromFirebaseUser(userCredential.user!));
-  } catch (e) {
-    return Left(AuthException(e.toString()));
-  }
-}
-```
-
-## Password Reset Flow
-
-### Forgot Password
-
-```
-[LoginScreen]
-    ↓
-[Tap "Forgot password?"]
-    ↓
-[ForgotPasswordScreen]
-    ↓
-User enters: Email
-    ↓
-Form validation
-    ↓
-[Tap "Send Reset Link"]
-    ↓
-AuthNotifier.sendPasswordReset(email)
-    ↓
-FirebaseAuthRepository.sendPasswordReset()
-    ↓
-Firebase Auth SDK: sendPasswordResetEmail()
-    ↓
-Firebase sends email with reset link
-    ↓
-User receives email with reset link
-    ↓
-[Tap link in email]
-    ↓
-[Firebase Web Reset Page] (external)
-    ↓
-User sets new password
-    ↓
-Firebase updates user password
-    ↓
-User can now sign in with new password
-```
-
-## JWT/Session Logic
-
-### Token Management
-
-**Firebase Handles All Token Management:**
-
-1. **ID Token** (JWT)
-   - Auto-refreshed by Firebase SDK
-   - Contains user identity claims
-   - Valid for ~1 hour
-   - Automatically renewed before expiry
-
-2. **Refresh Token**
-   - Stored securely by Firebase SDK
-   - Used to obtain new ID tokens
-   - Long-lived (months)
-
-3. **Session Management**
-   - Firebase persists auth state locally
-   - `authStateChanges()` stream tracks session
-   - Auto-restores session on app restart
-
-### Code Implementation
-
-**File:** `lib/features/auth/data/repositories/firebase_auth_repository.dart`
-
-```dart
-@override
-Stream<UserModel?> get currentUser {
-  return _firebaseAuth.authStateChanges().map((user) {
-    if (user == null) return null;
-    return UserModel.fromFirebaseUser(user);
-  });
-}
-```
-
-**Automatic Token Refresh:**
-- Firebase SDK handles behind-the-scenes
-- No explicit token management needed
-- Requests to Firestore/Cloud Functions auto-include valid token
-
-## Middleware Protection
-
-### Route Guards (Go Router)
-
-**File:** `lib/core/routes/app_router.dart`
-
-```dart
-final appRouterProvider = Provider<GoRouter>((ref) {
-  final authNotifier = ValueNotifier<AsyncValue<UserModel?>>(const AsyncLoading());
-  
-  ref.listen(authStateProvider, (_, next) {
-    authNotifier.value = next;
-  });
-
-  return GoRouter(
-    refreshListenable: authNotifier,  // ← Triggers redirect on auth change
-    redirect: (context, state) {
-      final authState = authNotifier.value;
-      
-      // Wait for auth to load
-      if (authState.isLoading) return null;
-
-      final isAuth = authState.value != null;
-      final isLoggingIn = state.matchedLocation in [
-        '/login',
-        '/register',
-        '/forgot-password',
-      ];
-
-      // Redirect unauthenticated to login
-      if (!isAuth && !isLoggingIn) return '/login';
-      
-      // Block authenticated users from auth screens
-      if (isAuth && isLoggingIn) return '/home';
-      
-      // Allow navigation
-      return null;
-    },
-    routes: [ /* ... */ ],
-  );
-});
-```
-
-### Protection Strategy
-
-1. **Unauthenticated users** → Force to `/login`
-2. **Authenticated users** → Block from auth routes
-3. **Loading state** → Show splash/loading, don't redirect yet
-4. **Route transitions** → Immediate evaluation on state change
-
-### Firestore Security Rules (Server-side)
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // User isolation - can only access own data
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth.uid == uid;
-    }
-  }
-}
-```
-
-## Roles & Permissions
-
-### Current State
-
-**Simple Role Model:**
-- User (default)
-- (Future: Doctor, Caregiver, Administrator)
-
-**Permission Examples:**
-- Users can CRUD own data
-- Users cannot access other users' data
-- (Future: Doctors can read patient data with consent)
-
-### Implementation (If Added)
-
-```dart
-// Future: Add role to UserModel
-class UserModel {
-  final String uid;
-  final String email;
-  final UserRole role;  // User, Doctor, Admin
-}
-
-// Enforce in Firestore rules
-allow read: if hasRole('doctor') || request.auth.uid == uid;
-
-// Check in app
-if (currentUser.role == UserRole.doctor) {
-  // Show doctor-specific features
-}
-```
-
-## Token Lifecycle
-
-### ID Token Lifecycle
-
-```
-Login
-  ↓
-Firebase generates ID Token (valid 1 hour)
-  ↓
-Token stored in device secure storage
-  ↓
-App uses token for Firestore requests
-  ↓
-Token expires (approaching 1 hour)
-  ↓
-Firebase SDK automatically refreshes using Refresh Token
-  ↓
-New ID Token obtained (1 hour validity)
-  ↓
-No user action needed - seamless
-  ↓
-Sign Out
-  ↓
-Tokens cleared from device
-```
-
-### Token Refresh Flow (Automatic)
-
-```dart
-// Firebase handles this internally
-// Developers don't need to manage token refresh
-// Firestore SDK automatically sends valid tokens with each request
-```
-
-## Sign-Out Flow
-
-### Logout Process
-
-```
-User selects "Logout" from settings
-    ↓
-AuthNotifier.signOut()
-    ↓
-FirebaseAuthRepository.signOut()
-    ↓
-Firebase Auth SDK: signOut()
-    ↓
-SUCCESS: User logged out
-    ↓
-authStateProvider streams null
-    ↓
-Router: evaluates redirect logic
-    ↓
-Is authenticated? No
-    ↓
-Router: redirect to /login
-    ↓
-[LoginScreen] shown
-    ↓
-Local tokens cleared
-```
-
-### Code Implementation
-
-```dart
-Future<void> signOut() async {
-  state = const AuthStateLoading();
-
-  final result = await _repository.signOut();
-
-  state = result.fold(
-    (error) => AuthStateError(error.message),
-    (_) => const AuthStateUnauthenticated(),
-  );
-}
-```
-
-## Error Handling
-
-### Auth Exceptions
-
-**File:** `lib/features/auth/domain/exceptions/auth_exception.dart`
-
-```dart
-class AuthException implements Exception {
-  final String message;
-  final String? code;
-  
-  const AuthException(this.message, [this.code]);
-}
-```
-
-### Common Error Scenarios
-
-| Error | Code | Handling |
-|-------|------|----------|
-| User not found | `user-not-found` | Show "Email not registered" |
-| Wrong password | `wrong-password` | Show "Invalid password" |
-| Email in use | `email-already-in-use` | Show "Email already registered" |
-| Weak password | `weak-password` | Show "Password too weak (min 6 chars)" |
-| Network error | (native exception) | Show "Check internet connection" |
-| Google cancelled | `cancelled` | Silent (user cancelled) |
-
-### UI Error Display
-
-```dart
-ref.listenManual(authNotifierProvider, (prev, next) {
-  if (next is AuthStateError) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(next.message)),
-    );
-  }
-});
-```
-
-## Security Considerations
-
-### Best Practices Implemented
-
-✅ **No hardcoded credentials**: Firebase config from environment
-✅ **HTTPS only**: Firebase enforces TLS
-✅ **Secure token storage**: Firebase SDK uses platform keychain
-✅ **No password exposure**: Never logged or displayed
-✅ **Email verification**: (Optional, can be enabled)
-✅ **Firestore rules**: User isolation enforced server-side
-
-### Future Security Enhancements
-
-- [ ] Email verification on sign-up
-- [ ] Two-factor authentication (2FA)
-- [ ] Account recovery via security questions
-- [ ] Biometric authentication (fingerprint, face)
-- [ ] Session timeout on inactivity
-- [ ] IP address restrictions (for admin panel)
-
-## Testing Authentication
-
-### Manual Testing Checklist
-
-- [ ] Sign up with email/password
-- [ ] Verify user redirected to health profile setup
-- [ ] Sign in with email/password
-- [ ] Verify user redirected to home
-- [ ] Sign in with Google
-- [ ] Test forgot password flow
-- [ ] Verify sign-out returns to login
-- [ ] Test unauthenticated route access (should redirect)
-- [ ] Test network disconnect during auth
-- [ ] Verify session persists across app restart
-
-### (Future) Automated Testing
-
-```dart
-// Example unit test structure
-test('signIn returns UserModel on success', () async {
-  when(mockFirebaseAuth.signInWithEmailAndPassword(...))
-    .thenAnswer((_) async => mockUserCredential);
-  
-  final result = await repository.signInWithEmail(...);
-  
-  expect(result, isA<Right>());
-});
-```
-
-## Firebase Project Configuration
-
-**Project ID:** `foreseeme-83587`
-
-### Configured Services
-- ✅ Firebase Auth (Email + Google OAuth)
-- ✅ Firestore Database
-- ✅ (Future: Cloud Functions for custom logic)
-
-### Google OAuth Credentials
-- Android: OAuth client ID configured in Google Cloud Console
-- iOS: OAuth client ID configured + Info.plist signing
-- Web: OAuth client ID + redirect URIs
-
-### Next Steps
-- [ ] Enable email verification
-- [ ] Configure custom email templates
-- [ ] Set password policy requirements
-- [ ] Enable account activity logs
+Use a staging device for platform Google OAuth, Firebase email delivery,
+return-from-browser behavior, native restart, the emergency dialer, and the
+FCM activation transition. A Firebase-hosted staging reset also needs a timed
+expiry check. The emulator journey checks invalid and used codes.

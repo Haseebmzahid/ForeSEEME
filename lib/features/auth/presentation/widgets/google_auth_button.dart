@@ -1,7 +1,6 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:fyp_foreseeme/core/theme/foreseeme_surface.dart';
 import 'package:fyp_foreseeme/core/theme/foreseeme_theme.dart';
@@ -56,8 +55,8 @@ class GoogleAuthButton extends StatelessWidget {
                       // Decorative — the "Continue with Google" text already
                       // conveys the meaning to screen readers.
                       ExcludeSemantics(
-                        child: SvgPicture.network(
-                          'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                        child: Image.asset(
+                          'assets/branding/logo/google-sign-in-g.png',
                           height: 20,
                           width: 20,
                         ),

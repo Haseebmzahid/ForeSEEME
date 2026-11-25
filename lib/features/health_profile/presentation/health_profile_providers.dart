@@ -8,6 +8,7 @@ import 'package:fyp_foreseeme/features/health_profile/presentation/health_profil
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import '../data/repositories/firestore_disclaimer_repository.dart';
 import '../domain/repositories/disclaimer_repository.dart';
+import '../domain/constants/cities_constants.dart';
 
 final disclaimerRepositoryProvider = Provider<DisclaimerRepository>((ref) {
   return FirestoreDisclaimerRepository();
@@ -29,8 +30,7 @@ final healthProfileNotifierProvider =
 /// Exposes the current user's profile existence status.
 final profileExistsProvider = FutureProvider<bool>((ref) async {
   final user = await ref.watch(authStateProvider.future);
-  if (user == null) {
-    debugPrint('profileExistsProvider: User is null, returning false');
+  if (user == null || !user.emailVerified) {
     return false;
   }
 
@@ -44,10 +44,7 @@ final profileExistsProvider = FutureProvider<bool>((ref) async {
       );
       return false;
     },
-    (profile) {
-      debugPrint('profileExistsProvider: Profile exists: ${profile != null}');
-      return profile != null;
-    },
+    (profile) => kSupportedCities.contains(profile?.city),
   );
 });
 
@@ -64,7 +61,7 @@ final currentHealthProfileProvider = FutureProvider<HealthProfileModel?>((
   ref,
 ) async {
   final user = await ref.watch(authStateProvider.future);
-  if (user == null) return null;
+  if (user == null || !user.emailVerified) return null;
 
   final result = await ref
       .read(healthProfileRepositoryProvider)
@@ -85,7 +82,7 @@ final currentHealthProfileProvider = FutureProvider<HealthProfileModel?>((
 /// consumers (dashboard card, trend, map) follow a city change automatically.
 final userCityProvider = FutureProvider<String?>((ref) async {
   final user = await ref.watch(authStateProvider.future);
-  if (user == null) return null;
+  if (user == null || !user.emailVerified) return null;
 
   final result = await ref
       .read(healthProfileRepositoryProvider)

@@ -282,7 +282,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen>
                           return 'Email is required';
                         }
                         if (!RegExp(
-                          r'^[^@]+@[^@]+\.[^@]+',
+                          r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                         ).hasMatch(v.trim())) {
                           return 'Enter a valid email address';
                         }

@@ -8,6 +8,7 @@ final disclaimerAcceptedProvider = FutureProvider<bool>((ref) async {
   final repository = ref.watch(disclaimerRepositoryProvider);
   final user = await ref.watch(authStateProvider.future);
   return user != null &&
+      user.emailVerified &&
       await repository.hasAccepted(user.uid, currentDisclaimerVersion);
 });
 

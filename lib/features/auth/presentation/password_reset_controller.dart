@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:fyp_foreseeme/features/auth/domain/exceptions/auth_exception.dart';
@@ -48,7 +47,6 @@ class PasswordResetFailure extends PasswordResetState {
 ///   so the response cannot be used to enumerate accounts.
 /// * format / network / rate-limit / config errors → mapped to specific,
 ///   non-revealing messages.
-/// * the raw Firebase error is logged **in debug builds only**, never surfaced.
 class PasswordResetController extends Notifier<PasswordResetState> {
   late final AuthRepository _repository;
 
@@ -78,14 +76,6 @@ class PasswordResetController extends Notifier<PasswordResetState> {
 
   /// Maps a repository [AuthException] to an enumeration-safe outcome.
   PasswordResetState _mapError(AuthException error) {
-    // Dev-only diagnostics — the real Firebase code/message, never shown to users.
-    if (kDebugMode) {
-      debugPrint(
-        '[password-reset] FirebaseAuthException '
-        'code=${error.code ?? 'unknown'} message=${error.message}',
-      );
-    }
-
     switch (error.code) {
       // Enumeration safety: never confirm or deny that an account exists.
       case 'user-not-found':
@@ -111,7 +101,7 @@ class PasswordResetController extends Notifier<PasswordResetState> {
         );
 
       // Email/Password provider disabled or project misconfigured — a config
-      // problem for us to fix, surfaced generically (and logged above).
+      // problem for us to fix, surfaced generically.
       case 'operation-not-allowed':
       case 'configuration-not-found':
         return const PasswordResetFailure(

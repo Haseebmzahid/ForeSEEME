@@ -63,8 +63,17 @@ final fcmMessageHandlerProvider = Provider<FcmMessageHandler>((ref) {
     presenter: ref.watch(alertPresenterProvider),
     navigate: (route) => ref.read(appRouterProvider).go(route),
     analytics: ref.watch(alertAnalyticsProvider),
-    currentUid: () => ref.read(notificationAuthUserProvider)()?.uid,
-    restoredUid: () async => (await ref.read(authStateProvider.future))?.uid,
+    currentUid: () {
+      final user = ref.read(authStateProvider).asData?.value;
+      return user?.emailVerified == true &&
+              ref.read(notificationAuthUserProvider)()?.uid == user?.uid
+          ? user?.uid
+          : null;
+    },
+    restoredUid: () async {
+      final user = await ref.read(authStateProvider.future);
+      return user?.emailVerified == true ? user?.uid : null;
+    },
     resolveInboxRoute: (uid, pushId) async {
       final alert = await ref
           .read(userAlertsRepositoryProvider)

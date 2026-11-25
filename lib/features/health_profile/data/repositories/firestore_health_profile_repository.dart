@@ -7,7 +7,7 @@ import 'package:fyp_foreseeme/features/health_profile/domain/repositories/health
 
 /// Firestore-backed implementation of [HealthProfileRepository].
 ///
-/// Document path: `users/{uid}/profile`  (single sub-document, not a collection)
+/// Document path: `users/{uid}/profile/{uid}`.
 class FirestoreHealthProfileRepository implements HealthProfileRepository {
   final FirebaseFirestore _firestore;
 
@@ -67,8 +67,7 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
     HealthProfileModel profile,
   ) async {
     try {
-      final docRef = _profileDoc(profile.uid);
-      await docRef.set(profile.toJson());
+      await _writeProfile(profile.uid, profile.toJson());
       debugPrint(
         'FirestoreHealthProfileRepository: Successfully saved profile.',
       );
@@ -96,6 +95,7 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   }) async {
     try {
       final updates = <String, dynamic>{
@@ -103,10 +103,11 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
       };
       if (city != null) updates['city'] = city;
       if (conditions != null) updates['chronicConditions'] = conditions;
+      if (customConditions != null) {
+        updates['customConditions'] = customConditions;
+      }
 
-      final docRef = _profileDoc(uid);
-      // Use merge-set so we never wipe fields we didn't touch
-      await docRef.set(updates, SetOptions(merge: true));
+      await _writeProfile(uid, updates);
       debugPrint(
         'FirestoreHealthProfileRepository: Successfully updated profile.',
       );
@@ -127,5 +128,18 @@ class FirestoreHealthProfileRepository implements HealthProfileRepository {
       );
       return Left(HealthProfileException(e.toString()));
     }
+  }
+
+  Future<void> _writeProfile(String uid, Map<String, dynamic> fields) async {
+    final batch = _firestore.batch();
+    // Dispatch starts its city scan at users/{uid}. A subdocument alone does
+    // not create that parent. Merge with an empty field mask preserves prefs.
+    batch.set(
+      _firestore.collection('users').doc(uid),
+      <String, dynamic>{},
+      SetOptions(merge: true),
+    );
+    batch.set(_profileDoc(uid), fields, SetOptions(merge: true));
+    await batch.commit();
   }
 }

@@ -47,6 +47,7 @@ class _FakeHealthProfileRepository implements HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   }) async {
     if (saveResult == null) throw UnimplementedError();
     return saveResult!;
@@ -56,6 +57,7 @@ class _FakeHealthProfileRepository implements HealthProfileRepository {
 UserModel _user() => UserModel(
   uid: 'u1',
   email: 'patient@example.com',
+  emailVerified: true,
   createdAt: DateTime.utc(2026, 1, 1),
 );
 
@@ -224,22 +226,38 @@ Future<GoRouter> _pumpWithRouter(
   return router;
 }
 
-/// Drives the full 2-step flow (S6C-03): selects a city on step 1, advances
-/// to step 2, then selects a condition. 'None' sits below the fold on the
-/// test surface, so it's scrolled into view before tapping (a plain `tap`
-/// would silently miss and leave the form invalid).
+/// Selects a city and advances to the optional condition step.
 Future<void> _fillMinimalForm(WidgetTester tester) async {
   await tester.tap(find.text('Lahore'));
   await tester.pump();
   await tester.tap(find.text('Next'));
   await _pumpUntilFound(tester, find.text('Underlying Conditions'));
-  await tester.ensureVisible(find.text('None'));
-  await tester.pump();
-  await tester.tap(find.text('None'));
-  await tester.pump();
 }
 
 void main() {
+  testWidgets('custom conditions normalize, deduplicate, and can be removed', (tester) async {
+    await _pump(tester, isEditMode: false);
+    await _settle(tester);
+    await _fillMinimalForm(tester);
+    final input = find.byType(EditableText);
+    final add = find.text('Add condition');
+    await tester.ensureVisible(input);
+    await tester.enterText(input, '  Sleep   apnea ');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pump();
+    expect(find.widgetWithText(InputChip, 'Sleep apnea'), findsOneWidget);
+    await tester.enterText(input, 'sleep apnea');
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pump();
+    expect(find.text('This condition is already listed.'), findsOneWidget);
+    await tester.ensureVisible(find.byType(InputChip));
+    tester.widget<InputChip>(find.byType(InputChip)).onDeleted!();
+    await tester.pump();
+    expect(find.byType(InputChip), findsNothing);
+  });
+
   group('HealthProfileScreen edit-mode prefill (S6C-01)', () {
     testWidgets('prefills the real saved city and conditions', (tester) async {
       await _pump(
@@ -346,24 +364,20 @@ void main() {
       expect(find.text('Next'), findsOneWidget);
     });
 
-    testWidgets('non-edit mode never touches the profile fetch', (
+    testWidgets('onboarding blocks a save when legacy profile data fails to load', (
       tester,
     ) async {
-      // getProfile would throw synchronously via UnimplementedError-shaped
-      // failure if it were ever awaited; a Left result proves it's simply
-      // never called for a brand-new (non-edit) profile setup.
       await _pump(
         tester,
         isEditMode: false,
         profileResult: const Left(
-          HealthProfileException('should not be called', 'unavailable'),
+          HealthProfileException('could not fetch profile', 'unavailable'),
         ),
       );
       await _settle(tester);
 
-      expect(find.byType(ErrorState), findsNothing);
-      expect(find.text('Next'), findsOneWidget);
-      expect(find.text('Complete Profile'), findsOneWidget);
+      expect(find.byType(ErrorState), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
     });
   });
 
@@ -377,10 +391,10 @@ void main() {
       );
       await _settle(tester);
 
-      await _fillMinimalForm(tester); // selects Lahore + None
+      await _fillMinimalForm(tester); // selects Lahore with no conditions
 
-      await tester.tap(find.text('Continue')); // submits step 2
-      await _pumpUntilFound(tester, find.text("You're all set!"));
+        await tester.tap(find.text('Save and continue')); // submits step 2
+        await _pumpUntilFound(tester, find.text("You're all set!"));
 
       // S6C-04: the ready screen shows the real just-saved data, honestly
       // phrased (never the literal "None").
@@ -404,10 +418,10 @@ void main() {
       expect(find.text('PERMISSION_SCREEN_STUB'), findsOneWidget);
     });
 
-    testWidgets('an edit-mode save does not push the permission pre-prompt', (
+    testWidgets('edit save returns to profile and reopening still guards unsaved changes', (
       tester,
     ) async {
-      await _pumpWithRouter(
+      final router = await _pumpWithRouter(
         tester,
         isEditMode: true,
         saveResult: const Right(null),
@@ -421,6 +435,25 @@ void main() {
 
       expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
       // Edit mode's existing behaviour (unchanged): pop back to the caller.
+      expect(find.text('PROFILE_STUB'), findsOneWidget);
+
+      router.push('/health-profile');
+      await _settle(tester);
+      await tester.tap(find.text('Karachi'));
+      await tester.pump();
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Discard profile changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      final chip = tester.widget<ChoiceChip>(
+        find.widgetWithText(ChoiceChip, 'Karachi'),
+      );
+      expect(chip.selected, isTrue);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard changes'));
+      await tester.pumpAndSettle();
       expect(find.text('PROFILE_STUB'), findsOneWidget);
     });
 
@@ -436,11 +469,11 @@ void main() {
 
         await _fillMinimalForm(tester);
 
-        await tester.tap(find.text('Continue'));
+        await tester.tap(find.text('Save and continue'));
         await _settle(tester);
 
         expect(find.text('PERMISSION_SCREEN_STUB'), findsNothing);
-        expect(find.text('Continue'), findsOneWidget);
+        expect(find.text('Save and continue'), findsOneWidget);
       },
     );
   });

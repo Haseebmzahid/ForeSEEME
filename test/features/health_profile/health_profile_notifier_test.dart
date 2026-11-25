@@ -32,6 +32,7 @@ class _FakeProfileRepo implements HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   }) async => const Right(null);
 }
 

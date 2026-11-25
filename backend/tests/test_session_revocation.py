@@ -16,10 +16,10 @@ def logout(monkeypatch):
     firebase = SimpleNamespace(valid_after=0, calls=0, fail_read=False, fail_revoke=False,
                                lose_provider_reply=False, fail_commit=None)
     clients = {
-        "old": {"uid": "alice", "auth_time": 80, "iat": 80},
-        "second": {"uid": "alice", "auth_time": 90, "iat": 90},
-        "fresh": {"uid": "alice", "auth_time": 102, "iat": 102},
-        "other": {"uid": "bob", "auth_time": 90, "iat": 90},
+        "old": {"uid": "alice", "auth_time": 80, "iat": 80, "email_verified": True},
+        "second": {"uid": "alice", "auth_time": 90, "iat": 90, "email_verified": True},
+        "fresh": {"uid": "alice", "auth_time": 102, "iat": 102, "email_verified": True},
+        "other": {"uid": "bob", "auth_time": 90, "iat": 90, "email_verified": True},
     }
     checks = []
 

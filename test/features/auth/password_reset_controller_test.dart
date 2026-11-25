@@ -23,6 +23,16 @@ class FakeAuthRepository implements AuthRepository {
 
   // ── Unused by these tests ──────────────────────────────────────────────────
   @override
+  Future<Either<AuthException, void>> sendEmailVerification(
+    String uid,
+  ) async => const Right(null);
+
+  @override
+  Future<Either<AuthException, bool>> refreshEmailVerification(
+    String uid,
+  ) async => const Right(false);
+
+  @override
   Stream<UserModel?> get currentUser => const Stream.empty();
   @override
   Future<Either<AuthException, UserModel>> signInWithEmail({

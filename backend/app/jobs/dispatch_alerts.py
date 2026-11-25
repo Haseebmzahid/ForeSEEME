@@ -500,7 +500,7 @@ class FirestoreRiskHistoryProvider:
 
 class FirestoreUserDirectory:
     """Enumerates ``users`` (preferences) joined with each user's profile
-    (``users/{uid}/profile/{uid}`` — city + chronicConditions)."""
+    (``users/{uid}/profile/{uid}`` — city and condition selections)."""
 
     def __init__(self, db) -> None:
         self._db = db
@@ -527,6 +527,7 @@ class FirestoreUserDirectory:
                     uid=user_doc.id,
                     city=city,
                     conditions=tuple(profile.get("chronicConditions") or []),
+                    custom_conditions=tuple(profile.get("customConditions") or []),
                     registrations=self._registrations.for_user(user_doc.id),
                     preferences=data.get("notificationPreferences") or {},
                 )

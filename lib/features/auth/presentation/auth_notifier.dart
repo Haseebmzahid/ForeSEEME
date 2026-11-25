@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fyp_foreseeme/features/auth/domain/repositories/auth_repository.dart';
 import '../domain/models/second_factor_challenge.dart';
+import '../domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_state.dart';
 
@@ -27,25 +28,33 @@ class AuthNotifier extends Notifier<AuthState> {
       displayName: displayName,
     );
 
-    state = result.fold(
-      (error) => error.secondFactors.isEmpty
-          ? AuthStateError(error.message)
-          : AuthStateSecondFactor(error.secondFactors),
-      (user) => AuthStateAuthenticated(user),
+    final user = result.fold((_) => null, (u) => u);
+    if (user == null) {
+      state = result.fold(
+        (error) => AuthStateError(error.message),
+        _sessionState,
+      );
+      return;
+    }
+    final directory = ref.read(userDirectoryRepositoryProvider);
+    final verification = await _repository.sendEmailVerification(user.uid);
+    state = AuthStateVerificationPending(
+      user,
+      verification.fold(
+        (error) => error.message,
+        (_) => 'Verification email sent. Check your inbox.',
+      ),
     );
 
-    // Best-effort admin-directory registration (Sprint M8.4, SDS FR8.5) — a
-    // failure here must never surface as a sign-up failure; the account
-    // creation above already succeeded or failed on its own.
-    final user = result.fold((_) => null, (u) => u);
-    if (user != null) {
-      try {
-        await ref
-            .read(userDirectoryRepositoryProvider)
-            .register(uid: user.uid, email: user.email, name: displayName);
-      } catch (_) {
-        // Non-fatal by design — see doc comment above.
-      }
+    // The account and verification request are independent of the directory.
+    try {
+      await directory.register(
+        uid: user.uid,
+        email: user.email,
+        name: displayName,
+      );
+    } catch (_) {
+      // Directory registration is best effort.
     }
   }
 
@@ -62,7 +71,7 @@ class AuthNotifier extends Notifier<AuthState> {
       (error) => error.secondFactors.isEmpty
           ? AuthStateError(error.message)
           : AuthStateSecondFactor(error.secondFactors),
-      (user) => AuthStateAuthenticated(user),
+      _sessionState,
     );
   }
 
@@ -76,7 +85,7 @@ class AuthNotifier extends Notifier<AuthState> {
       (error) => error.secondFactors.isEmpty
           ? AuthStateError(error.message)
           : AuthStateSecondFactor(error.secondFactors),
-      (user) => AuthStateAuthenticated(user),
+      _sessionState,
     );
   }
 
@@ -87,8 +96,12 @@ class AuthNotifier extends Notifier<AuthState> {
     final challenge = state;
     if (challenge is! AuthStateSecondFactor) return;
     final user = await verify(code);
-    if (identical(state, challenge)) state = AuthStateAuthenticated(user);
+    if (identical(state, challenge)) state = _sessionState(user);
   }
+
+  AuthState _sessionState(UserModel user) => user.emailVerified
+      ? AuthStateAuthenticated(user)
+      : AuthStateVerificationPending(user);
 
   void cancelSecondFactor() {
     if (state is AuthStateSecondFactor) {

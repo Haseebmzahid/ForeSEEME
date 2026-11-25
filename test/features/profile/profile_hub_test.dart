@@ -36,6 +36,7 @@ UserModel _user({String? displayName = 'Amara Okafor', String? photoUrl}) =>
       email: 'amara@example.com',
       displayName: displayName,
       photoUrl: photoUrl,
+      emailVerified: true,
       createdAt: DateTime.utc(2026, 1, 1),
     );
 
@@ -82,6 +83,7 @@ class _FakeHealthProfileRepository implements HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   }) async => throw UnimplementedError();
 }
 

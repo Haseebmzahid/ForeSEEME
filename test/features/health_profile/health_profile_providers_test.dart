@@ -32,12 +32,14 @@ class _FakeHealthProfileRepository implements HealthProfileRepository {
     String uid, {
     String? city,
     List<String>? conditions,
+    List<String>? customConditions,
   }) => throw UnimplementedError();
 }
 
 UserModel _user() => UserModel(
   uid: 'u1',
   email: 'patient@example.com',
+  emailVerified: true,
   createdAt: DateTime.utc(2026, 1, 1),
 );
 

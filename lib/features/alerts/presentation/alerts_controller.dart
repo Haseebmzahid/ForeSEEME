@@ -20,7 +20,8 @@ class AlertsController extends AsyncNotifier<NotificationPermissionStatus?> {
   NotificationPermissionStatus? build() {
     ref.listen(authStateProvider, (previous, next) {
       if (next.isLoading) return;
-      final uid = next.asData?.value?.uid;
+      final user = next.asData?.value;
+      final uid = user?.emailVerified == true ? user?.uid : null;
       if (uid == _uid) return;
       _reset(uid);
       unawaited(syncGrantedPermission());
@@ -43,7 +44,15 @@ class AlertsController extends AsyncNotifier<NotificationPermissionStatus?> {
       !_signingOut &&
       generation == _generation &&
       _uid != null &&
-      ref.read(notificationAuthUserProvider)()?.uid == _uid;
+      _verifiedUid() == _uid;
+
+  String? _verifiedUid() {
+    final account = ref.read(authStateProvider).asData?.value;
+    final user = ref.read(notificationAuthUserProvider)();
+    return account?.emailVerified == true && account?.uid == user?.uid
+        ? account?.uid
+        : null;
+  }
 
   Future<void> syncGrantedPermission() async {
     try {
@@ -59,7 +68,8 @@ class AlertsController extends AsyncNotifier<NotificationPermissionStatus?> {
   Future<NotificationPermissionStatus> _enable({
     required bool requestPermission,
   }) async {
-    final uid = ref.read(notificationAuthUserProvider)()?.uid;
+    if (_signingOut) return NotificationPermissionStatus.notDetermined;
+    final uid = _verifiedUid();
     if (uid != _uid) _reset(uid);
     final generation = _generation;
     if (!_isCurrent(generation)) {

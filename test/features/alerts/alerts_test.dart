@@ -16,9 +16,11 @@ import 'package:fyp_foreseeme/features/auth/domain/models/user_model.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 
 class TestUser extends Fake implements User {
-  TestUser(this.uid);
+  TestUser(this.uid, {this.emailVerified = true});
   @override
   final String uid;
+  @override
+  final bool emailVerified;
   Completer<String?>? bearerGate;
 
   @override
@@ -31,9 +33,13 @@ class FakePushMessagingService implements PushMessagingService {
   String token = 'device-one';
   final _refresh = StreamController<String>.broadcast();
   int subscriptions = 0;
+  Completer<void>? permissionGate;
 
   @override
-  Future<NotificationPermissionStatus> permissionStatus() async => status;
+  Future<NotificationPermissionStatus> permissionStatus() async {
+    await permissionGate?.future;
+    return status;
+  }
   @override
   Future<NotificationPermissionStatus> requestPermission() async => status;
   @override
@@ -89,7 +95,7 @@ void main() {
     late RecordingSessionApi api;
     late ProviderContainer container;
 
-    void transition(TestUser? user) {
+    void transition(TestUser? user, {bool? tokenVerified}) {
       active = user;
       auth.add(
         user == null
@@ -97,12 +103,13 @@ void main() {
             : UserModel(
                 uid: user.uid,
                 email: 'example@example.test',
+                emailVerified: tokenVerified ?? user.emailVerified,
                 createdAt: DateTime.utc(2026),
               ),
       );
     }
 
-    setUp(() {
+    setUp(() async {
       active = TestUser('a');
       auth = StreamController<UserModel?>.broadcast();
       messaging = FakePushMessagingService();
@@ -116,6 +123,10 @@ void main() {
         ],
       );
       container.listen(alertsControllerProvider, (_, _) {});
+      messaging.status = NotificationPermissionStatus.denied;
+      transition(active);
+      await pumpEventQueue();
+      messaging.status = NotificationPermissionStatus.granted;
     });
 
     tearDown(() {
@@ -135,18 +146,49 @@ void main() {
       expect(api.registrations.last, ('bearer-a', 'device-two', 'device-one'));
     });
 
-    test('logout retires A, then synchronizes B on the same device', () async {
+    test('pending verification pauses registration until the same UID verifies', () async {
+      // A user reload can report verification before the token is refreshed.
+      transition(TestUser('a'), tokenVerified: false);
+      await pumpEventQueue();
       final controller = container.read(alertsControllerProvider.notifier);
-      await controller.enableNotifications();
-      await controller.unregister('a', 'bearer-a');
-      transition(null);
+      await controller.syncGrantedPermission();
+      expect(api.registrations, isEmpty);
+      expect(messaging.subscriptions, 0);
+      transition(TestUser('a'));
       await pumpEventQueue();
-      transition(TestUser('b'));
-      await pumpEventQueue();
-      expect(api.removals, [('bearer-a', 'device-one')]);
-      expect(api.registrations.last, ('bearer-b', 'device-one', null));
-      expect(messaging.subscriptions, 2);
+      expect(api.registrations, [('bearer-a', 'device-one', null)]);
+      expect(messaging.subscriptions, 1);
     });
+
+    test('resume sync leaves pending-account logout cleanup intact', () async {
+      transition(TestUser('a'), tokenVerified: false);
+      await pumpEventQueue();
+      final controller = container.read(alertsControllerProvider.notifier);
+      final gate = Completer<void>();
+      messaging.permissionGate = gate;
+      final removal = controller.unregister('a', 'bearer-a');
+      await controller.syncGrantedPermission();
+      gate.complete();
+      await removal;
+      expect(api.removals, [('bearer-a', 'device-one')]);
+      expect(api.registrations, isEmpty);
+    });
+
+    test(
+      'logout retires A, then synchronizes B on the same device',
+      () async {
+        final controller = container.read(alertsControllerProvider.notifier);
+        await controller.enableNotifications();
+        await controller.unregister('a', 'bearer-a');
+        transition(null);
+        await pumpEventQueue();
+        transition(TestUser('b'));
+        await pumpEventQueue();
+        expect(api.removals, [('bearer-a', 'device-one')]);
+        expect(api.registrations.last, ('bearer-b', 'device-one', null));
+        expect(messaging.subscriptions, 2);
+      },
+    );
 
     test(
       'delayed unregister retains the departing bearer after B registers',

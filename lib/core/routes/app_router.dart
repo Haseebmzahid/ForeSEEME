@@ -9,6 +9,7 @@ import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/login_screen.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/register_screen.dart';
 import 'package:fyp_foreseeme/features/auth/presentation/forgot_password_screen.dart';
+import 'package:fyp_foreseeme/features/auth/presentation/verify_email_screen.dart';
 
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/disclaimer_acceptance_screen.dart';
@@ -114,8 +115,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);
-      final profileState = ref.read(profileExistsProvider);
       final location = state.matchedLocation;
+      const verificationPath = '/verify-email';
 
       final isAuthRoute =
           location == '/login' ||
@@ -147,6 +148,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isAuthRoute ? null : '/login';
       }
 
+      if (authState.value?.emailVerified != true) {
+        return location == verificationPath || location == '/forgot-password'
+            ? null
+            : verificationPath;
+      }
+
+      final profileState = ref.read(profileExistsProvider);
+      // The save confirmation carries local presentation data only. It can
+      // render while the committed profile is being re-read.
+      if (location == '/profile-ready' && state.extra is Map) return null;
       if (profileState.isLoading) {
         debugPrint(
           'AppRouter: Profile is loading, redirecting to / or null (splash).',
@@ -183,6 +194,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               : disclaimerPath;
         }
         if (isAuthRoute ||
+            location == verificationPath ||
             location == disclaimerPath ||
             (location == '/health-profile' && !isHealthProfileEdit) ||
             location == '/') {
@@ -210,6 +222,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/verify-email',
+        builder: (context, state) => const VerifyEmailScreen(),
       ),
       GoRoute(
         path: '/health-profile',

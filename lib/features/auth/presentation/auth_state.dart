@@ -14,6 +14,12 @@ class AuthStateAuthenticated extends AuthState {
   const AuthStateAuthenticated(this.user);
 }
 
+class AuthStateVerificationPending extends AuthState {
+  final UserModel user;
+  final String? message;
+  const AuthStateVerificationPending(this.user, [this.message]);
+}
+
 class AuthStateLoading extends AuthState {
   const AuthStateLoading();
 }

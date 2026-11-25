@@ -66,7 +66,7 @@ def db(monkeypatch):
 
 @pytest.fixture
 def request_registration(db, monkeypatch):
-    claims = {"uid": "alice", "auth_time": 10}
+    claims = {"uid": "alice", "auth_time": 10, "email_verified": True}
 
     def verify(token, *, check_revoked):
         assert token == "test-session" and check_revoked
@@ -104,6 +104,20 @@ def test_api_rejects_revoked_token_and_cutoff(request_registration, db, monkeypa
 
     monkeypatch.setattr(admin_api.auth, "verify_id_token", revoked)
     assert post("unregister", {"token": "example-one"}).status_code == 401
+
+
+def test_registration_requires_email_verification_but_cleanup_remains_available(
+    request_registration, db,
+):
+    post, claims = request_registration
+    payload = {"token": "example-one"}
+    assert post("register", payload).status_code == 204
+    claims["email_verified"] = False
+    rejected = post("register", {"token": "example-two"})
+    assert rejected.status_code == 403
+    assert rejected.json()["detail"]["code"] == "email_verification_required"
+    assert post("unregister", payload).status_code == 204
+    assert not RegistrationStore(db).for_user("alice")
 
 
 def test_idempotent_registration_supports_multiple_devices(db):
@@ -192,3 +206,17 @@ def test_directory_has_no_legacy_fallback_and_filters_revoked_sessions(db):
     assert len(directory.users_in_city("Example")[0].registrations) == 1
     db.documents[("sessionRevocations", "alice")] = {"throughAuthTime": 10}
     assert not directory.users_in_city("Example")[0].registrations
+
+
+def test_directory_reads_updated_city_and_passes_custom_labels_separately(db):
+    path = ("users", "alice", "profile", "alice")
+    db.documents[("users", "alice")] = {}
+    db.documents[path] = {"city": "Lahore", "chronicConditions": ["Asthma"]}
+    directory = FirestoreUserDirectory(db)
+    assert directory.users_in_city("Lahore")[0].custom_conditions == ()
+
+    db.documents[path].update(city="Karachi", customConditions=["Custom label"])
+    assert directory.users_in_city("Lahore") == []
+    user, = directory.users_in_city("Karachi")
+    assert user.conditions == ("Asthma",)
+    assert user.custom_conditions == ("Custom label",)

@@ -9,11 +9,14 @@ import 'package:fyp_foreseeme/core/widgets/app_motion.dart';
 import 'package:fyp_foreseeme/core/widgets/app_scaffold.dart';
 import 'package:fyp_foreseeme/core/widgets/app_skeleton.dart';
 import 'package:fyp_foreseeme/core/widgets/error_state.dart';
+import 'package:fyp_foreseeme/core/widgets/app_text_field.dart';
 
 import 'package:fyp_foreseeme/features/auth/presentation/auth_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/domain/models/health_profile_model.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_providers.dart';
 import 'package:fyp_foreseeme/features/health_profile/presentation/health_profile_state.dart';
+import '../domain/constants/cities_constants.dart';
+import '../domain/constants/conditions_constants.dart';
 
 class HealthProfileScreen extends ConsumerStatefulWidget {
   final bool isEditMode;
@@ -26,24 +29,13 @@ class HealthProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
-  final List<String> _cities = [
-    'Lahore',
-    'Islamabad',
-    'Karachi',
-    'Rawalpindi',
-    'Peshawar',
-  ];
-
-  final List<String> _conditionsOptions = [
-    'Asthma',
-    'Diabetes',
-    'Hypertension',
-    'Heart Disease',
-    'None',
-  ];
-
   String? _selectedCity;
   final Set<String> _selectedConditions = {};
+  final List<String> _customConditions = [];
+  final _customConditionController = TextEditingController();
+  String? _customConditionError;
+  bool _dirty = false;
+  bool _saveCompleted = false;
 
   // 2-step guided flow (S6C-03): 0 = city, 1 = conditions. Both steps write
   // into the same State fields above, so stepping back never loses a
@@ -64,18 +56,29 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
     setState(() {
       _prefilled = true;
       if (profile == null) return;
-      _selectedCity = _cities.contains(profile.city) ? profile.city : null;
+      _selectedCity = kSupportedCities.contains(profile.city)
+          ? profile.city
+          : null;
       _selectedConditions
         ..clear()
-        ..addAll(profile.chronicConditions.where(_conditionsOptions.contains));
+        ..addAll(
+          profile.chronicConditions.where(kChronicConditions.contains),
+        );
+      _customConditions.addAll(profile.customConditions);
     });
   }
 
   void _onConditionToggle(String condition) {
     setState(() {
+      _dirty = true;
       if (condition == 'None') {
+        final shouldSelect = !_selectedConditions.contains('None');
         _selectedConditions.clear();
-        _selectedConditions.add('None');
+        if (shouldSelect) {
+          _selectedConditions.add('None');
+          _customConditions.clear();
+          _customConditionError = null;
+        }
       } else {
         _selectedConditions.remove('None');
         if (_selectedConditions.contains(condition)) {
@@ -85,6 +88,46 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _customConditionController.dispose();
+    super.dispose();
+  }
+
+  void _addCustomCondition() {
+    final value = normalizeCustomCondition(_customConditionController.text);
+    final error = validateCustomCondition(value, _customConditions);
+    setState(() {
+      _customConditionError = error;
+      if (error != null) return;
+      _dirty = true;
+      _selectedConditions.remove('None');
+      _customConditions.add(value);
+      _customConditionController.clear();
+    });
+  }
+
+  Future<void> _confirmDiscard() async {
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard profile changes?'),
+        content: const Text('Your changes have yet to be saved.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep editing'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Discard changes'),
+          ),
+        ],
+      ),
+    );
+    if (mounted && discard == true) context.pop();
   }
 
   void _showError(String message) {
@@ -136,29 +179,28 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
       return;
     }
 
-    if (_selectedConditions.isEmpty) {
-      _showError('Please select at least one condition or "None".');
-      return;
-    }
-
-    final uid = ref.read(authStateProvider).value?.uid;
-    if (uid == null) return;
+    final user = ref.read(authStateProvider).value;
+    if (user == null || !user.emailVerified) return;
+    final conditions = _selectedConditions.toList();
+    final customConditions = List<String>.of(_customConditions);
 
     if (widget.isEditMode) {
       await ref
           .read(healthProfileNotifierProvider.notifier)
           .updateProfile(
-            uid: uid,
+            uid: user.uid,
             city: _selectedCity!,
-            conditions: _selectedConditions.toList(),
+            conditions: conditions,
+            customConditions: customConditions,
           );
     } else {
       await ref
           .read(healthProfileNotifierProvider.notifier)
           .saveProfile(
-            uid: uid,
+            uid: user.uid,
             city: _selectedCity!,
-            conditions: _selectedConditions.toList(),
+            conditions: conditions,
+            customConditions: customConditions,
           );
     }
   }
@@ -171,32 +213,23 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
     // Edit mode only: fetch the user's real, already-saved profile once so
     // the form opens prefilled instead of blank (S6C-01). Not watched outside
     // edit mode — a brand-new profile has nothing to fetch.
-    final editProfileAsync = widget.isEditMode
-        ? ref.watch(currentHealthProfileProvider)
-        : null;
-    if (widget.isEditMode &&
-        !_prefilled &&
-        (editProfileAsync?.hasValue ?? false)) {
+    final savedProfile = ref.watch(currentHealthProfileProvider);
+    if (!_prefilled && savedProfile.hasValue) {
       // Schedule outside the build phase (setState can't run synchronously
       // here). Runs once: `_applyExistingProfile` flips `_prefilled`, which
       // stops this branch from re-scheduling on the next build.
-      final profile = editProfileAsync!.value;
+      final profile = savedProfile.value;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _applyExistingProfile(profile);
       });
     }
-    final showPrefillSkeleton =
-        widget.isEditMode &&
-        !_prefilled &&
-        (editProfileAsync?.isLoading ?? false);
-    final prefillError = widget.isEditMode && !_prefilled
-        ? editProfileAsync?.error
-        : null;
+    final prefillError = _prefilled ? null : savedProfile.error;
+    final showPrefillSkeleton = !_prefilled && prefillError == null;
 
     ref.listen<HealthProfileState>(healthProfileNotifierProvider, (prev, next) {
       if (next is HealthProfileStateSaved) {
+        setState(() => _saveCompleted = true);
         // Trigger profile existence refresh. The router's logic handles /home automatically on non-edit flows
-        ref.invalidate(profileExistsProvider);
         if (widget.isEditMode) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.pop();
@@ -219,9 +252,13 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                 '/profile-ready',
                 extra: {
                   'city': _selectedCity,
-                  'conditions': _selectedConditions.toList(),
+                  'conditions': [
+                    ..._selectedConditions,
+                    ..._customConditions,
+                  ],
                 },
               );
+              ref.invalidate(profileExistsProvider);
             }
           });
         }
@@ -268,9 +305,17 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
       // user's place in it. Once the save has actually succeeded, the
       // screen's own navigation (pop in edit mode) must go through as
       // normal, so the guard steps aside for that case.
-      canPop: _currentStep == 0 || profileState is HealthProfileStateSaved,
+      canPop:
+          !isLoading &&
+          ((_currentStep == 0 && !_dirty) ||
+              _saveCompleted),
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _currentStep != 0) _goToCityStep();
+        if (didPop || isLoading) return;
+        if (_currentStep != 0) {
+          _goToCityStep();
+        } else if (_dirty && context.canPop()) {
+          _confirmDiscard();
+        }
       },
       child: _buildScaffold(
         context,
@@ -329,7 +374,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                         key: ValueKey(_transitionKey),
                         child: _currentStep == 0
                             ? _buildCityStep()
-                            : _buildConditionsStep(),
+                            : _buildConditionsStep(isLoading),
                       ),
                     ),
                   ),
@@ -366,7 +411,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                             child: AppButton(
                               text: widget.isEditMode
                                   ? 'Update Profile'
-                                  : 'Continue',
+                                  : 'Save and continue',
                               isLoading: isLoading,
                               onPressed: isLoading ? null : _submit,
                             ),
@@ -423,7 +468,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                 Wrap(
                   spacing: ForeSeeMeSpacing.md,
                   runSpacing: ForeSeeMeSpacing.md,
-                  children: _cities.map((city) {
+                  children: kSupportedCities.map((city) {
                     final isSelected = _selectedCity == city;
                     return ChoiceChip(
                       label: Text(city),
@@ -436,7 +481,10 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                             : FontWeight.w400,
                       ),
                       selected: isSelected,
-                      onSelected: (_) => setState(() => _selectedCity = city),
+                      onSelected: (_) => setState(() {
+                        _dirty = _dirty || city != _selectedCity;
+                        _selectedCity = city;
+                      }),
                       selectedColor: palette.primary,
                       backgroundColor: palette.surface,
                       shape: RoundedRectangleBorder(
@@ -465,7 +513,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
 
   // ── Step 2: chronic conditions ──────────────────────────────────────────
 
-  Widget _buildConditionsStep() {
+  Widget _buildConditionsStep(bool isLoading) {
     final palette = context.fsmPalette;
     final text = context.fsmText;
     return SingleChildScrollView(
@@ -488,7 +536,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
           AppReveal(
             delayMs: 50,
             child: Text(
-              'Select any conditions that apply to you.',
+              'Select any conditions that apply to you. This step is optional.',
               style: text.labelMedium?.copyWith(
                 color: palette.textSecondary,
               ),
@@ -500,7 +548,7 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
             child: Wrap(
               spacing: ForeSeeMeSpacing.md,
               runSpacing: ForeSeeMeSpacing.md,
-              children: _conditionsOptions.map((condition) {
+              children: kChronicConditions.map((condition) {
                 final isSelected = _selectedConditions.contains(condition);
                 return FilterChip(
                   label: Text(condition),
@@ -511,7 +559,9 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   ),
                   selected: isSelected,
-                  onSelected: (_) => _onConditionToggle(condition),
+                  onSelected: isLoading
+                      ? null
+                      : (_) => _onConditionToggle(condition),
                   selectedColor: palette.primaryContainer,
                   backgroundColor: palette.surface,
                   shape: RoundedRectangleBorder(
@@ -532,6 +582,32 @@ class _HealthProfileScreenState extends ConsumerState<HealthProfileScreen> {
                 );
               }).toList(),
             ),
+          ),
+          const SizedBox(height: ForeSeeMeSpacing.xxl),
+          for (final condition in _customConditions)
+            InputChip(
+              label: Text(condition),
+              onDeleted: isLoading
+                  ? null
+                  : () => setState(() {
+                      _dirty = true;
+                      _customConditions.remove(condition);
+                      _customConditionError = null;
+                    }),
+            ),
+          AppTextField(
+            label: 'Custom condition',
+            controller: _customConditionController,
+            hint: 'Enter a condition name',
+            onFieldSubmitted: isLoading
+                ? null
+                : (_) => _addCustomCondition(),
+          ),
+          if (_customConditionError case final error?)
+            Semantics(liveRegion: true, child: Text(error)),
+          TextButton(
+            onPressed: isLoading ? null : _addCustomCondition,
+            child: const Text('Add condition'),
           ),
         ],
       ),

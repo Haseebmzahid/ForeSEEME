@@ -18,6 +18,10 @@ abstract class AuthRepository {
 
   Future<Either<AuthException, UserModel>> signInWithGoogle();
 
+  Future<Either<AuthException, void>> sendEmailVerification(String uid);
+
+  Future<Either<AuthException, bool>> refreshEmailVerification(String uid);
+
   Future<Either<AuthException, void>> signOut();
 
   Future<Either<AuthException, void>> sendPasswordReset(String email);

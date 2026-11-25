@@ -27,6 +27,7 @@ class HealthProfileNotifier extends Notifier<HealthProfileState> {
     required String uid,
     required String city,
     required List<String> conditions,
+    List<String> customConditions = const [],
   }) async {
     if (state is HealthProfileStateLoading) return;
     state = const HealthProfileStateLoading();
@@ -35,11 +36,13 @@ class HealthProfileNotifier extends Notifier<HealthProfileState> {
       uid: uid,
       city: city,
       chronicConditions: conditions,
+      customConditions: customConditions,
       lastUpdated: DateTime.now(), // Overwritten server-side by FieldValue
     );
 
     final result = await _repository.saveProfile(profile);
 
+    if (result is Right) _refreshProfileData();
     state = result.fold(
       (error) => HealthProfileStateError(error.message),
       (_) => const HealthProfileStateSaved(),
@@ -65,6 +68,7 @@ class HealthProfileNotifier extends Notifier<HealthProfileState> {
     required String uid,
     required String city,
     required List<String> conditions,
+    List<String>? customConditions,
   }) async {
     if (state is HealthProfileStateLoading) return;
     state = const HealthProfileStateLoading();
@@ -73,12 +77,19 @@ class HealthProfileNotifier extends Notifier<HealthProfileState> {
       uid,
       city: city,
       conditions: conditions,
+      customConditions: customConditions,
     );
 
+    if (result is Right) _refreshProfileData();
     state = result.fold(
       (error) => HealthProfileStateError(error.message),
       (_) => const HealthProfileStateSaved(),
     );
+  }
+
+  void _refreshProfileData() {
+    ref.invalidate(currentHealthProfileProvider);
+    ref.invalidate(userCityProvider);
   }
 
   /// Reset to idle — call this after handling an error or after navigation.
